@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Option Extension ReedCRM</title>
+    <link rel="stylesheet" href="options.css">
+</head>
+<body>
+    <div class="options-container">
+        <div class="header">
+            <img src="icon32.png" alt="Logo" class="logo">
+            <h2>Option Extension ReedCRM</h2>
+        </div>
+
+
+        <fieldset class="settings-section">
+            <legend>Paramètres API Dolibarr</legend>
+            <div class="form-group">
+                <label for="doli-url">URL complète de l'API Dolibarr (ex: https://www.dolibarr.org/htdocs/api/index.php)</label>
+                <div class="input-with-status">
+                    <input type="url" id="doli-url" placeholder="https://..." required>
+                    <span id="api-status-indicator" class="status-indicator"></span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="doli-login">Identifiant (Login)</label>
+                <input type="text" id="doli-login" placeholder="Votre identifiant" required>
+            </div>
+
+            <div class="form-group">
+                <label for="doli-password">Mot de passe / Clé API</label>
+                <input type="password" id="doli-password" placeholder="Votre mot de passe ou clé API" required>
+            </div>
+
+            <div class="form-group" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; background-color: #fff; padding: 10px 15px; border-radius: 6px; border: 1px solid #e0e0e0;">
+                <label for="doli-auto-assign" style="margin: 0; cursor: pointer; display: inline-block; font-size: 13px; font-weight: 600; flex: 1; padding-right: 10px;">Assigner auto. à l'utilisateur API</label>
+                <input type="checkbox" id="doli-auto-assign" style="margin: 0; cursor: pointer; width: 18px; height: 18px; flex-shrink: 0;">
+            </div>
+
+            <div class="form-group" style="margin-top: 15px;">
+                <label for="doli-entity">ID de l'entité (Optionnel - Pour module MultiCompany, ex: 1, 2...)</label>
+                <input type="text" id="doli-entity" placeholder="Laisser vide pour l'entité par défaut">
+            </div>
+
+            <div id="permissions-dashboard" class="permissions-dashboard hidden">
+                <!-- Généré dynamiquement en JS -->
+            </div>
+        </fieldset>
+
+        <fieldset class="settings-section">
+            <legend>Paramètres Opportunités/Projet</legend>
+            <div class="form-group" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; background-color: #fff; padding: 10px 15px; border-radius: 6px; border: 1px solid #e0e0e0;">
+                <label for="doli-opp-only" style="margin: 0; cursor: pointer; display: inline-block; font-size: 13px; font-weight: 600; flex: 1; padding-right: 10px;">Forcer "Suivre une opportunité"</label>
+                <input type="checkbox" id="doli-opp-only" style="margin: 0; cursor: pointer; width: 18px; height: 18px; flex-shrink: 0;" checked>
+            </div>
+            <p style="font-size: 11px; color: #7f8c8d; margin-top: 5px; margin-bottom: 0;">Cochez cette case pour lier automatiquement la création à une opportunité, et filtrer la liste récente sur ces dernières.</p>
+        </fieldset>
+
+        <fieldset class="settings-section">
+            <legend>Interface par défaut</legend>
+            <div class="form-group">
+                <label>Vue à l'ouverture de l'extension</label>
+                <div class="format-selection" style="grid-template-columns: 1fr 1fr;">
+                    <label class="format-option">
+                        <input type="radio" name="doli-default-view" value="ticket" checked>
+                        <span class="format-card" style="padding: 10px;">
+                            <span class="format-title" style="font-size: 14px;">Ticket</span>
+                        </span>
+                    </label>
+                    <label class="format-option">
+                        <input type="radio" name="doli-default-view" value="opportunite">
+                        <span class="format-card" style="padding: 10px;">
+                            <span class="format-title" style="font-size: 14px;">Opportunité</span>
+                        </span>
+                    </label>
+                    </label>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <label for="doli-recent-count">Nombre maximum de tickets récents à afficher</label>
+                <input type="number" id="doli-recent-count" min="0" max="50" value="10" placeholder="Ex: 10">
+            </div>
+        </fieldset>
+
+        <fieldset class="settings-section">
+            <legend>Capture d'écran</legend>
+            <div class="form-group">
+                <label>Format de l'image</label>
+                <div class="format-selection">
+                    <label class="format-option">
+                        <input type="radio" name="doli-format" value="png" checked>
+                        <span class="format-card">
+                            <span class="format-title">PNG</span>
+                            <span class="format-desc">Qualité Max (0% comp.)</span>
+                        </span>
+                    </label>
+                    <label class="format-option">
+                        <input type="radio" name="doli-format" value="jpg">
+                        <span class="format-card">
+                            <span class="format-title">JPG</span>
+                            <span class="format-desc">Léger (15% comp.)</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="doli-blur">Intensité du floutage des captures</label>
+                <input type="range" id="doli-blur" min="1" max="25" value="8" style="width: 100%; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #7f8c8d; margin-top: 5px;">
+                    <span>Léger (Min)</span>
+                    <span id="doli-blur-value" style="font-weight: bold; color: #3498db;">8px</span>
+                    <span>Fort (Max)</span>
+                </div>
+            </div>
+            
+            <div id="doli-blur-preview-container" class="preview-box">
+                <div class="preview-text">
+                    <p>Texte confidentiel</p>
+                    <p>contact@exmple.com</p>
+                </div>
+                <div id="doli-blur-overlay"></div>
+            </div>
+        </fieldset>
+
+        <button id="save-btn">Enregistrer</button>
+        <div id="status"></div>
+    </div>
+    <script src="options.js"></script>
+</body>
+</html>

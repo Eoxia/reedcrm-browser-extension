@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Doli-ReedCRM Extension",
+  "version": "1.0",
+  "description": "Extension Chrome pour Doli-ReedCRM",
+  "icons": {
+    "32": "icon32.png",
+    "128": "icon128.png",
+    "192": "icon192.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "32": "icon32.png",
+      "128": "icon128.png",
+      "192": "icon192.png"
+    }
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icon32.png", "icon128.png", "icon192.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

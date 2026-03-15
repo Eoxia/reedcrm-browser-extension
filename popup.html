@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Doli-ReedCRM - Nouveau Ticket</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="top-nav">
+            <div class="nav-logo">
+                <img src="icon32.png" alt="CRM Reed">
+            </div>
+            <div class="nav-tabs">
+                <button class="nav-tab" id="tab-opportunite">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg> 
+                    Opportunités
+                </button>
+                <div class="nav-separator">|</div>
+                <button class="nav-tab active" id="tab-ticket">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    Ticket
+                </button>
+            </div>
+        </div>
+        
+        <div class="header-container">
+            <h2 id="view-title">Nouveau Ticket</h2>
+            <div id="status-message"></div>
+            <div id="opp-status-message"></div>
+        </div>
+        
+        <div id="setup-warning" class="warning hidden">
+            <p>Veuillez configurer vos accès à l'API Dolibarr avant d'utiliser l'extension.</p>
+            <button id="btn-open-options">Ouvrir les Paramètres</button>
+        </div>
+
+        <!-- VUE TICKET -->
+        <div id="view-ticket" class="tab-content">
+            <form id="ticket-form" class="hidden">
+            <div class="form-group">
+                <label for="ticket-subject">Sujet du ticket</label>
+                <input type="text" id="ticket-subject" placeholder="Ex: Problème de connexion..." required>
+            </div>
+
+            <div class="form-group">
+                <label for="ticket-message">Description / Message</label>
+                <textarea id="ticket-message" rows="4" placeholder="Détaillez votre demande ici..." required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="ticket-assignee">Assigner à</label>
+                <select id="ticket-assignee">
+                    <option value="">-- Non assigné --</option>
+                    <option value="loading" disabled>Chargement des utilisateurs...</option>
+                </select>
+            </div>
+
+            <div class="attachment-section">
+                <div class="attachment-col left-col">
+                    <label for="ticket-file">Pièce jointe ou (Ctrl+V)</label>
+                    <div class="file-paste-zone" id="paste-zone">
+                        <input type="file" id="ticket-file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx">
+                        <div class="paste-hint">Ou collez une image ici</div>
+                        
+                        <div id="preview-container" class="hidden">
+                            <img id="image-preview" src="" alt="Aperçu">
+                            <button type="button" id="btn-remove-image">✖</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="attachment-col right-col">
+                    <label>Capture d'écran</label>
+                    <button type="button" id="btn-capture-screen" class="btn-orange">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Capturer
+                    </button>
+                </div>
+            </div>
+            
+            <div id="ged-warning" class="hidden" style="color: #e74c3c; font-size: 11px; margin-bottom: 12px; font-weight: 500; text-align: center;">
+                ⚠️ Votre compte API n'a pas les droits Documents (GED). L'envoi de fichiers échouera.
+            </div>
+
+            <button type="submit" id="btn-submit" disabled>
+                <span class="spinner"></span>
+                <span class="btn-text">Chargement...</span>
+            </button>
+            </form>
+
+            <!-- LISTE DES DERNIERS TICKETS -->
+            <div id="recent-tickets-container" class="recent-list hidden">
+                <div class="recent-header">Derniers tickets créés</div>
+                <div id="recent-tickets-list">
+                    <div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Chargement...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VUE OPPORTUNITE -->
+        <div id="view-opportunity" class="tab-content hidden">
+            <form id="opp-form">
+            <div class="form-group">
+                <label for="opp-subject">Sujet de l'opportunité (Nom du projet)</label>
+                <input type="text" id="opp-subject" placeholder="Ex: Projet Refonte Web..." required>
+            </div>
+
+            <div class="form-group">
+                <label for="opp-message">Description</label>
+                <textarea id="opp-message" rows="4" placeholder="Détails de l'opportunité..."></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <input type="text" id="opp-nom" placeholder="Nom">
+                </div>
+                <div class="form-col">
+                    <input type="text" id="opp-prenom" placeholder="Prénom">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <input type="tel" id="opp-tel" placeholder="Téléphone projet">
+                </div>
+                <div class="form-col">
+                    <input type="email" id="opp-email" placeholder="Email">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 10px;">
+                <label for="opp-proba" style="font-size: 11px;">Probabilité projet <span id="opp-proba-val">(%)</span></label>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 14px;">🥵</span>
+                    <input type="range" id="opp-proba" min="0" max="100" value="50" style="flex: 1; cursor: pointer;">
+                    <span style="font-size: 14px;">🤑</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="input-with-icon">
+                    <span class="input-icon">€</span>
+                    <input type="number" id="opp-montant" placeholder="Montant opportunité" min="0" step="0.01">
+                </div>
+            </div>
+
+            <div class="form-group hidden">
+                <label for="opp-assignee">Assigner à (Chef de projet)</label>
+                <select id="opp-assignee">
+                    <option value="">-- Non assigné --</option>
+                    <option value="loading" disabled>Chargement des utilisateurs...</option>
+                </select>
+            </div>
+
+            <div class="attachment-section">
+                <div class="attachment-col left-col">
+                    <label for="opp-file">Pièce jointe ou (Ctrl+V)</label>
+                    <div class="file-paste-zone" id="opp-paste-zone">
+                        <input type="file" id="opp-file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx">
+                        <div class="paste-hint">Ou collez une image ici</div>
+                        
+                        <div id="opp-preview-container" class="hidden">
+                            <img id="opp-image-preview" src="" alt="Aperçu">
+                            <button type="button" id="opp-btn-remove-image">✖</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="attachment-col right-col">
+                    <label>Capture d'écran</label>
+                    <button type="button" id="opp-btn-capture-screen" class="btn-orange">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Capturer
+                    </button>
+                </div>
+            </div>
+            
+            <div id="opp-ged-warning" class="hidden" style="color: #e74c3c; font-size: 11px; margin-bottom: 12px; font-weight: 500; text-align: center;">
+                ⚠️ Votre compte API n'a pas les droits Documents (GED). L'envoi de fichiers échouera.
+            </div>
+
+            <button type="submit" id="opp-btn-submit" disabled>
+                <span class="spinner"></span>
+                <span class="btn-text">Créer l'opportunité</span>
+            </button>
+            </form>
+
+            <!-- LISTE DES DERNIERES OPPORTUNITES -->
+            <div id="recent-opp-container" class="recent-list hidden">
+                <div class="recent-header">Dernières opportunités créées</div>
+                <div id="recent-opp-list">
+                    <div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Chargement...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
