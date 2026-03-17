@@ -174,7 +174,13 @@ function onMouseDown(e) {
     logicalStartY = pos.logicalY;
 
     if (currentMode === 'arrow' || currentMode === 'rect' || currentMode === 'blur' || currentMode === 'sequence') {
-        snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        try {
+            snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        } catch (e) {
+            console.error("Erreur getImageData sur snapshot:", e);
+            // Fallback pour ne pas crasher si le canvas est invalide/tainted (bien que rare en extension)
+            snapshot = ctx.createImageData(Math.max(1, canvas.width), Math.max(1, canvas.height));
+        }
         
         // Dessiner la puce immédiatement pour avoir un retour visuel sans glisser
         if (currentMode === 'sequence') {
@@ -387,7 +393,21 @@ function applyAreaBlur(context, x, y, w, h, blurAmount) {
 }
 
 function applyCrop(x, y, w, h) {
-    const croppedImage = ctx.getImageData(x, y, w, h);
+    // S'assurer qu'on travaille avec des entiers pour éviter les bugs sur certains navigateurs
+    x = Math.round(x);
+    y = Math.round(y);
+    w = Math.max(1, Math.round(w));
+    h = Math.max(1, Math.round(h));
+
+    let croppedImage;
+    try {
+        croppedImage = ctx.getImageData(x, y, w, h);
+    } catch (e) {
+        console.error("Erreur getImageData lors du recadrage:", e);
+        // Si erreur inattendue (cross-origin / dimensions), on annule le mode crop
+        editorOverlay.classList.remove('doli-cropped');
+        return;
+    }
     
     // Le canvas prend la taille des pixels extraits, il sera géré par CSS `object-fit: contain`
     canvas.width = w;
@@ -615,9 +635,25 @@ function extractAndOpenTicket() {
     let message = "";
 
     // 1. Extraction du sujet (Nextcloud utilise diverses classes selon les versions, on ratisse large)
-    // .message-head__subject, .envelope__subject, ou simplement un h1/h2 dans l'entête du message
-    const subjectEl = document.querySelector('#mail-thread-header-fields h2, #mail-thread-header h2, .message-head__subject, .thread-message__subject, .envelope__subject, .subject, h1.message-subject');
+    // Pour éviter d'attraper les titres de la barre latérale (.subject etc.), on teste les sélecteurs par ordre de pertinence.
+    const selectors = [
+        '#mail-thread-header-fields h2',
+        '#mail-thread-header h2',
+        '.message-head__subject',
+        '.thread-message__subject',
+        'h1.message-subject',
+        '.envelope__subject',
+        '.subject'
+    ];
+    
+    let subjectEl = null;
+    for (const sel of selectors) {
+        subjectEl = document.querySelector(sel);
+        if (subjectEl) break;
+    }
+
     if (subjectEl) {
+        // Nettoyer le texte (ignorer d'éventuels badges span internes)
         subject = subjectEl.innerText.trim();
     } else {
         // Fallback: chercher dans le fil d'ariane ou le titre de la vue principale

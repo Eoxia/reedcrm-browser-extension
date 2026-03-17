@@ -72,9 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Nettoyer le select
                     assigneeSelect.innerHTML = '<option value="">-- Non assigné --</option>';
 
-                    // Remplir avec les utilisateurs
+                    // Remplir avec les utilisateurs actifs
                     if (Array.isArray(users)) {
-                        users.forEach(user => {
+                        const activeUsers = users.filter(u => String(u.statut) === "1" || String(u.status) === "1");
+                        activeUsers.forEach(user => {
                             const option = document.createElement('option');
                             option.value = user.id;
                             // On privilégie le nom complet (firstname lastname) ou le login
@@ -573,7 +574,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 // Récupère les identifiants depuis le stockage
-                const items = await new Promise(resolve => chrome.storage.sync.get(['doliUrl', 'doliApiToken', 'doliEntity'], resolve));
+                const items = await new Promise(resolve => chrome.storage.sync.get([
+                    'doliUrl', 'doliApiToken', 'doliEntity', 
+                    'doliTicketType', 'doliTicketSeverity', 'doliTicketCategory'
+                ], resolve));
 
                 if (!items.doliUrl || !items.doliApiToken) {
                     throw new Error("Configuration Dolibarr introuvable.");
@@ -593,12 +597,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // 1. Création du Ticket (objet 'ticket' dans l'API Dolibarr)
+                // Génération d'un track_id aléatoire car certaines versions de Dolibarr le rendent obligatoire silencieusement (erreur 500 sinon)
+                const randomTrackId = 'TCK' + Math.random().toString(36).substr(2, 8).toUpperCase();
+
                 const ticketData = {
                     subject: subject,
                     message: message,
-                    type_code: 'ISSUE', // Type générique
-                    severity_code: 'NORMAL'
+                    track_id: randomTrackId,
+                    type_code: items.doliTicketType || 'ISSUE', // Valeur par défaut "ISSUE"
+                    severity_code: items.doliTicketSeverity || 'NORMAL' // Valeur par défaut "NORMAL"
                 };
+
+                // Ajout de la catégorie (groupe) si configurée dans les options
+                if (items.doliTicketCategory && items.doliTicketCategory.trim() !== '') {
+                    ticketData.category_code = items.doliTicketCategory.trim();
+                }
 
                 // Ajout de l'utilisateur assigné si sélectionné
                 if (assigneeId && assigneeId !== "") {
@@ -612,10 +625,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => null);
-                    let errMsg = "Erreur lors de la création du ticket.";
-                    if (errorData && errorData.error && errorData.error.message) {
-                        errMsg = errorData.error.message;
+                    const errorText = await response.text();
+                    let errMsg = `Erreur HTTP ${response.status} lors de la création du ticket.`;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        if (errorData && errorData.error && errorData.error.message) {
+                            errMsg += " Détail : " + errorData.error.message;
+                        } else {
+                            errMsg += " JSON: " + errorText.substring(0, 150);
+                        }
+                    } catch (e) {
+                        errMsg += " RAW: " + errorText.replace(/<[^>]*>?/gm, ' ').substring(0, 150); // Retire les balises HTML basiques
                     }
                     throw new Error(errMsg);
                 }
@@ -751,7 +771,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     statusMessage.innerHTML = `${error.message}. <br>Le ticket a bien été créé.<br><a href="${baseUrl}/ticket/list.php" target="_blank" style="color: #3498db; text-decoration: underline;">Aller aux tickets</a>`;
                 } else {
-                    statusMessage.textContent = error.message;
+                    statusMessage.innerHTML = error.message; // Changé ici pour supporter le HTML
                 }
 
                 btnSubmit.disabled = false;

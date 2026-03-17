@@ -152,7 +152,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
         };
 
     } catch (e) {
-        return { success: false, error: "Impossible de joindre l'API Dolibarr à cette adresse" };
+        return { success: false, error: `Impossible de joindre l'API Dolibarr à cette adresse (${e.message})` };
     }
 }
 
@@ -177,6 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const autoAssignInput = document.getElementById('doli-auto-assign');
     const entityInput = document.getElementById('doli-entity'); // Added entity input
     const oppOnlyInput = document.getElementById('doli-opp-only');
+    
+    // Nouveaux champs pour les tickets (avec valeurs par défaut natives de Dolibarr)
+    const ticketTypeInput = document.getElementById('doli-ticket-type');
+    const ticketSeverityInput = document.getElementById('doli-ticket-severity');
+    const ticketCategoryInput = document.getElementById('doli-ticket-category');
 
     blurInput.addEventListener('input', () => {
         const val = blurInput.value;
@@ -186,7 +191,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const recentCountInput = document.getElementById('doli-recent-count');
 
-    chrome.storage.sync.get(['doliUrl', 'doliLogin', 'doliPassword', 'doliApiToken', 'doliBlurIntensity', 'doliImageFormat', 'doliAutoAssign', 'doliOppOnly', 'doliDefaultView', 'doliRecentCount', 'doliEntity', 'doliStatus'], (items) => {
+    chrome.storage.sync.get([
+        'doliUrl', 'doliLogin', 'doliPassword', 'doliApiToken', 'doliBlurIntensity', 'doliImageFormat', 
+        'doliAutoAssign', 'doliOppOnly', 'doliDefaultView', 'doliRecentCount', 'doliEntity', 'doliStatus',
+        'doliTicketType', 'doliTicketSeverity', 'doliTicketCategory'
+    ], (items) => {
         if (items.doliUrl) urlInput.value = items.doliUrl;
         if (items.doliLogin) loginInput.value = items.doliLogin;
         if (items.doliPassword) passwordInput.value = items.doliPassword;
@@ -194,6 +203,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (items.doliAutoAssign !== undefined) autoAssignInput.checked = items.doliAutoAssign;
         if (items.doliOppOnly !== undefined && oppOnlyInput) oppOnlyInput.checked = items.doliOppOnly;
         if (items.doliRecentCount !== undefined) recentCountInput.value = items.doliRecentCount;
+
+        // Préremplissage des champs tickets
+        ticketTypeInput.value = items.doliTicketType || 'ISSUE';
+        ticketSeverityInput.value = items.doliTicketSeverity || 'NORMAL';
+        ticketCategoryInput.value = items.doliTicketCategory || '';
 
         if (items.doliDefaultView) {
             const radioView = document.querySelector(`input[name="doli-default-view"][value="${items.doliDefaultView}"]`);
@@ -273,6 +287,11 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     const blurVal = document.getElementById('doli-blur').value; // Get blur value here
     const recentCountVal = parseInt(document.getElementById('doli-recent-count').value, 10) || 10;
     const entityVal = document.getElementById('doli-entity').value.trim();
+    
+    // Champs tickets
+    const ticketTypeVal = document.getElementById('doli-ticket-type').value.trim();
+    const ticketSeverityVal = document.getElementById('doli-ticket-severity').value.trim();
+    const ticketCategoryVal = document.getElementById('doli-ticket-category').value.trim();
 
     renderPermissions({ connection: 'warning', users: 'warning', tickets: 'warning', thirdparties: 'warning', projects: 'warning', ged: 'warning', ged_pr: 'warning' }, normalizedUrl);
 
@@ -299,6 +318,9 @@ document.getElementById('save-btn').addEventListener('click', async () => {
             doliDefaultView: defaultViewVal,
             doliRecentCount: recentCountVal,
             doliEntity: entityVal,
+            doliTicketType: ticketTypeVal,
+            doliTicketSeverity: ticketSeverityVal,
+            doliTicketCategory: ticketCategoryVal,
             doliStatus: {
                 date: new Date().toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }),
                 connection: 'ok',
