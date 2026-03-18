@@ -1,3 +1,147 @@
+class CustomSelect {
+    constructor(selectElement) {
+        this.selectElement = selectElement;
+        this.container = selectElement.parentElement;
+        this.wrapper = null;
+        this.trigger = null;
+        this.optionsContainer = null;
+        this.searchInput = null;
+        this.optionsList = null;
+
+        this.init();
+    }
+
+    init() {
+        if (!this.container.classList.contains('searchable-select-container')) return;
+
+        // Remove existing wrapper if re-initializing
+        const existingWrapper = this.container.querySelector('.custom-select-wrapper');
+        if (existingWrapper) {
+            this.container.removeChild(existingWrapper);
+        }
+
+        this.selectElement.classList.add('hidden'); // Ensure original select is hidden
+
+        this.wrapper = document.createElement('div');
+        this.wrapper.className = 'custom-select-wrapper';
+
+        this.trigger = document.createElement('div');
+        this.trigger.className = 'custom-select-trigger';
+
+        const selectedOption = this.selectElement.options[this.selectElement.selectedIndex] || this.selectElement.options[0];
+        let triggerText = selectedOption ? selectedOption.textContent : '-- Sélectionnez --';
+
+        this.trigger.innerHTML = `<span>${triggerText}</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+        this.optionsContainer = document.createElement('div');
+        this.optionsContainer.className = 'custom-options-container';
+
+        const searchBox = document.createElement('div');
+        searchBox.className = 'custom-search-box';
+        this.searchInput = document.createElement('input');
+        this.searchInput.type = 'text';
+        this.searchInput.placeholder = 'Rechercher...';
+        searchBox.appendChild(this.searchInput);
+
+        this.optionsList = document.createElement('div');
+        this.optionsList.className = 'custom-options';
+
+        this.optionsContainer.appendChild(searchBox);
+        this.optionsContainer.appendChild(this.optionsList);
+
+        this.wrapper.appendChild(this.trigger);
+        this.wrapper.appendChild(this.optionsContainer);
+        this.container.appendChild(this.wrapper);
+
+        this.renderOptions();
+        this.bindEvents();
+    }
+
+    renderOptions(filter = '') {
+        this.optionsList.innerHTML = '';
+        const lowercaseFilter = filter.toLowerCase();
+        let matchCount = 0;
+
+        Array.from(this.selectElement.options).forEach((option, index) => {
+            const text = option.textContent;
+            if (text.toLowerCase().includes(lowercaseFilter)) {
+                const customOption = document.createElement('div');
+                customOption.className = 'custom-option';
+                if (option.disabled) customOption.classList.add('disabled');
+                if (option.selected) customOption.classList.add('selected');
+                customOption.textContent = text;
+                customOption.dataset.value = option.value;
+                customOption.dataset.index = index;
+
+                customOption.addEventListener('click', (e) => {
+                    if (option.disabled) return;
+                    e.stopPropagation();
+                    this.selectOption(option.value, customOption);
+                });
+
+                this.optionsList.appendChild(customOption);
+                matchCount++;
+            }
+        });
+
+        if (matchCount === 0) {
+            const noMatch = document.createElement('div');
+            noMatch.className = 'custom-option disabled';
+            noMatch.textContent = 'Aucun résultat...';
+            this.optionsList.appendChild(noMatch);
+        }
+    }
+
+    selectOption(value, optionElement) {
+        this.selectElement.value = value;
+        // Trigger generic change event on original select to notify listeners
+        this.selectElement.dispatchEvent(new Event('change'));
+
+        this.trigger.querySelector('span').textContent = optionElement.textContent;
+
+        // Update selected class visually
+        const allOptions = this.optionsList.querySelectorAll('.custom-option');
+        allOptions.forEach(opt => opt.classList.remove('selected'));
+        optionElement.classList.add('selected');
+
+        this.close();
+    }
+
+    bindEvents() {
+        this.trigger.addEventListener('click', () => {
+            this.wrapper.classList.toggle('open');
+            this.trigger.classList.toggle('open');
+            if (this.wrapper.classList.contains('open')) {
+                this.searchInput.value = '';
+                this.renderOptions(); // Render all on open
+                setTimeout(() => this.searchInput.focus(), 100);
+            }
+        });
+
+        this.searchInput.addEventListener('input', (e) => {
+            this.renderOptions(e.target.value);
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!this.wrapper.contains(e.target)) {
+                this.close();
+            }
+        });
+    }
+
+    close() {
+        this.wrapper.classList.remove('open');
+        this.trigger.classList.remove('open');
+    }
+
+    // Call this if the underlying <select> is modified externally
+    update() {
+        this.init();
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     try {
         const setupWarning = document.getElementById('setup-warning');
@@ -61,7 +205,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // L'API GET /users permet de lister les utilisateurs
                 // On peut ajouter ?limit=100&statut=1 pour n'avoir que les actifs
-                const response = await fetch(`${apiUrl}/users?limit=100&statut=1`, {
+                // NOTE: On retire le '&entity=' de l'URL car cela force Dolibarr à filtrer *strictement* sur l'entité de création
+                // ignorant ainsi les partages multi-company. On s'en remet à l'entête DOLAPIENTITY et on augmente la limite.
+                const response = await fetch(`${apiUrl}/users?limit=500&statut=1`, {
                     method: 'GET',
                     headers: headers
                 });
@@ -69,12 +215,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok) {
                     const users = await response.json();
 
-                    // Nettoyer le select
+                    // Nettoyer le select avant de le remplir
                     assigneeSelect.innerHTML = '<option value="">-- Non assigné --</option>';
 
-                    // Remplir avec les utilisateurs actifs
+                    // Remplir avec les utilisateurs
                     if (Array.isArray(users)) {
-                        const activeUsers = users.filter(u => String(u.statut) === "1" || String(u.status) === "1");
+                        const activeUsers = users.filter(u => {
+                            // On s'assure qu'il est actif (u.statut DESC)
+                            const isActive = (String(u.statut) === "1" || String(u.status) === "1");
+                            
+                            // L'utilisateur doit être marqué comme employé (u.employee = 1 ou true)
+                            const isEmployee = (u.employee == 1 || u.employee === true || String(u.employee) === "1");
+
+                            return isActive && isEmployee;
+                        });
+                        
+                        // Tri alphabétique (firstname ASC, lastname ASC) selon la requête SQL
+                        activeUsers.sort((a, b) => {
+                            const nameA = ((a.firstname || '') + ' ' + (a.lastname || '')).trim().toLowerCase();
+                            const nameB = ((b.firstname || '') + ' ' + (b.lastname || '')).trim().toLowerCase();
+                            return nameA.localeCompare(nameB);
+                        });
+
                         activeUsers.forEach(user => {
                             const option = document.createElement('option');
                             option.value = user.id;
@@ -90,12 +252,21 @@ document.addEventListener('DOMContentLoaded', () => {
                             assigneeSelect.appendChild(option);
                         });
                     }
+                    // Initialiser ou mettre à jour la custom box sur l'élément tickets
+                    if (!window.ticketAssigneeSelect) {
+                        window.ticketAssigneeSelect = new CustomSelect(assigneeSelect);
+                    } else {
+                        window.ticketAssigneeSelect.update();
+                    }
+
                 } else {
                     assigneeSelect.innerHTML = '<option value="">Erreur chargement utilisateurs</option>';
+                    if (window.ticketAssigneeSelect) window.ticketAssigneeSelect.update();
                 }
             } catch (error) {
                 console.error("Erreur fetch users:", error);
                 assigneeSelect.innerHTML = '<option value="">Impossible de charger les utilisateurs</option>';
+                if (window.ticketAssigneeSelect) window.ticketAssigneeSelect.update();
             }
         }
 
@@ -217,7 +388,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers['DOLAPIENTITY'] = String(entity).trim();
                 }
 
-                const response = await fetch(`${apiUrl}/projects?limit=100`, {
+                // On demande directement les derniers projets créés (t.rowid DESC) 
+                // pour s'assurer d'avoir les opportunités les plus récentes.
+                const response = await fetch(`${apiUrl}/projects?sortfield=t.rowid&sortorder=DESC&limit=100`, {
                     method: 'GET',
                     headers: headers
                 });
@@ -231,27 +404,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (doliOppOnly) {
                             oppProjects = projects.filter(p => p.usage_opportunity == 1 || p.usage_opportunity === "1");
                         }
-                        
+
                         if (oppProjects.length > 0) {
                             recentOppList.innerHTML = ''; // Nettoyer
                             const sortedProjects = oppProjects.sort((a, b) => b.date_c - a.date_c).slice(0, limit);
 
                             sortedProjects.forEach(project => {
-                            let subject = project.title || project.ref || "Projet sans titre";
-                            if (subject.length > 50) subject = subject.substring(0, 50) + '...';
+                                let subject = project.title || project.ref || "Projet sans titre";
+                                if (subject.length > 50) subject = subject.substring(0, 50) + '...';
 
-                            let statusColor = "#95a5a6";
-                            const stat = String(project.statut || project.status || "0");
-                            if (stat === "0") statusColor = "#3498db"; // Brouillon
-                            else if (stat === "1") statusColor = "#27ae60"; // Validé/Ouvert
-                            else if (stat === "2") statusColor = "#7f8c8d"; // Clôturé
+                                let statusColor = "#95a5a6";
+                                const stat = String(project.statut || project.status || "0");
+                                if (stat === "0") statusColor = "#3498db"; // Brouillon
+                                else if (stat === "1") statusColor = "#27ae60"; // Validé/Ouvert
+                                else if (stat === "2") statusColor = "#7f8c8d"; // Clôturé
 
-                            const projectRef = project.ref || `PROJ #${project.id}`;
+                                const projectRef = project.ref || `PROJ #${project.id}`;
 
-                            let amountDisplay = project.opp_amount ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(project.opp_amount) : '';
-                            let probDisplay = project.opp_percent ? `${project.opp_percent} %` : '';
+                                let amountDisplay = project.opp_amount ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(project.opp_amount) : '';
+                                let probDisplay = project.opp_percent ? `${project.opp_percent} %` : '';
 
-                            const html = `
+                                const html = `
                             <div class="recent-ticket-item">
                                 <div class="rt-left">
                                     <div class="rt-ref" title="Référence">${projectRef}</div>
@@ -270,8 +443,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     </a>
                                 </div>
                             </div>`;
-                            recentOppList.insertAdjacentHTML('beforeend', html);
-                        });
+                                recentOppList.insertAdjacentHTML('beforeend', html);
+                            });
                         } else {
                             recentOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunité trouvée.</div>`;
                         }
@@ -286,9 +459,43 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Vérifie si l'API est configurée
-        chrome.storage.sync.get(['doliUrl', 'doliApiToken', 'doliLogin', 'doliAutoAssign', 'doliOppOnly', 'doliDefaultView', 'doliRecentCount', 'doliEntity', 'doliStatus'], (items) => {
-            if (items.doliUrl && items.doliApiToken) {
+        // Vérifie si l'API est configurée et gère le multi-profils
+        chrome.storage.sync.get(['doliProfiles', 'doliActiveProfileId', 'doliDefaultView', 'doliRecentCount'], (items) => {
+            const profiles = items.doliProfiles || [];
+            const activeId = items.doliActiveProfileId;
+            let p = profiles.find(prof => prof.id === activeId);
+
+            // Fallback si l'ID n'est pas trouvé mais qu'il y a des profils
+            if (!p && profiles.length > 0) {
+                p = profiles[0];
+                chrome.storage.sync.set({ doliActiveProfileId: p.id });
+            }
+
+            // Gestion du Switcher de Profils UI
+            const profileSwitcher = document.getElementById('doli-active-profile');
+            if (profiles.length > 1) {
+                profileSwitcher.classList.remove('hidden');
+                profileSwitcher.innerHTML = '';
+                profiles.forEach(prof => {
+                    const opt = document.createElement('option');
+                    opt.value = prof.id;
+                    opt.textContent = prof.name || 'Profil';
+                    if (prof.id === p?.id) opt.selected = true;
+                    profileSwitcher.appendChild(opt);
+                });
+
+                // Écouteur pour changer de profil à la volée
+                profileSwitcher.addEventListener('change', (e) => {
+                    chrome.storage.sync.set({ doliActiveProfileId: e.target.value }, () => {
+                        window.location.reload(); // On recharge brutalement le popup pour ré-appliquer les configs
+                    });
+                });
+            } else if (profiles.length === 1) {
+                profileSwitcher.classList.add('hidden'); // S'il n'y a qu'un profil on le cache
+            }
+
+            // --- SUITE LOGIQUE HABITUELLE (avec le profil P) ---
+            if (p && p.doliUrl && p.doliApiToken) {
                 // Configuration OK, on affiche le formulaire
                 setupWarning.classList.add('hidden');
                 ticketForm.classList.remove('hidden');
@@ -301,27 +508,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     btnSubmitOpp.querySelector('.btn-text').textContent = 'Créer l\'opportunité';
                 }
 
-                const oppOnly = items.doliOppOnly !== false; // true par défaut
+                const oppOnly = p.doliOppOnly !== false; // true par défaut
                 let activeTab = items.doliDefaultView === 'opportunite' ? 'opportunite' : 'ticket';
 
                 // Chargement des utilisateurs en arrière-plan (on garde la promesse)
-                const usersPromise = loadUsers(items.doliUrl, items.doliApiToken, items.doliLogin, items.doliAutoAssign, items.doliEntity);
+                const usersPromise = loadUsers(p.doliUrl, p.doliApiToken, p.doliLogin, p.doliAutoAssign, p.doliEntity);
 
                 // Fetch les derniers tickets avec la limite choisie par l'utilisateur (défaut: 10)
                 const recentLimit = items.doliRecentCount !== undefined ? parseInt(items.doliRecentCount, 10) || 10 : 10;
-                loadRecentTickets(items.doliUrl, items.doliApiToken, recentLimit, items.doliEntity);
-                loadRecentOpportunities(items.doliUrl, items.doliApiToken, recentLimit, items.doliEntity, oppOnly);
+                loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity);
+                loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly);
 
                 // Optionnel: copier les assignees dans le select opp s'il se charge 
                 const setupOppAssignees = () => {
-                   oppAssigneeSelect.innerHTML = assigneeSelect.innerHTML;
-                   oppAssigneeSelect.value = assigneeSelect.value;
+                    oppAssigneeSelect.innerHTML = assigneeSelect.innerHTML;
+                    oppAssigneeSelect.value = assigneeSelect.value;
+
+                    if (!window.oppAssigneeCustomSelect) {
+                        window.oppAssigneeCustomSelect = new CustomSelect(oppAssigneeSelect);
+                    } else {
+                        window.oppAssigneeCustomSelect.update();
+                    }
                 };
                 usersPromise.then(setupOppAssignees);
 
                 // Vérification des droits GED pour afficher un avertissement si nécessaire
                 const gedWarning = document.getElementById('ged-warning');
-                if (gedWarning && items.doliStatus && items.doliStatus.ged !== 'ok') {
+                if (gedWarning && p.doliStatus && p.doliStatus.ged !== 'ok') {
                     gedWarning.classList.remove('hidden');
                 }
 
@@ -406,13 +619,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 oppStatusMessage.style.color = '#333';
 
                 try {
-                    const items = await new Promise(resolve => chrome.storage.sync.get(['doliUrl', 'doliApiToken', 'doliEntity', 'doliOppOnly'], resolve));
-                    if (!items.doliUrl || !items.doliApiToken) throw new Error("Configuration Dolibarr introuvable.");
+                    const items = await new Promise(resolve => chrome.storage.sync.get(['doliProfiles', 'doliActiveProfileId'], resolve));
+                    const profiles = items.doliProfiles || [];
+                    const p = profiles.find(prof => prof.id === items.doliActiveProfileId) || profiles[0];
 
-                    const apiUrl = items.doliUrl;
-                    const token = items.doliApiToken;
-                    const entity = items.doliEntity;
-                    const oppOnly = items.doliOppOnly !== false;
+                    if (!p || !p.doliUrl || !p.doliApiToken) throw new Error("Configuration Dolibarr introuvable.");
+
+                    const apiUrl = p.doliUrl;
+                    const token = p.doliApiToken;
+                    const entity = p.doliEntity;
+                    const oppOnly = p.doliOppOnly !== false;
 
                     const baseHeaders = {
                         'DOLAPIKEY': token,
@@ -573,19 +789,18 @@ document.addEventListener('DOMContentLoaded', () => {
             statusMessage.style.color = '#333';
 
             try {
-                // Récupère les identifiants depuis le stockage
-                const items = await new Promise(resolve => chrome.storage.sync.get([
-                    'doliUrl', 'doliApiToken', 'doliEntity', 
-                    'doliTicketType', 'doliTicketSeverity', 'doliTicketCategory'
-                ], resolve));
+                // Récupère les identifiants depuis le stockage Multi-Profile
+                const items = await new Promise(resolve => chrome.storage.sync.get(['doliProfiles', 'doliActiveProfileId'], resolve));
+                const profiles = items.doliProfiles || [];
+                const p = profiles.find(prof => prof.id === items.doliActiveProfileId) || profiles[0];
 
-                if (!items.doliUrl || !items.doliApiToken) {
-                    throw new Error("Configuration Dolibarr introuvable.");
+                if (!p || !p.doliUrl || !p.doliApiToken) {
+                    throw new DoliError("ReedCRM-2001");
                 }
 
-                const apiUrl = items.doliUrl;
-                const token = items.doliApiToken;
-                const entity = items.doliEntity;
+                const apiUrl = p.doliUrl;
+                const token = p.doliApiToken;
+                const entity = p.doliEntity;
 
                 const baseHeaders = {
                     'DOLAPIKEY': token,
@@ -604,13 +819,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     subject: subject,
                     message: message,
                     track_id: randomTrackId,
-                    type_code: items.doliTicketType || 'ISSUE', // Valeur par défaut "ISSUE"
-                    severity_code: items.doliTicketSeverity || 'NORMAL' // Valeur par défaut "NORMAL"
+                    type_code: p.doliTicketType || 'ISSUE', // Valeur par défaut "ISSUE"
+                    severity_code: p.doliTicketSeverity || 'NORMAL' // Valeur par défaut "NORMAL"
                 };
 
                 // Ajout de la catégorie (groupe) si configurée dans les options
-                if (items.doliTicketCategory && items.doliTicketCategory.trim() !== '') {
-                    ticketData.category_code = items.doliTicketCategory.trim();
+                if (p.doliTicketCategory && p.doliTicketCategory.trim() !== '') {
+                    ticketData.category_code = p.doliTicketCategory.trim();
                 }
 
                 // Ajout de l'utilisateur assigné si sélectionné
@@ -626,18 +841,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    let errMsg = `Erreur HTTP ${response.status} lors de la création du ticket.`;
-                    try {
-                        const errorData = JSON.parse(errorText);
-                        if (errorData && errorData.error && errorData.error.message) {
-                            errMsg += " Détail : " + errorData.error.message;
-                        } else {
-                            errMsg += " JSON: " + errorText.substring(0, 150);
-                        }
-                    } catch (e) {
-                        errMsg += " RAW: " + errorText.replace(/<[^>]*>?/gm, ' ').substring(0, 150); // Retire les balises HTML basiques
+                    if (response.status === 401 || response.status === 403) {
+                        throw new DoliError('ReedCRM-1003', errorText, { status: response.status });
                     }
-                    throw new Error(errMsg);
+                    if (response.status === 404) {
+                        throw new DoliError('ReedCRM-1004', errorText, { status: response.status });
+                    }
+                    if (response.status === 500) {
+                        throw new DoliError('ReedCRM-1500', errorText, { status: 500 });
+                    }
+                    throw new DoliError('ReedCRM-9999', `Erreur HTTP ${response.status}: ${errorText}`, { status: response.status });
                 }
 
                 const ticketId = await response.json(); // L'API POST /tickets retourne généralement l'ID du nouvel objet
@@ -702,14 +915,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                             errorMsg = "Votre version de Dolibarr ne supporte pas encore l'envoi de fichiers vers les tickets via son API REST.";
                                         }
                                     }
-                                    throw new Error(`Ticket créé (${ticketRef}), mais erreur PJ: ${errorMsg}`);
+                                    throw new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur PJ: ${errorMsg}`);
                                 }
                                 resolve();
                             } catch (err) {
                                 reject(err);
                             }
                         };
-                        reader.onerror = () => reject(new Error(`Ticket créé (${ticketRef}), mais erreur de lecture du fichier`));
+                        reader.onerror = () => reject(new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur de lecture du fichier`));
                     });
                 } else if (ticketId) {
                     // Si pas de fichier, on récupère quand même la ref pour l'affichage
@@ -771,7 +984,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     statusMessage.innerHTML = `${error.message}. <br>Le ticket a bien été créé.<br><a href="${baseUrl}/ticket/list.php" target="_blank" style="color: #3498db; text-decoration: underline;">Aller aux tickets</a>`;
                 } else {
-                    statusMessage.innerHTML = error.message; // Changé ici pour supporter le HTML
+                    showDoliError(error, statusMessage);
                 }
 
                 btnSubmit.disabled = false;

@@ -32,7 +32,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
         }
 
         if (!authSuccess) {
-            return { success: false, error: "Identifiants invalides ou connexion refusée" };
+            return { success: false, error: new DoliError('ReedCRM-1002') };
         }
 
         // 2. Test spécifique : Permission de lecture des utilisateurs et des tickets
@@ -152,7 +152,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
         };
 
     } catch (e) {
-        return { success: false, error: `Impossible de joindre l'API Dolibarr à cette adresse (${e.message})` };
+        return { success: false, error: new DoliError('ReedCRM-1001', e) };
     }
 }
 
@@ -166,88 +166,260 @@ const DOLI_RIGHTS_DESC = {
     '542': "GED - Consulter les documents"
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    const urlInput = document.getElementById('doli-url');
-    const loginInput = document.getElementById('doli-login');
-    const passwordInput = document.getElementById('doli-password');
-    const statusDashboard = document.getElementById('status-dashboard');
-    const blurInput = document.getElementById('doli-blur');
-    const blurValue = document.getElementById('doli-blur-value');
-    const blurOverlay = document.getElementById('doli-blur-overlay');
-    const autoAssignInput = document.getElementById('doli-auto-assign');
-    const entityInput = document.getElementById('doli-entity'); // Added entity input
-    const oppOnlyInput = document.getElementById('doli-opp-only');
+let profiles = [];
+let activeProfileId = null;
+
+function getActiveProfile() {
+    return profiles.find(p => p.id === activeProfileId) || profiles[0];
+}
+
+// Fonction pour générer un ID unique
+function generateId() {
+    return 'prof_' + Math.random().toString(36).substr(2, 9);
+}
+
+// Met à jour les champs du formulaire avec le profil sélectionné
+function loadProfileIntoForm(p) {
+    if (!p) return;
+    document.getElementById('doli-profile-name').value = p.name || '';
+    document.getElementById('doli-url').value = p.doliUrl || '';
+    document.getElementById('doli-login').value = p.doliLogin || '';
+    document.getElementById('doli-password').value = p.doliApiToken || '';
+    document.getElementById('doli-entity').value = p.doliEntity || '';
+    document.getElementById('doli-auto-assign').checked = p.doliAutoAssign !== false;
     
-    // Nouveaux champs pour les tickets (avec valeurs par défaut natives de Dolibarr)
-    const ticketTypeInput = document.getElementById('doli-ticket-type');
-    const ticketSeverityInput = document.getElementById('doli-ticket-severity');
-    const ticketCategoryInput = document.getElementById('doli-ticket-category');
+    if (document.getElementById('doli-opp-only')) {
+        document.getElementById('doli-opp-only').checked = p.doliOppOnly !== false;
+    }
 
-    blurInput.addEventListener('input', () => {
-        const val = blurInput.value;
-        blurValue.textContent = val + 'px';
-        blurOverlay.style.backdropFilter = `blur(${val}px)`;
-        blurOverlay.style.webkitBackdropFilter = `blur(${val}px)`;
+    document.getElementById('doli-ticket-type').value = p.doliTicketType || 'ISSUE';
+    document.getElementById('doli-ticket-severity').value = p.doliTicketSeverity || 'NORMAL';
+    document.getElementById('doli-ticket-category').value = p.doliTicketCategory || '';
+
+    // Affichage des permissions si elles existent
+    if (p.doliStatus) {
+        renderPermissions(p.doliStatus, p.doliUrl);
+    } else {
+        renderPermissions({ connection: 'pending', users: 'pending', tickets: 'pending', thirdparties: 'pending', projects: 'pending', ged: 'pending', ged_pr: 'pending' }, p.doliUrl);
+    }
+}
+
+// Met à jour la liste déroulante des profils
+function renderProfileSelect() {
+    const select = document.getElementById('doli-profile-select');
+    select.innerHTML = '';
+    profiles.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name || 'Nouveau Profil';
+        if (p.id === activeProfileId) opt.selected = true;
+        select.appendChild(opt);
     });
-    const recentCountInput = document.getElementById('doli-recent-count');
+}
 
-    chrome.storage.sync.get([
-        'doliUrl', 'doliLogin', 'doliPassword', 'doliApiToken', 'doliBlurIntensity', 'doliImageFormat', 
-        'doliAutoAssign', 'doliOppOnly', 'doliDefaultView', 'doliRecentCount', 'doliEntity', 'doliStatus',
-        'doliTicketType', 'doliTicketSeverity', 'doliTicketCategory'
-    ], (items) => {
-        if (items.doliUrl) urlInput.value = items.doliUrl;
-        if (items.doliLogin) loginInput.value = items.doliLogin;
-        if (items.doliPassword) passwordInput.value = items.doliPassword;
-        if (items.doliEntity) entityInput.value = items.doliEntity;
-        if (items.doliAutoAssign !== undefined) autoAssignInput.checked = items.doliAutoAssign;
-        if (items.doliOppOnly !== undefined && oppOnlyInput) oppOnlyInput.checked = items.doliOppOnly;
-        if (items.doliRecentCount !== undefined) recentCountInput.value = items.doliRecentCount;
-
-        // Préremplissage des champs tickets
-        ticketTypeInput.value = items.doliTicketType || 'ISSUE';
-        ticketSeverityInput.value = items.doliTicketSeverity || 'NORMAL';
-        ticketCategoryInput.value = items.doliTicketCategory || '';
-
-        if (items.doliDefaultView) {
-            const radioView = document.querySelector(`input[name="doli-default-view"][value="${items.doliDefaultView}"]`);
-            if (radioView) radioView.checked = true;
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Initialisation : chargement depuis sync
+    chrome.storage.sync.get(null, (items) => {
+        
+        // --- MIGRATION (si l'ancienne structure existe) ---
+        if (items.doliUrl && !items.doliProfiles) {
+            const migratedProfile = {
+                id: generateId(),
+                name: 'Profil par défaut',
+                doliUrl: items.doliUrl,
+                doliLogin: items.doliLogin,
+                doliApiToken: items.doliApiToken,
+                doliEntity: items.doliEntity,
+                doliAutoAssign: items.doliAutoAssign,
+                doliOppOnly: items.doliOppOnly,
+                doliTicketType: items.doliTicketType,
+                doliTicketSeverity: items.doliTicketSeverity,
+                doliTicketCategory: items.doliTicketCategory,
+                doliStatus: items.doliStatus
+            };
+            profiles = [migratedProfile];
+            activeProfileId = migratedProfile.id;
+            
+            // Nettoyage de l'ancienne config
+            chrome.storage.sync.remove(['doliUrl', 'doliLogin', 'doliApiToken', 'doliEntity', 'doliAutoAssign', 'doliOppOnly', 'doliTicketType', 'doliTicketSeverity', 'doliTicketCategory', 'doliStatus']);
+            chrome.storage.sync.set({ doliProfiles: profiles, doliActiveProfileId: activeProfileId });
+        } else {
+            profiles = items.doliProfiles || [];
+            activeProfileId = items.doliActiveProfileId;
         }
 
+        // --- GESTION DES PROFILS ---
+        if (profiles.length === 0) {
+            // Création d'un premier profil vide si tout est vide
+            const initialProfile = { id: generateId(), name: 'Profil 1' };
+            profiles.push(initialProfile);
+            activeProfileId = initialProfile.id;
+            chrome.storage.sync.set({ doliProfiles: profiles, doliActiveProfileId: activeProfileId });
+        }
+
+        if (!activeProfileId || !profiles.find(p => p.id === activeProfileId)) {
+            activeProfileId = profiles[0].id; // Fallback
+        }
+
+        renderProfileSelect();
+        loadProfileIntoForm(getActiveProfile());
+
+        // --- PARAMÈTRES GLOBAUX ---
         if (items.doliImageFormat) {
-            const radio = document.querySelector(`input[name="doli-format"][value="${items.doliImageFormat}"]`);
-            if (radio) radio.checked = true;
+            document.querySelector(`input[name="doli-format"][value="${items.doliImageFormat}"]`).checked = true;
+        }
+        if (items.doliDefaultView) {
+            document.querySelector(`input[name="doli-default-view"][value="${items.doliDefaultView}"]`).checked = true;
         }
         if (items.doliBlurIntensity) {
-            blurInput.value = items.doliBlurIntensity;
-            blurValue.textContent = items.doliBlurIntensity + 'px';
-            blurOverlay.style.backdropFilter = `blur(${items.doliBlurIntensity}px)`;
-            blurOverlay.style.webkitBackdropFilter = `blur(${items.doliBlurIntensity}px)`;
+            document.getElementById('doli-blur').value = items.doliBlurIntensity;
+        }
+        if (items.doliRecentCount) {
+            document.getElementById('doli-recent-count').value = items.doliRecentCount;
+        }
+    });
+
+    // --- ÉCOUTEURS D'ÉVÉNEMENTS PROFILS ---
+    
+    // Changement de profil via le select
+    document.getElementById('doli-profile-select').addEventListener('change', (e) => {
+        activeProfileId = e.target.value;
+        chrome.storage.sync.set({ doliActiveProfileId: activeProfileId });
+        loadProfileIntoForm(getActiveProfile());
+    });
+
+    // Renommer le profil en direct
+    document.getElementById('doli-profile-name').addEventListener('input', (e) => {
+        const p = getActiveProfile();
+        if (p) {
+            p.name = e.target.value;
+            // Mettre à jour le texte dans le select sans perdre le focus
+            const opt = document.querySelector(`#doli-profile-select option[value="${p.id}"]`);
+            if (opt) opt.textContent = p.name || 'Sans nom';
+            
+            // On sauvegarde en background
+            chrome.storage.sync.set({ doliProfiles: profiles });
+        }
+    });
+
+    // Nouveau Profil
+    document.getElementById('btn-new-profile').addEventListener('click', () => {
+        const newProfile = { id: generateId(), name: 'Nouveau Profil' };
+        profiles.push(newProfile);
+        activeProfileId = newProfile.id;
+        chrome.storage.sync.set({ doliProfiles: profiles, doliActiveProfileId: activeProfileId });
+        
+        renderProfileSelect();
+        loadProfileIntoForm(newProfile);
+    });
+
+    // Supprimer Profil
+    document.getElementById('btn-delete-profile').addEventListener('click', () => {
+        if (confirm("Voulez-vous vraiment supprimer ce profil ? Toutes ses données seront effacées.")) {
+            profiles = profiles.filter(p => p.id !== activeProfileId);
+            
+            if (profiles.length === 0) {
+                // Si plus aucun profil, on en recrée un vide
+                const emptyProfile = { id: generateId(), name: 'Profil 1' };
+                profiles.push(emptyProfile);
+            }
+            
+            activeProfileId = profiles[0].id;
+            chrome.storage.sync.set({ doliProfiles: profiles, doliActiveProfileId: activeProfileId });
+            
+            renderProfileSelect();
+            loadProfileIntoForm(getActiveProfile());
+        }
+    });
+
+    // Bouton de Test de Connexion
+    document.getElementById('btn-test-profile').addEventListener('click', async () => {
+        const url = document.getElementById('doli-url').value;
+        const login = document.getElementById('doli-login').value;
+        const password = document.getElementById('doli-password').value;
+        const entityVal = document.getElementById('doli-entity').value.trim();
+        const testStatusDiv = document.getElementById('test-status-container');
+        const btnTest = document.getElementById('btn-test-profile');
+        const statusDashboard = document.getElementById('permissions-dashboard');
+        
+        if (!url || !login || !password) {
+            testStatusDiv.style.color = "#e74c3c";
+            testStatusDiv.textContent = 'Veuillez remplir l\'URL, l\'identifiant et le mot de passe avant de tester.';
+            return;
         }
 
-        if (items.doliStatus) {
-            renderPermissions(items.doliStatus, items.doliUrl);
-        } else {
-            renderPermissions(null, null);
+        let normalizedUrl = url.trim();
+        if (normalizedUrl.endsWith('/')) normalizedUrl = normalizedUrl.slice(0, -1);
+        if (!normalizedUrl.endsWith('/api/index.php')) {
+            if (normalizedUrl.endsWith('/htdocs')) normalizedUrl += '/api/index.php';
+            else if (!normalizedUrl.includes('/api/index.php')) normalizedUrl += '/htdocs/api/index.php';
         }
+
+        btnTest.disabled = true;
+        btnTest.textContent = "Test en cours...";
+        testStatusDiv.textContent = "";
+
+        statusDashboard.classList.remove('hidden');
+        renderPermissions({ connection: 'warning', users: 'warning', tickets: 'warning', thirdparties: 'warning', projects: 'warning', ged: 'warning', ged_pr: 'warning' }, normalizedUrl);
+
+        const testResult = await testDolibarrConnection(normalizedUrl, login, password, entityVal);
+
+        if (testResult.success) {
+            testStatusDiv.style.color = "#27ae60";
+            let msg = '✅ Connexion réussie !';
+            if (testResult.entityName && testResult.entityName !== "Inconnue") {
+                msg += ` (🏢 ${testResult.entityName})`;
+            }
+            testStatusDiv.innerHTML = msg;
+
+            const hasUsers = testResult.permissions && testResult.permissions.users;
+            const hasTickets = testResult.permissions && testResult.permissions.tickets;
+            const hasThirdparties = testResult.permissions && testResult.permissions.thirdparties;
+            const hasProjects = testResult.permissions && testResult.permissions.projects;
+            const hasGed = testResult.permissions && testResult.permissions.ged;
+            const hasGedPR = testResult.permissions && testResult.permissions.ged_pr;
+
+            renderPermissions({
+                connection: 'ok',
+                users: hasUsers ? 'ok' : 'ko',
+                tickets: hasTickets ? 'ok' : 'ko',
+                thirdparties: hasThirdparties ? 'ok' : 'ko',
+                projects: hasProjects ? 'ok' : 'ko',
+                ged: hasGed ? 'ok' : 'ko',
+                ged_pr: hasGedPR ? 'ok' : 'ko',
+                date: new Date().toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+            }, normalizedUrl);
+            
+            // On met directement à jour le token si on l'a obtenu via un test de connexion
+            const p = getActiveProfile();
+            if(p && testResult.apiToken) {
+                 p.doliApiToken = testResult.apiToken;
+            }
+
+        } else {
+            testStatusDiv.style.color = "#e74c3c";
+            testStatusDiv.textContent = '❌ Échec de la connexion.';
+            renderPermissions({ connection: 'ko', users: 'pending', tickets: 'pending', thirdparties: 'pending', projects: 'pending', ged: 'pending', ged_pr: 'pending' }, normalizedUrl);
+        }
+
+        btnTest.disabled = false;
+        btnTest.textContent = "🔌 Tester";
     });
 });
 
 // Sauvegarde les options
 document.getElementById('save-btn').addEventListener('click', async () => {
     const urlInput = document.getElementById('doli-url');
-    const url = urlInput.value;
+    let url = urlInput.value;
     const login = document.getElementById('doli-login').value;
     const password = document.getElementById('doli-password').value;
     const statusDiv = document.getElementById('status');
     const btn = document.getElementById('save-btn');
     const apiIndicator = document.getElementById('api-status-indicator');
 
-    const statusDashboard = document.getElementById('permissions-dashboard');
-
     if (!url || !login || !password) {
         statusDiv.style.color = "#e74c3c";
-        statusDiv.textContent = 'Veuillez remplir tous les champs.';
+        statusDiv.textContent = 'Veuillez remplir tous les champs obligatoires (URL, Login, Mot de passe).';
         return;
     }
 
@@ -269,22 +441,14 @@ document.getElementById('save-btn').addEventListener('click', async () => {
 
     // Mise à jour de l'UI pour indiquer le chargement
     btn.disabled = true;
-    btn.textContent = "Test de la connexion...";
+    btn.textContent = "Sauvegarde en cours...";
     statusDiv.textContent = "";
-    statusDiv.style.color = "#333";
 
-    // Réinitialise l'indicateur visuel textuel (legacy)
-    apiIndicator.className = 'status-indicator';
-    apiIndicator.textContent = '...';
-    apiIndicator.style.display = 'inline-block';
-
-    // Affiche le nouveau dashboard
-    statusDashboard.classList.remove('hidden');
     const formatVal = document.querySelector('input[name="doli-format"]:checked').value;
     const defaultViewVal = document.querySelector('input[name="doli-default-view"]:checked').value;
     const autoAssignVal = document.getElementById('doli-auto-assign').checked;
     const oppOnlyVal = document.getElementById('doli-opp-only') ? document.getElementById('doli-opp-only').checked : true;
-    const blurVal = document.getElementById('doli-blur').value; // Get blur value here
+    const blurVal = document.getElementById('doli-blur').value;
     const recentCountVal = parseInt(document.getElementById('doli-recent-count').value, 10) || 10;
     const entityVal = document.getElementById('doli-entity').value.trim();
     
@@ -293,122 +457,42 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     const ticketSeverityVal = document.getElementById('doli-ticket-severity').value.trim();
     const ticketCategoryVal = document.getElementById('doli-ticket-category').value.trim();
 
-    renderPermissions({ connection: 'warning', users: 'warning', tickets: 'warning', thirdparties: 'warning', projects: 'warning', ged: 'warning', ged_pr: 'warning' }, normalizedUrl);
+    // On récupère le profil actif pour le mettre à jour
+    const p = getActiveProfile();
+    if (!p) return;
 
-    // Test de connexion
-    const testResult = await testDolibarrConnection(normalizedUrl, login, password, entityVal);
-
-    if (testResult.success) {
-        const hasUsers = testResult.permissions && testResult.permissions.users;
-        const hasTickets = testResult.permissions && testResult.permissions.tickets;
-        const hasThirdparties = testResult.permissions && testResult.permissions.thirdparties;
-        const hasProjects = testResult.permissions && testResult.permissions.projects;
-        const hasGed = testResult.permissions && testResult.permissions.ged;
-        const hasGedPR = testResult.permissions && testResult.permissions.ged_pr;
-
-        chrome.storage.sync.set({
-            doliUrl: normalizedUrl,
-            doliLogin: login,
-            doliPassword: password,
-            doliApiToken: testResult.apiToken || password,
-            doliBlurIntensity: blurVal,
-            doliImageFormat: formatVal,
-            doliAutoAssign: autoAssignVal,
-            doliOppOnly: oppOnlyVal,
-            doliDefaultView: defaultViewVal,
-            doliRecentCount: recentCountVal,
-            doliEntity: entityVal,
-            doliTicketType: ticketTypeVal,
-            doliTicketSeverity: ticketSeverityVal,
-            doliTicketCategory: ticketCategoryVal,
-            doliStatus: {
-                date: new Date().toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }),
-                connection: 'ok',
-                users: hasUsers ? 'ok' : 'ko',
-                tickets: hasTickets ? 'ok' : 'ko',
-                thirdparties: hasThirdparties ? 'ok' : 'ko',
-                ged: hasGed ? 'ok' : 'ko',
-                usersText: hasUsers ? 'Droits Utilisateurs OK' : 'Utilisateur (251) KO',
-                ticketsText: hasTickets ? 'Droits Tickets OK' : 'Tickets KO',
-                thirdpartiesText: hasThirdparties ? 'Droits Tiers OK' : 'Tiers (262) KO',
-                gedText: hasGed ? 'Droits GED OK' : 'GED (542) KO',
-                usersTooltip: hasUsers ? '' : DOLI_RIGHTS_DESC['251'],
-                ticketsTooltip: hasTickets ? '' : DOLI_RIGHTS_DESC['tickets'],
-                thirdpartiesTooltip: hasThirdparties ? '' : DOLI_RIGHTS_DESC['262'],
-                gedTooltip: hasGed ? '' : DOLI_RIGHTS_DESC['542']
-            }
-        }, () => {
-            let successMessage = 'Connexion réussie & Paramètres sauvegardés !';
-
-            // Ajout du statut des droits
-            let hasWarning = false;
-
-            if (!testResult.permissions.users) {
-                successMessage += `<br><small style="color: #e67e22;">⚠️ Assignation auto impossible : ${DOLI_RIGHTS_DESC['251']}</small>`;
-                hasWarning = true;
-            }
-            if (!testResult.permissions.tickets) {
-                successMessage += `<br><small style="color: #e67e22;">⚠️ L\'encart "Derniers Tickets" sera vide : ${DOLI_RIGHTS_DESC['tickets']}</small>`;
-                hasWarning = true;
-            }
-            if (!testResult.permissions.thirdparties) {
-                successMessage += `<br><small style="color: #e67e22;">⚠️ La création d\'opportunités posera problème sans accès aux Clients : ${DOLI_RIGHTS_DESC['262']}</small>`;
-                hasWarning = true;
-            }
-            if (!testResult.permissions.projects) {
-                successMessage += `<br><small style="color: #e67e22;">⚠️ La création d\'opportunités sera bloquée sans accès aux Projets : Droits 41 et 42</small>`;
-                hasWarning = true;
-            }
-            if (!testResult.permissions.ged_pr) {
-                successMessage += '<br><small style="color: #e67e22;">⚠️ L\'envoi d\'images échouera : Le correctif <a href="https://github.com/Dolibarr/dolibarr/pull/37499" target="_blank" style="color: inherit; text-decoration: underline;">PR #37499</a> manque dans l\'API de votre serveur.</small>';
-                hasWarning = true;
-            }
-            if (!testResult.permissions.ged) {
-                successMessage += '<br><small style="color: #e67e22;">⚠️ L\'envoi d\'images/fichiers échouera (Manque Droit API Documents / GED).</small>';
-                hasWarning = true;
-            }
-
-            renderPermissions({
-                connection: 'ok',
-                users: hasUsers ? 'ok' : 'ko',
-                tickets: hasTickets ? 'ok' : 'ko',
-                thirdparties: hasThirdparties ? 'ok' : 'ko',
-                projects: hasProjects ? 'ok' : 'ko',
-                ged: hasGed ? 'ok' : 'ko',
-                ged_pr: hasGedPR ? 'ok' : 'ko',
-                date: new Date().toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
-            }, normalizedUrl);
-
-            // Ajout du nom de l'entité si connue
-            if (testResult.entityName && testResult.entityName !== "Inconnue") {
-                successMessage += `<br><span style="color: #7f8c8d; font-size: 11px;">🏢 Entité connectée : <strong>${testResult.entityName}</strong></span>`;
-            }
-
-            statusDiv.style.color = hasWarning ? "#e67e22" : "#27ae60";
-            statusDiv.innerHTML = successMessage;
-
-            // Met à jour l'indicateur visuel URL OK
-            apiIndicator.textContent = 'OK';
-            apiIndicator.classList.add('status-ok');
-
-            setTimeout(() => {
-                statusDiv.innerHTML = '';
-            }, 6000);
-        });
-    } else {
-        statusDiv.style.color = "#e74c3c";
-        statusDiv.innerHTML = `⚠️ <strong>Erreur :</strong> ${testResult.error}<br><small style="color: #c0392b;">Assurez-vous que le module <strong>API REST</strong> est activé et que votre utilisateur dispose de la permission pour l'utiliser.</small>`;
-
-        renderPermissions({ connection: 'ko', users: 'pending', tickets: 'pending', thirdparties: 'pending', projects: 'pending', ged: 'pending', ged_pr: 'pending' }, normalizedUrl);
-
-        // Met à jour l'indicateur visuel URL KO
-        apiIndicator.textContent = 'KO';
-        apiIndicator.classList.add('status-ko');
+    // Sauvegarde en base des données
+    p.doliUrl = normalizedUrl;
+    p.doliLogin = login;
+    if (password && password.trim() !== '') {
+        p.doliApiToken = password;
     }
+    p.doliAutoAssign = autoAssignVal;
+    p.doliOppOnly = oppOnlyVal;
+    p.doliEntity = entityVal;
+    p.doliTicketType = ticketTypeVal;
+    p.doliTicketSeverity = ticketSeverityVal;
+    p.doliTicketCategory = ticketCategoryVal;
 
-    // Réinitialisation de l'UI
-    btn.disabled = false;
-    btn.textContent = "Enregistrer";
+    chrome.storage.sync.set({ 
+        doliProfiles: profiles,
+        doliActiveProfileId: activeProfileId,
+        'doliImageFormat': formatVal,
+        'doliBlurIntensity': blurVal,
+        'doliDefaultView': defaultViewVal,
+        'doliRecentCount': recentCountVal
+    }, () => {
+        statusDiv.style.color = "#27ae60";
+        statusDiv.textContent = '✅ Paramètres sauvegardés avec succès !';
+        
+        // Nettoyer le message après quelques secondes
+        setTimeout(() => {
+            statusDiv.textContent = '';
+        }, 3000);
+
+        btn.disabled = false;
+        btn.textContent = "Enregistrer";
+    });
 });
 
 // Affiche le tableau des droits

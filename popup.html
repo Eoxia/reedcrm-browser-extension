@@ -8,8 +8,11 @@
 <body>
     <div class="container">
         <div class="top-nav">
-            <div class="nav-logo">
+            <div class="nav-logo" style="display: flex; align-items: center; gap: 10px;">
                 <img src="icon32.png" alt="CRM Reed">
+                <select id="doli-active-profile" class="profile-switcher hidden">
+                    <!-- Rempli dynamiquement en JS -->
+                </select>
             </div>
             <div class="nav-tabs">
                 <button class="nav-tab" id="tab-opportunite">
@@ -50,10 +53,12 @@
 
             <div class="form-group">
                 <label for="ticket-assignee">Assigner à</label>
-                <select id="ticket-assignee">
-                    <option value="">-- Non assigné --</option>
-                    <option value="loading" disabled>Chargement des utilisateurs...</option>
-                </select>
+                <div class="searchable-select-container">
+                    <select id="ticket-assignee" class="searchable-select hidden">
+                        <option value="">-- Non assigné --</option>
+                        <option value="loading" disabled>Chargement des utilisateurs...</option>
+                    </select>
+                </div>
             </div>
 
             <div class="attachment-section">
@@ -192,6 +197,7 @@
         </div>
     </div>
 
+    <script src="errors.js"></script>
     <script src="popup.js"></script>
 </body>
 </html>
