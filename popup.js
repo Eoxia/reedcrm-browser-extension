@@ -424,11 +424,59 @@ document.addEventListener('DOMContentLoaded', () => {
                                 let amountDisplay = project.opp_amount ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(project.opp_amount) : '';
                                 let probDisplay = project.opp_percent ? `${project.opp_percent} %` : '';
 
+                                const opts = project.array_options || {};
+                                const oppNom = opts.options_reedcrm_lastname || '';
+                                const oppPrenom = opts.options_reedcrm_firstname || '';
+                                const oppTel = opts.options_projectphone || '';
+                                const oppEmail = opts.options_reedcrm_email || '';
+                                const oppWebsite = opts.options_reedcrm_website || opts.options_website || project.url || '';
+
+                                let line1Html = '';
+                                const fullName = `${oppPrenom} ${oppNom}`.trim();
+                                if (fullName && oppTel) {
+                                    line1Html = `<span class="copy-able rt-name" data-copy="${fullName}" title="Double clic pour copier">${fullName}</span><span class="rt-sep">&bull;</span><span class="copy-able rt-tel" data-copy="${oppTel}" title="Double clic pour copier">${oppTel}</span>`;
+                                } else if (fullName) {
+                                    line1Html = `<span class="copy-able rt-name" data-copy="${fullName}" title="Double clic pour copier">${fullName}</span>`;
+                                } else if (oppTel) {
+                                    line1Html = `<span class="copy-able rt-tel" data-copy="${oppTel}" title="Double clic pour copier">${oppTel}</span>`;
+                                }
+
+                                let line2Html = '';
+                                const truncInfo = (s) => (s && s.length > 45) ? s.substring(0, 45) + '...' : s;
+                                let displayEmail = truncInfo(oppEmail);
+
+                                if (oppEmail && oppWebsite) {
+                                    let href = oppWebsite.startsWith('http') ? oppWebsite : `https://${oppWebsite}`;
+                                    let domain = oppWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+                                    let displayDomain = truncInfo(domain);
+                                    line2Html = `<span class="rt-email copy-able" data-copy="${oppEmail}" title="Double clic pour copier l'email">${displayEmail}</span><span class="rt-sep">&bull;</span><a href="${href}" target="_blank" class="rt-contact-link rt-website" title="Ouvrir le site internet">${displayDomain}</a>`;
+                                } else if (oppEmail) {
+                                    line2Html = `<span class="rt-email copy-able" data-copy="${oppEmail}" title="Double clic pour copier l'email">${displayEmail}</span>`;
+                                } else if (oppWebsite) {
+                                    let href = oppWebsite.startsWith('http') ? oppWebsite : `https://${oppWebsite}`;
+                                    let domain = oppWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+                                    let displayDomain = truncInfo(domain);
+                                    line2Html = `<a href="${href}" target="_blank" class="rt-contact-link rt-website" title="Ouvrir le site internet">${displayDomain}</a>`;
+                                }
+                                
+                                let contactHtml = '';
+                                if (line1Html !== '' || line2Html !== '') {
+                                    contactHtml = `<div class="rt-contact">`;
+                                    if (line1Html !== '') {
+                                        contactHtml += `<div class="rt-contact-line1">${line1Html}</div>`;
+                                    }
+                                    if (line2Html !== '') {
+                                        contactHtml += `<div class="rt-contact-line2">${line2Html}</div>`;
+                                    }
+                                    contactHtml += `</div>`;
+                                }
+
                                 const html = `
                             <div class="recent-ticket-item">
                                 <div class="rt-left">
                                     <div class="rt-ref" title="Référence">${projectRef}</div>
                                     <div class="rt-subject" title="${project.title || ''}">${subject}</div>
+                                    ${contactHtml}
                                 </div>
                                 <div class="rt-right" style="display: flex; align-items: center; gap: 8px;">
                                     ${(probDisplay || amountDisplay) ? `
@@ -1205,5 +1253,25 @@ document.addEventListener('DOMContentLoaded', () => {
             <p>${fatalError.message}</p>
             <pre style="font-size:10px; overflow:auto; background:#eee; padding:5px;">${fatalError.stack}</pre>
         </div>`;
+    }
+});
+
+document.addEventListener('dblclick', (e) => {
+    if (e.target.classList.contains('copy-able')) {
+        const textToCopy = e.target.getAttribute('data-copy');
+        if (textToCopy) {
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const originalText = e.target.textContent;
+                e.target.textContent = 'Copié !';
+                e.target.style.color = '#27ae60';
+                e.target.style.fontWeight = 'bold';
+                setTimeout(() => {
+                    e.target.textContent = originalText;
+                    e.target.style.color = '';
+                    e.target.style.fontWeight = '';
+                }, 1000);
+            });
+            window.getSelection().removeAllRanges();
+        }
     }
 });

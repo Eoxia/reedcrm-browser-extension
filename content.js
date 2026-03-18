@@ -520,18 +520,42 @@ function saveAndClose() {
 // ==========================================
 
 function injectNextcloudButton() {
-    // Vérifier si on est sur Nextcloud Mail
     if (!window.location.href.includes('/apps/mail/box')) return;
 
-    // Chercher le bouton "Actions" (trois petits points)
-    const actionBtns = document.querySelectorAll('.action-item__menutoggle');
+    // Chercher tous les toggles présents
+    const allActionBtns = Array.from(document.querySelectorAll('.action-item__menutoggle'));
     
-    actionBtns.forEach(btn => {
-        const parent = btn.parentElement;
-        // On s'assure de ne pas l'ajouter deux fois
-        if (!parent || parent.querySelector('.doli-nextcloud-btn')) return;
+    // Le focus demandé par l'utilisateur: supprimer à gauche (navigation), supprimer à droite (lecteur/éditeur)
+    // Ne garder QUE la liste du milieu !
+    const validBtns = allActionBtns.filter(btn => {
+        // Exclure les infobulles popover
+        if (btn.closest('.v-popper__wrapper')) return false;
 
-        // On crée un conteneur global (style dropdown basique de Nextcloud)
+        // 1. Exclure la barre de navigation gauche (Comptes, Dossiers)
+        if (btn.closest('#app-navigation, .app-navigation, .navigation')) return false;
+
+        // 2. Exclure le panneau principal de lecture ou d'édition (situé à droite)
+        if (btn.closest('.app-content-details, .mail-message-container, .message-head, .composer, .mail-composer, .compose-message, form')) return false;
+
+        // Ce qu'il reste est par soustraction la colonne centrale (le listing des mails)
+        return true;
+    });
+
+    // Nettoyage impitoyable des anciens boutons qui auraient pu être injectés dans des zones maintenant interdites
+    document.querySelectorAll('.doli-nextcloud-btn').forEach(doli => {
+        const nextBtn = doli.nextElementSibling;
+        if (!nextBtn || !validBtns.includes(nextBtn)) {
+            doli.remove();
+        }
+    });
+
+    validBtns.forEach(btn => {
+        const parent = btn.parentElement;
+        if (!parent) return;
+
+        const existingDoli = parent.querySelector('.doli-nextcloud-btn');
+        if (existingDoli) return;
+
         const doliContainer = document.createElement('div');
         doliContainer.className = 'doli-nextcloud-btn doli-dropdown-container';
         doliContainer.style.position = 'relative';
@@ -577,40 +601,54 @@ function injectNextcloudButton() {
         dropdown.style.borderRadius = '4px';
         dropdown.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
         dropdown.style.zIndex = '1000';
-        dropdown.style.minWidth = '150px';
-        dropdown.style.padding = '4px 0';
+        dropdown.style.padding = '4px';
+        // Format the dropdown internal layout as side-by-side icons
+        dropdown.style.flexDirection = 'row';
+        dropdown.style.gap = '4px';
+        
+        const actionStyle = `
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        `;
+
+        // L'action: Créer une Opportunité (Icône partage comme mockup utilisateur)
+        const oppAction = document.createElement('div');
+        oppAction.style.cssText = actionStyle;
+        oppAction.title = 'Créer une Opportunité';
+        oppAction.innerHTML = `
+            <svg fill="#6c757d" width="20" height="20" viewBox="0 0 24 24"><path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.92 18,21.92C19.61,21.92 20.92,20.61 20.92,19C20.92,17.39 19.61,16.08 18,16.08Z" /></svg>
+        `;
+        oppAction.addEventListener('mouseenter', () => oppAction.style.backgroundColor = '#f1f5f9');
+        oppAction.addEventListener('mouseleave', () => oppAction.style.backgroundColor = 'transparent');
+        oppAction.addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation(); dropdown.style.display = 'none';
+            extractAndOpenEntity('opportunite', btn);
+        });
 
         // L'action: Créer un ticket
         const ticketAction = document.createElement('div');
-        ticketAction.style.padding = '8px 12px';
-        ticketAction.style.cursor = 'pointer';
-        ticketAction.style.display = 'flex';
-        ticketAction.style.justifyContent = 'center';
-        ticketAction.style.alignItems = 'center';
-        ticketAction.style.color = '#333';
+        ticketAction.style.cssText = actionStyle;
         ticketAction.title = 'Créer un Ticket';
-        
-        // Effet hover simple via JS
-        ticketAction.addEventListener('mouseenter', () => ticketAction.style.backgroundColor = '#f5f5f5');
-        ticketAction.addEventListener('mouseleave', () => ticketAction.style.backgroundColor = 'transparent');
-
-        // Icône Ticket avec un + (pas de texte)
         ticketAction.innerHTML = `
-            <svg fill="#95ecbf" width="20" height="20" viewBox="0 0 24 24"><path d="M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z"></path></svg>
+            <svg fill="#38b2ac" width="20" height="20" viewBox="0 0 24 24"><path d="M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z"></path></svg>
         `;
-
+        ticketAction.addEventListener('mouseenter', () => ticketAction.style.backgroundColor = '#f1f5f9');
+        ticketAction.addEventListener('mouseleave', () => ticketAction.style.backgroundColor = 'transparent');
         ticketAction.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropdown.style.display = 'none'; // Ferme le menu
-            extractAndOpenTicket();
+            e.preventDefault(); e.stopPropagation(); dropdown.style.display = 'none';
+            extractAndOpenEntity('ticket', btn);
         });
 
         // Toggle simple du menu
         mainBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+            dropdown.style.display = dropdown.style.display === 'none' ? 'flex' : 'none';
         });
 
         // Fermer le menu si on clique ailleurs dans la page
@@ -621,6 +659,7 @@ function injectNextcloudButton() {
         });
 
         // Assemblage
+        dropdown.appendChild(oppAction);
         dropdown.appendChild(ticketAction);
         doliContainer.appendChild(mainBtn);
         doliContainer.appendChild(dropdown);
@@ -630,35 +669,46 @@ function injectNextcloudButton() {
     });
 }
 
-function extractAndOpenTicket() {
+function extractAndOpenEntity(activeTab, triggerBtn) {
     let subject = "";
     let message = "";
 
-    // 1. Extraction du sujet (Nextcloud utilise diverses classes selon les versions, on ratisse large)
-    // Pour éviter d'attraper les titres de la barre latérale (.subject etc.), on teste les sélecteurs par ordre de pertinence.
-    const selectors = [
-        '#mail-thread-header-fields h2',
-        '#mail-thread-header h2',
-        '.message-head__subject',
-        '.thread-message__subject',
-        'h1.message-subject',
-        '.envelope__subject',
-        '.subject'
-    ];
-    
-    let subjectEl = null;
-    for (const sel of selectors) {
-        subjectEl = document.querySelector(sel);
-        if (subjectEl) break;
+    // 1. Si déclenché depuis un bouton dans le listing, on extrait d'abord le texte de la ligne correspondante
+    if (triggerBtn) {
+        const listItem = triggerBtn.closest('li, .app-content-list-item, .list-item, .envelope');
+        if (listItem) {
+            const subjectEl = listItem.querySelector('.app-content-list-item-line-one, .title, .subject, .envelope__subject');
+            if (subjectEl) subject = subjectEl.innerText.trim();
+
+            const previewEl = listItem.querySelector('.app-content-list-item-line-two, .preview, .envelope__preview, .subtitle');
+            if (previewEl) message = previewEl.innerText.trim();
+        }
     }
 
-    if (subjectEl) {
-        // Nettoyer le texte (ignorer d'éventuels badges span internes)
-        subject = subjectEl.innerText.trim();
-    } else {
-        // Fallback: chercher dans le fil d'ariane ou le titre de la vue principale
-        const altSubject = document.querySelector('.app-content-list-item.active .app-content-list-item-line-one, .mail-message-header .title');
-        if (altSubject) subject = altSubject.innerText.trim();
+    // 2. Fallbacks de vue principale (au cas où, mais moins utilisé maintenant que le bouton est juste dans la liste)
+    if (!subject) {
+        const selectors = [
+            '#mail-thread-header-fields h2',
+            '#mail-thread-header h2',
+            '.message-head__subject',
+            '.thread-message__subject',
+            'h1.message-subject',
+            '.envelope__subject',
+            '.subject'
+        ];
+        
+        let subjectEl = null;
+        for (const sel of selectors) {
+            subjectEl = document.querySelector(sel);
+            if (subjectEl) break;
+        }
+
+        if (subjectEl) {
+            subject = subjectEl.innerText.trim();
+        } else {
+            const altSubject = document.querySelector('.app-content-list-item.active .app-content-list-item-line-one, .mail-message-header .title');
+            if (altSubject) subject = altSubject.innerText.trim();
+        }
     }
 
     // 2. Extraction du corps (parfois iframe texte riche, ou div text brut)
@@ -672,22 +722,181 @@ function extractAndOpenTicket() {
         }
     }
 
+    const defaultSubject = activeTab === 'opportunite' ? 'Nouvelle opp. depuis Nextcloud' : 'Nouveau ticket depuis Nextcloud';
+
     // Sauvegarde en local pour que le popup le récupère et s'ouvre
     chrome.storage.local.set({ 
-        doliPrefillSubject: subject || 'Nouveau ticket depuis Nextcloud',
+        doliActiveTab: activeTab,
+        doliPrefillSubject: subject || defaultSubject,
         doliPrefillMessage: message || 'Contenu de l\'e-mail introuvable. Veuillez copier/coller le texte ici.'
     }, () => {
         chrome.runtime.sendMessage({ action: "OPEN_EXTENSION_POPUP" });
     });
 }
 
-// Observer DOM pour détecter quand Nextcloud navigue d'un email à l'autre (Vue.js change le DOM sans recharger la page)
-const nextcloudObserver = new MutationObserver(() => {
+// ==========================================
+// INTÉGRATION GMAIL
+// ==========================================
+
+function injectGmailButton() {
+    if (!window.location.href.includes('mail.google.com')) return;
+
+    // Gmail utilise des sélecteurs ARIA robustes. L'action bar au survol est un [role="toolbar"]
+    const rows = document.querySelectorAll('tr[role="row"]');
+    
+    rows.forEach(row => {
+        const toolbar = row.querySelector('[role="toolbar"]');
+        if (!toolbar) return; // Si la ligne n'a pas sa barre d'actions visible/génerée
+        
+        // On s'assure de ne pas l'ajouter deux fois
+        if (toolbar.querySelector('.doli-gmail-btn')) return;
+
+        // Container global sous forme de tag <li> (standard de la toolbar Gmail)
+        const doliContainer = document.createElement('li');
+        doliContainer.className = 'doli-gmail-btn doli-dropdown-container bqX';
+        doliContainer.style.position = 'relative';
+        doliContainer.style.display = 'flex';
+        doliContainer.style.alignItems = 'center';
+        doliContainer.style.marginRight = '10px';
+        doliContainer.style.zIndex = '100';
+
+        // Bouton principal "ReedCRM"
+        const mainBtn = document.createElement('button');
+        mainBtn.style.display = 'inline-flex';
+        mainBtn.style.alignItems = 'center';
+        mainBtn.style.justifyContent = 'center';
+        mainBtn.style.gap = '6px';
+        mainBtn.style.padding = '0 10px';
+        mainBtn.style.backgroundColor = '#084B54'; 
+        mainBtn.style.color = '#ffffff'; 
+        mainBtn.style.borderRadius = '20px'; 
+        mainBtn.style.border = 'none';
+        mainBtn.style.fontWeight = '600';
+        mainBtn.style.fontSize = '12px';
+        mainBtn.style.cursor = 'pointer';
+        mainBtn.style.height = '24px'; 
+        mainBtn.style.minHeight = '24px'; 
+        mainBtn.title = "Actions ReedCRM";
+        
+        mainBtn.addEventListener('mouseenter', () => mainBtn.style.opacity = '0.9');
+        mainBtn.addEventListener('mouseleave', () => mainBtn.style.opacity = '1');
+        mainBtn.innerHTML = `<span style="color: #ffffff;">ReedCRM ▼</span>`;
+
+        // Menu déroulant
+        const dropdown = document.createElement('div');
+        dropdown.className = 'doli-dropdown-menu';
+        dropdown.style.display = 'none';
+        dropdown.style.position = 'absolute';
+        dropdown.style.top = '100%';
+        dropdown.style.right = '0'; // Positionnement vers la gauche
+        dropdown.style.backgroundColor = 'white';
+        dropdown.style.border = '1px solid #ddd';
+        dropdown.style.borderRadius = '4px';
+        dropdown.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+        dropdown.style.padding = '4px';
+        dropdown.style.flexDirection = 'row';
+        dropdown.style.gap = '4px';
+        dropdown.style.marginTop = '4px';
+        
+        const actionStyle = `
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        `;
+
+        // Action: Créer Opportunité
+        const oppAction = document.createElement('div');
+        oppAction.style.cssText = actionStyle;
+        oppAction.title = 'Créer une Opportunité';
+        oppAction.innerHTML = `
+            <svg fill="#6c757d" width="20" height="20" viewBox="0 0 24 24"><path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.92 18,21.92C19.61,21.92 20.92,20.61 20.92,19C20.92,17.39 19.61,16.08 18,16.08Z" /></svg>
+        `;
+        oppAction.addEventListener('mouseenter', () => oppAction.style.backgroundColor = '#f1f5f9');
+        oppAction.addEventListener('mouseleave', () => oppAction.style.backgroundColor = 'transparent');
+        oppAction.addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation(); dropdown.style.display = 'none';
+            extractAndOpenGmailEntity('opportunite', row);
+        });
+
+        // Action: Créer Ticket
+        const ticketAction = document.createElement('div');
+        ticketAction.style.cssText = actionStyle;
+        ticketAction.title = 'Créer un Ticket';
+        ticketAction.innerHTML = `
+            <svg fill="#38b2ac" width="20" height="20" viewBox="0 0 24 24"><path d="M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z"></path></svg>
+        `;
+        ticketAction.addEventListener('mouseenter', () => ticketAction.style.backgroundColor = '#f1f5f9');
+        ticketAction.addEventListener('mouseleave', () => ticketAction.style.backgroundColor = 'transparent');
+        ticketAction.addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation(); dropdown.style.display = 'none';
+            extractAndOpenGmailEntity('ticket', row);
+        });
+
+        // Event Toggle Dropdown
+        mainBtn.addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            dropdown.style.display = dropdown.style.display === 'none' ? 'flex' : 'none';
+        });
+
+        // Close dropdown on outside click
+        document.addEventListener('click', (e) => {
+            if (!doliContainer.contains(e.target)) dropdown.style.display = 'none';
+        });
+
+        // DOM Appends
+        dropdown.appendChild(oppAction);
+        dropdown.appendChild(ticketAction);
+        doliContainer.appendChild(mainBtn);
+        doliContainer.appendChild(dropdown);
+
+        // Inject as FIRST item in toolbar so standard Gmail actions persist on right
+        toolbar.insertBefore(doliContainer, toolbar.firstChild);
+    });
+}
+
+function extractAndOpenGmailEntity(activeTab, row) {
+    let subject = "";
+    let message = "";
+
+    if (row) {
+        // Extraction native Gmail du Sujet
+        const subjectEl = row.querySelector('.bog, .bqe, [data-thread-id]');
+        if (subjectEl) subject = subjectEl.innerText.trim();
+
+        // Extraction native Gmail du Snippet/Aperçu
+        const snippetEl = row.querySelector('.y2');
+        if (snippetEl) {
+            message = snippetEl.innerText.replace(/^-/, '').trim();
+        }
+    }
+
+    const defaultSubject = activeTab === 'opportunite' ? 'Nouvelle opp. depuis Gmail' : 'Nouveau ticket depuis Gmail';
+
+    chrome.storage.local.set({ 
+        doliActiveTab: activeTab,
+        doliPrefillSubject: subject || defaultSubject,
+        doliPrefillMessage: message || 'Aperçu indisponible. Veuillez détailler.'
+    }, () => {
+        chrome.runtime.sendMessage({ action: "OPEN_EXTENSION_POPUP" });
+    });
+}
+
+// Observer DOM unifié (multisites)
+const mailObserver = new MutationObserver(() => {
     if (window.location.href.includes('/apps/mail/box')) {
         injectNextcloudButton();
+    } else if (window.location.href.includes('mail.google.com')) {
+        injectGmailButton();
     }
 });
-nextcloudObserver.observe(document.body, { childList: true, subtree: true });
+mailObserver.observe(document.body, { childList: true, subtree: true });
 
 // Lancement initial
-setTimeout(injectNextcloudButton, 1500);
+setTimeout(() => {
+    if (window.location.href.includes('/apps/mail/box')) injectNextcloudButton();
+    else if (window.location.href.includes('mail.google.com')) injectGmailButton();
+}, 1500);

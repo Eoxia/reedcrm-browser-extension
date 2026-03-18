@@ -489,7 +489,7 @@ button:disabled {
 
 /* RECENT TICKETS DASHBOARD */
 .recent-list {
-    margin: 20px 15px 15px 15px;
+    margin: 20px 0 15px 0;
     border-top: 1px solid #e2e8f0;
     padding-top: 15px;
 }
@@ -546,6 +546,72 @@ button:disabled {
     overflow: hidden;
     text-overflow: ellipsis;
     width: 100%;
+}
+
+.rt-contact {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 3px;
+    width: 100%;
+}
+
+.rt-contact-line1 {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    margin-top: 1px;
+}
+
+.rt-contact-line2 {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.rt-email, .rt-name, .rt-tel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 0 1 auto;
+}
+
+.rt-sep {
+    flex-shrink: 0;
+    margin: 0 6px;
+    color: #cbd5e1;
+}
+
+.rt-website {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 0 1 auto;
+}
+
+.copy-able {
+    cursor: pointer;
+    transition: color 0.2s, font-weight 0.2s;
+}
+
+.copy-able:hover {
+    color: #3498db;
+}
+
+.copy-able:active {
+    opacity: 0.7;
+}
+
+.rt-contact-link {
+    color: #0ea5e9;
+    text-decoration: none;
+}
+
+.rt-contact-link:hover {
+    text-decoration: underline;
 }
 
 .rt-stats {
