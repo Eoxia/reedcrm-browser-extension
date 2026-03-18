@@ -751,9 +751,9 @@ function injectGmailButton() {
         // On s'assure de ne pas l'ajouter deux fois
         if (toolbar.querySelector('.doli-gmail-btn')) return;
 
-        // Container global sous forme de tag <li> (standard de la toolbar Gmail)
+        // Container global sous forme de tag <li>
         const doliContainer = document.createElement('li');
-        doliContainer.className = 'doli-gmail-btn doli-dropdown-container bqX';
+        doliContainer.className = 'doli-gmail-btn doli-dropdown-container';
         doliContainer.style.position = 'relative';
         doliContainer.style.display = 'flex';
         doliContainer.style.alignItems = 'center';
