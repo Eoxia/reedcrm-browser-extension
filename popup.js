@@ -251,22 +251,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             assigneeSelect.appendChild(option);
                         });
+                        
+                        if (!window.ticketAssigneeSelect) window.ticketAssigneeSelect = new CustomSelect(assigneeSelect);
+                        else window.ticketAssigneeSelect.update();
+                        
+                        return activeUsers;
                     }
-                    // Initialiser ou mettre à jour la custom box sur l'élément tickets
-                    if (!window.ticketAssigneeSelect) {
-                        window.ticketAssigneeSelect = new CustomSelect(assigneeSelect);
-                    } else {
-                        window.ticketAssigneeSelect.update();
-                    }
+                    if (!window.ticketAssigneeSelect) window.ticketAssigneeSelect = new CustomSelect(assigneeSelect);
+                    else window.ticketAssigneeSelect.update();
+                    return [];
 
                 } else {
                     assigneeSelect.innerHTML = '<option value="">Erreur chargement utilisateurs</option>';
                     if (window.ticketAssigneeSelect) window.ticketAssigneeSelect.update();
+                    return [];
                 }
             } catch (error) {
                 console.error("Erreur fetch users:", error);
                 assigneeSelect.innerHTML = '<option value="">Impossible de charger les utilisateurs</option>';
                 if (window.ticketAssigneeSelect) window.ticketAssigneeSelect.update();
+                return [];
             }
         }
 
@@ -377,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Fonction pour charger les dernières opportunités (Projets)
-        async function loadRecentOpportunities(apiUrl, token, limit = 10, entity, doliOppOnly = true) {
+        async function loadRecentOpportunities(apiUrl, token, limit = 10, entity, doliOppOnly = true, usersPromise = null) {
             recentOppContainer.classList.remove('hidden');
             recentOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Chargement des opportunités...</div>`;
 
@@ -408,6 +412,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (oppProjects.length > 0) {
                             recentOppList.innerHTML = ''; // Nettoyer
                             const sortedProjects = oppProjects.sort((a, b) => b.date_c - a.date_c).slice(0, limit);
+                            
+                            let usersList = [];
+                            if (usersPromise) {
+                                try { usersList = await usersPromise || []; } catch(e) { console.error("Erreur attente users dans opp", e); }
+                            }
 
                             sortedProjects.forEach(project => {
                                 let subject = project.title || project.ref || "Projet sans titre";
@@ -420,9 +429,28 @@ document.addEventListener('DOMContentLoaded', () => {
                                 else if (stat === "2") statusColor = "#7f8c8d"; // Clôturé
 
                                 const projectRef = project.ref || `PROJ #${project.id}`;
+                                
+                                let dateCStr = "";
+                                if (project.date_c) {
+                                    const d = new Date(project.date_c * 1000);
+                                    dateCStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                                }
+                                
+                                let initials = "?";
+                                if (project.user_author_id) {
+                                    const u = usersList.find(u => u.id == project.user_author_id);
+                                    if (u) {
+                                        const parts = [u.firstname, u.lastname].filter(Boolean);
+                                        if (parts.length >= 2) initials = parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase();
+                                        else if (parts.length === 1) initials = parts[0].substring(0, 2).toUpperCase();
+                                        else if (u.login) initials = u.login.substring(0, 2).toUpperCase();
+                                    } else {
+                                        initials = `U${project.user_author_id}`;
+                                    }
+                                }
 
                                 let amountDisplay = project.opp_amount ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(project.opp_amount) : '';
-                                let probDisplay = project.opp_percent ? `${project.opp_percent} %` : '';
+                                let probDisplay = project.opp_percent ? `${Math.round(parseFloat(project.opp_percent))} %` : '';
 
                                 const opts = project.array_options || {};
                                 const oppNom = opts.options_reedcrm_lastname || '';
@@ -471,12 +499,31 @@ document.addEventListener('DOMContentLoaded', () => {
                                     contactHtml += `</div>`;
                                 }
 
+                                // Intégration du Player Audio depuis l'extrafield "Vocal" ou directement depuis l'API
+                                let extraPlayerHtml = '';
+                                const vocalVal = project.vocal_file || project.vocal || opts.options_vocal || opts.options_reedcrm_vocal || opts.options_fichier_vocal || '';
+                                if (vocalVal) {
+                                    // Si c'est une URL externe complète (ex: lien Aircall/3CX)
+                                    if (vocalVal.startsWith('http')) {
+                                        extraPlayerHtml = `<div style="margin-top: 4px;"><audio controls src="${vocalVal}" style="height: 25px; width: 100%; max-width: 250px; outline: none; border-radius: 20px; background: #f1f5f9;"></audio></div>`;
+                                    } else {
+                                        // Si c'est juste un nom de fichier stocké dans l'attribut supplémentaire, on préparera un slot pour le chargeur asynchrone
+                                        extraPlayerHtml = `<div id="vocal-slot-${project.id}" data-filename="${vocalVal}"></div>`;
+                                    }
+                                }
+
                                 const html = `
                             <div class="recent-ticket-item">
                                 <div class="rt-left">
-                                    <div class="rt-ref" title="Référence">${projectRef}</div>
+                                    <div class="rt-ref-group" style="display: flex; align-items: center; gap: 6px;">
+                                        <div class="rt-ref" title="Référence">${projectRef}</div>
+                                        ${dateCStr ? `<span class="rt-sep">&bull;</span><div style="font-size: 10px; color: #888;">${dateCStr}</div>` : ''}
+                                        ${initials !== "?" ? `<span class="rt-sep">&bull;</span><div style="font-size: 9px; background: #e2e8f0; color: #475569; padding: 1px 4px; border-radius: 4px;" title="Créé par">#${initials}</div>` : ''}
+                                    </div>
                                     <div class="rt-subject" title="${project.title || ''}">${subject}</div>
                                     ${contactHtml}
+                                    ${extraPlayerHtml}
+                                    <div id="audio-slot-${project.id}"></div>
                                 </div>
                                 <div class="rt-right" style="display: flex; align-items: center; gap: 8px;">
                                     ${(probDisplay || amountDisplay) ? `
@@ -492,6 +539,57 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                             </div>`;
                                 recentOppList.insertAdjacentHTML('beforeend', html);
+
+                                // Recherche asynchrone pointue d'un fichier audio ciblé par l'extrafield ou la liste des documents joints
+                                setTimeout(async () => {
+                                    try {
+                                        let targetFileName = null;
+                                        const vocalSlot = document.getElementById(`vocal-slot-${project.id}`);
+                                        if (vocalSlot && vocalSlot.dataset.filename) {
+                                            targetFileName = vocalSlot.dataset.filename; // Venant de opts.options_vocal
+                                        }
+                                        
+                                        // Scan asynchrone du dossier projet par la route REST si pas d'extrafield défini
+                                        if (!targetFileName) {
+                                            const docRes = await fetch(`${apiUrl}/documents?modulepart=project&id=${project.id}`, { headers: headers });
+                                            if (docRes.ok) {
+                                                const docs = await docRes.json();
+                                                if (Array.isArray(docs)) {
+                                                    const audioDoc = docs.find(d => {
+                                                        const n = d.name.toLowerCase();
+                                                        return n.endsWith('.wav') || n.endsWith('.mp3') || n.endsWith('.m4a');
+                                                    });
+                                                    if (audioDoc) targetFileName = audioDoc.name;
+                                                }
+                                            }
+                                        }
+
+                                        if (targetFileName) {
+                                            const slot = vocalSlot || document.getElementById(`audio-slot-${project.id}`);
+                                            if (slot) {
+                                                const playerStyle = 'height: 25px; width: 100%; max-width: 250px; outline: none; margin-top: 6px; border-radius: 20px; background: #f1f5f9;';
+                                                
+                                                // Approche 1: Téléchargement du fichier sous forme de flux Base64 par l'API
+                                                const dlRes = await fetch(`${apiUrl}/documents/download?modulepart=project&original_file=${encodeURIComponent(project.ref + '/' + targetFileName)}`, { headers: headers });
+                                                if (dlRes.ok) {
+                                                    const dlJson = await dlRes.json();
+                                                    if (dlJson && dlJson.content) {
+                                                        const mime = targetFileName.toLowerCase().endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav';
+                                                        const dataUri = `data:${mime};base64,${dlJson.content}`;
+                                                        slot.innerHTML = `<audio controls src="${dataUri}" style="${playerStyle}" controlslist="nodownload"></audio>`;
+                                                        return; // Succès
+                                                    }
+                                                }
+                                                
+                                                // Approche 2 (Fallback absolu): Streaming HTTPS direct depuis le serveur WAMP (nécessite une session, ce qui est validé sur la machine locale chrome)
+                                                const doliRoot = apiUrl.replace(/\/api\/index\.php\/?$/, '').replace(/\/htdocs\/api\/index\.php\/?$/, '/htdocs');
+                                                const fallbackUrl = `${doliRoot}/document.php?modulepart=projet&file=${encodeURIComponent(project.ref + '/' + targetFileName)}`;
+                                                slot.innerHTML = `<audio controls src="${fallbackUrl}" style="${playerStyle}" controlslist="nodownload"></audio>`;
+                                            }
+                                        }
+                                    } catch(e) { console.error("Audio Load Error", e); }
+                                }, 150 + (limit * 5)); // Léger délai décalé
+
                             });
                         } else {
                             recentOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunité trouvée.</div>`;
@@ -565,7 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Fetch les derniers tickets avec la limite choisie par l'utilisateur (défaut: 10)
                 const recentLimit = items.doliRecentCount !== undefined ? parseInt(items.doliRecentCount, 10) || 10 : 10;
                 loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity);
-                loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly);
+                loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly, usersPromise);
 
                 // Optionnel: copier les assignees dans le select opp s'il se charge 
                 const setupOppAssignees = () => {

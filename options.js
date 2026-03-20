@@ -406,6 +406,17 @@ document.addEventListener('DOMContentLoaded', () => {
         btnTest.textContent = "🔌 Tester";
     });
 });
+// Gestion du slider de floutage
+document.getElementById('doli-blur').addEventListener('input', (e) => {
+    const val = e.target.value;
+    document.getElementById('doli-blur-value').textContent = val + 'px';
+    
+    const overlay = document.getElementById('doli-blur-overlay');
+    if (overlay) {
+        overlay.style.backdropFilter = `blur(${val}px)`;
+        overlay.style.webkitBackdropFilter = `blur(${val}px)`;
+    }
+});
 
 // Sauvegarde les options
 document.getElementById('save-btn').addEventListener('click', async () => {

@@ -885,18 +885,582 @@ function extractAndOpenGmailEntity(activeTab, row) {
     });
 }
 
+function injectGmailReadButton() {
+    if (!window.location.href.includes('mail.google.com')) return;
+
+    // Détection d'un email ouvert via le titre principal
+    const subjectEl = document.querySelector('h2.hP');
+    if (!subjectEl) return;
+
+    // Cibler la barre d'action de l'en-tête du message courant (Date, Etoile, Répondre)
+    let toolbar = null;
+    // .gK est la classe native Gmail pour cet emplacement (en haut à droite du message individuel)
+    const gkElements = document.querySelectorAll('.gK');
+    if (gkElements.length > 0) {
+        // Prendre le dernier message ouvert dans le fil (celui avec lequel on interagit)
+        toolbar = gkElements[gkElements.length - 1];
+    } else {
+        // Fallback sécurisé : chercher la petite flèche répondre de l'en-tête
+        const headerActions = document.querySelectorAll('div[data-tooltip="Répondre"], div[data-tooltip="Reply"], div[aria-label="Répondre"], div[aria-label="Reply"]');
+        for (let i = headerActions.length - 1; i >= 0; i--) {
+            const btn = headerActions[i];
+            // S'assurer qu'il s'agit du petit icône d'action en-tête et non du gros bouton bas
+            if (btn.offsetHeight > 0 && btn.offsetHeight < 30) {
+                let parent = btn.parentElement;
+                while (parent && parent !== document.body) {
+                    const style = window.getComputedStyle(parent);
+                    if (style.display === 'flex' || style.display === 'inline-flex') {
+                        toolbar = parent;
+                        break;
+                    }
+                    parent = parent.parentElement;
+                }
+                if (toolbar) break;
+            }
+        }
+    }
+
+    if (!toolbar) return; // Sécurité si conteneur non trouvé
+
+
+    if (toolbar.querySelector('.doli-gmail-read-btn')) return;
+
+    const doliContainer = document.createElement('div');
+    doliContainer.className = 'doli-gmail-read-btn doli-dropdown-container';
+    doliContainer.style.position = 'relative';
+    doliContainer.style.display = 'inline-flex';
+    doliContainer.style.alignItems = 'center';
+    doliContainer.style.marginRight = '15px';
+    doliContainer.style.zIndex = '100';
+
+    const mainBtn = document.createElement('button');
+    mainBtn.style.display = 'inline-flex';
+    mainBtn.style.alignItems = 'center';
+    mainBtn.style.justifyContent = 'center';
+    mainBtn.style.gap = '6px';
+    mainBtn.style.padding = '0 10px';
+    mainBtn.style.backgroundColor = '#084B54'; 
+    mainBtn.style.color = '#ffffff'; 
+    mainBtn.style.borderRadius = '20px'; 
+    mainBtn.style.border = 'none';
+    mainBtn.style.fontWeight = '600';
+    mainBtn.style.fontSize = '12px';
+    mainBtn.style.cursor = 'pointer';
+    mainBtn.style.height = '24px'; 
+    mainBtn.style.minHeight = '24px'; 
+    mainBtn.title = "Actions globales ReedCRM";
+    
+    mainBtn.addEventListener('mouseenter', () => mainBtn.style.opacity = '0.9');
+    mainBtn.addEventListener('mouseleave', () => mainBtn.style.opacity = '1');
+    mainBtn.innerHTML = `<span style="color: #ffffff;">ReedCRM ▼</span>`;
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'doli-dropdown-menu';
+    dropdown.style.display = 'none';
+    dropdown.style.position = 'absolute';
+    dropdown.style.top = '100%';
+    dropdown.style.right = '0';
+    dropdown.style.backgroundColor = 'white';
+    dropdown.style.border = '1px solid #ddd';
+    dropdown.style.borderRadius = '4px';
+    dropdown.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+    dropdown.style.padding = '4px';
+    dropdown.style.flexDirection = 'row';
+    dropdown.style.gap = '4px';
+    dropdown.style.marginTop = '4px';
+    
+    const actionStyle = `
+        padding: 8px 12px;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    `;
+
+    const oppAction = document.createElement('div');
+    oppAction.style.cssText = actionStyle;
+    oppAction.title = 'Créer une Opportunité depuis ce fil';
+    oppAction.innerHTML = `<svg fill="#6c757d" width="20" height="20" viewBox="0 0 24 24"><path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.92 18,21.92C19.61,21.92 20.92,20.61 20.92,19C20.92,17.39 19.61,16.08 18,16.08Z" /></svg>`;
+    oppAction.addEventListener('mouseenter', () => oppAction.style.backgroundColor = '#f1f5f9');
+    oppAction.addEventListener('mouseleave', () => oppAction.style.backgroundColor = 'transparent');
+    oppAction.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation(); dropdown.style.display = 'none';
+        extractAndOpenGmailReadEntity('opportunite');
+    });
+
+    const ticketAction = document.createElement('div');
+    ticketAction.style.cssText = actionStyle;
+    ticketAction.title = 'Créer un Ticket depuis ce fil';
+    ticketAction.innerHTML = `<svg fill="#38b2ac" width="20" height="20" viewBox="0 0 24 24"><path d="M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z"></path></svg>`;
+    ticketAction.addEventListener('mouseenter', () => ticketAction.style.backgroundColor = '#f1f5f9');
+    ticketAction.addEventListener('mouseleave', () => ticketAction.style.backgroundColor = 'transparent');
+    ticketAction.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation(); dropdown.style.display = 'none';
+        extractAndOpenGmailReadEntity('ticket');
+    });
+
+    mainBtn.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        dropdown.style.display = dropdown.style.display === 'none' ? 'flex' : 'none';
+    });
+    document.addEventListener('click', (e) => {
+        if (!doliContainer.contains(e.target)) dropdown.style.display = 'none';
+    });
+
+    dropdown.appendChild(oppAction);
+    dropdown.appendChild(ticketAction);
+    doliContainer.appendChild(mainBtn);
+    doliContainer.appendChild(dropdown);
+
+    toolbar.insertBefore(doliContainer, toolbar.firstChild);
+}
+
+function extractAndOpenGmailReadEntity(activeTab) {
+    let subject = "";
+    let message = "";
+
+    const subjectEl = document.querySelector('h2.hP');
+    if (subjectEl) subject = subjectEl.innerText.trim();
+
+    // Rapatrier le corps du dernier message du fil
+    const messageEls = document.querySelectorAll('.a3s');
+    if (messageEls.length > 0) {
+        // Le dernier élément visible .a3s correspond souvent au message en cours de lecture
+        const lastMsg = Array.from(messageEls).filter(el => el.offsetParent !== null).pop();
+        if (lastMsg) message = lastMsg.innerText.trim();
+    }
+
+    const defaultSubject = activeTab === 'opportunite' ? 'Nouvelle opp. depuis Gmail' : 'Nouveau ticket depuis Gmail';
+
+    chrome.storage.local.set({ 
+        doliActiveTab: activeTab,
+        doliPrefillSubject: subject || defaultSubject,
+        doliPrefillMessage: message || ''
+    }, () => {
+        chrome.runtime.sendMessage({ action: "OPEN_EXTENSION_POPUP" });
+    });
+}
+
+function injectOutlookButton() { /* Omitté car instable, remplace par readButton */ }
+function injectOutlookReadButton() {
+    if (!window.location.href.includes('outlook.live.com') && !window.location.href.includes('outlook.office.com') && !window.location.href.includes('outlook.office365.com')) return;
+
+    const toolbars = document.querySelectorAll('.fui-Toolbar, [role="toolbar"]');
+    
+    toolbars.forEach(toolbar => {
+        if (toolbar.querySelector('.doli-outlook-read-btn')) return;
+
+        // La vérification via innerHTML permet de contourner les balises exotiques, les divs, spans, titles, ou aria-labels
+        const htmlContent = toolbar.innerHTML.toLowerCase();
+        const isMailToolbar = htmlContent.includes('répondre') || htmlContent.includes('reply') || 
+                              htmlContent.includes('transférer') || htmlContent.includes('forward');
+                              
+        if (!isMailToolbar) return;
+
+        const doliContainer = document.createElement('div');
+        doliContainer.className = 'doli-outlook-read-btn doli-dropdown-container';
+    
+    doliContainer.style.position = 'relative';
+    doliContainer.style.display = 'inline-flex';
+    doliContainer.style.alignItems = 'center';
+    doliContainer.style.marginRight = '8px';
+    doliContainer.style.zIndex = '50';
+
+    const mainBtn = document.createElement('button');
+    mainBtn.style.display = 'inline-flex';
+    mainBtn.style.alignItems = 'center';
+    mainBtn.style.justifyContent = 'space-between';
+    mainBtn.style.padding = '0 10px';
+    mainBtn.style.width = '95px'; 
+    mainBtn.style.flexShrink = '0';
+    mainBtn.style.backgroundColor = '#084B54'; 
+    mainBtn.style.color = '#ffffff'; 
+    mainBtn.style.borderRadius = '10px'; 
+    mainBtn.style.border = 'none';
+    mainBtn.style.fontWeight = '600';
+    mainBtn.style.fontSize = '11px';
+    mainBtn.style.cursor = 'pointer';
+    mainBtn.style.height = '24px'; 
+    mainBtn.style.minHeight = '24px'; 
+    mainBtn.style.whiteSpace = 'nowrap';
+    mainBtn.title = "Actions ReedCRM";
+    
+    mainBtn.addEventListener('mouseenter', () => mainBtn.style.opacity = '0.9');
+    mainBtn.addEventListener('mouseleave', () => mainBtn.style.opacity = '1');
+    mainBtn.innerHTML = `<span style="color: #ffffff;">ReedCRM</span><span style="color: #ffffff; font-size: 8px; margin-top: 1px;">▼</span>`;
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'doli-dropdown-menu';
+    dropdown.style.display = 'none';
+    dropdown.style.position = 'absolute';
+    dropdown.style.top = '100%';
+    dropdown.style.right = '0';
+    dropdown.style.backgroundColor = 'white';
+    dropdown.style.border = '1px solid #ddd';
+    dropdown.style.borderRadius = '4px';
+    dropdown.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+    dropdown.style.padding = '4px';
+    dropdown.style.flexDirection = 'column';
+    dropdown.style.gap = '4px';
+    dropdown.style.marginTop = '4px';
+    
+    const actionStyle = `
+        padding: 8px 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 4px;
+        font-size: 13px;
+        color: #333;
+        white-space: nowrap;
+        transition: background-color 0.2s;
+    `;
+
+    const oppAction = document.createElement('div');
+    oppAction.style.cssText = actionStyle;
+    oppAction.title = 'Créer une Opportunité depuis ce mail';
+    oppAction.innerHTML = '<svg fill="#6c757d" width="16" height="16" viewBox="0 0 24 24"><path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.92 18,21.92C19.61,21.92 20.92,20.61 20.92,19C20.92,17.39 19.61,16.08 18,16.08Z" /></svg> Opportunité';
+    oppAction.addEventListener('mouseenter', () => oppAction.style.backgroundColor = '#f1f5f9');
+    oppAction.addEventListener('mouseleave', () => oppAction.style.backgroundColor = 'transparent');
+    
+    const handleOpp = (e) => {
+        e.preventDefault(); e.stopPropagation(); dropdown.style.display = 'none';
+        extractAndOpenOutlookReadEntity('opportunite');
+    };
+    oppAction.addEventListener('click', handleOpp);
+
+    const ticketAction = document.createElement('div');
+    ticketAction.style.cssText = actionStyle;
+    ticketAction.title = 'Créer un Ticket depuis ce mail';
+    ticketAction.innerHTML = '<svg fill="#38b2ac" width="16" height="16" viewBox="0 0 24 24"><path d="M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z"></path></svg> Ticket';
+    ticketAction.addEventListener('mouseenter', () => ticketAction.style.backgroundColor = '#f1f5f9');
+    ticketAction.addEventListener('mouseleave', () => ticketAction.style.backgroundColor = 'transparent');
+    
+    const handleTicket = (e) => {
+        e.preventDefault(); e.stopPropagation(); dropdown.style.display = 'none';
+        extractAndOpenOutlookReadEntity('ticket');
+    };
+    ticketAction.addEventListener('click', handleTicket);
+
+    const handleMain = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        document.querySelectorAll('.doli-dropdown-menu').forEach(el => {
+            if (el !== dropdown) el.style.display = 'none';
+        });
+        dropdown.style.display = dropdown.style.display === 'none' ? 'flex' : 'none';
+    };
+    mainBtn.addEventListener('click', handleMain);
+    
+    document.addEventListener('click', (e) => {
+        if (!doliContainer.contains(e.target)) dropdown.style.display = 'none';
+    });
+
+    dropdown.appendChild(oppAction);
+    dropdown.appendChild(ticketAction);
+    doliContainer.appendChild(mainBtn);
+    doliContainer.appendChild(dropdown);
+
+        // Insertion juste avent la toolbar
+        toolbar.insertBefore(doliContainer, toolbar.firstChild);
+    });
+}
+
+function extractAndOpenOutlookReadEntity(activeTab) {
+    let subject = "";
+    let message = "";
+
+    if (document.title) {
+        subject = document.title.split(' - ')[0];
+    }
+    
+    const bodyElement = document.querySelector('div[aria-label="Corps du message"], div[aria-label="Message body"]');
+    if (bodyElement) {
+        message = bodyElement.innerText.substring(0, 500);
+    } else {
+        message = "Corps de l'e-mail non lisible directement.";
+    }
+
+    const defaultSubject = activeTab === 'opportunite' ? 'Nouvelle opp. Outlook' : 'Nouveau ticket Outlook';
+
+    chrome.storage.local.set({ 
+        doliActiveTab: activeTab,
+        doliPrefillSubject: subject || defaultSubject,
+        doliPrefillMessage: message
+    }, () => {
+        chrome.runtime.sendMessage({ action: "OPEN_EXTENSION_POPUP" });
+    });
+}
+
+function isRoundcube() {
+    return !!document.getElementById('rcmApp') || 
+           !!document.getElementById('messagetoolbar') ||
+           document.cookie.toLowerCase().includes('roundcube') ||
+           document.cookie.toLowerCase().includes('webmail') ||
+           !!document.querySelector('meta[content*="Roundcube"]') ||
+           !!document.querySelector('body.task-mail') ||
+           !!document.querySelector('input[name="_task"][value="mail"]') ||
+           !!document.querySelector('#message-header .header-links') ||
+           !!document.querySelector('#message-header .header-link') ||
+           !!document.querySelector('div.header') ||
+           !!document.querySelector('#messagecontframe');
+}
+
+function injectRoundcubeReadButton() {
+    if (!isRoundcube()) return;
+
+    // Cibler spécifiquement le conteneur du message (pas le header global de l'interface Eoxia)
+    let targetHeader = document.querySelector('#message-header') || document.querySelector('.message-headers');
+    
+    if (!targetHeader) {
+        const candidates = document.querySelectorAll('h2.subject, div.header, div.header-title');
+        // Prendre le DOM le plus bas (le dernier de la liste) pour ignorer le "div.header" global du haut de page
+        for (let i = candidates.length - 1; i >= 0; i--) {
+            if (candidates.length > 1 && i === 0 && candidates[i].tagName === 'DIV') continue; // S'il y on a plusieurs, le premier est fatalement le menu supérieur
+            targetHeader = candidates[i];
+            break;
+        }
+    }
+    
+    if (!targetHeader) {
+        return;
+    }
+    
+    if (targetHeader.querySelector('.doli-roundcube-read-btn')) {
+        return; // Déjà injecté
+    }
+
+    console.log("🛈 Doli-ReedCRM: Roundcube validé. Bouton accroché avec succès sur le conteneur: ", targetHeader);
+
+    // On englobe le doliContainer
+    const doliContainer = document.createElement('span');
+    doliContainer.className = 'doli-roundcube-read-btn doli-dropdown-container';
+    doliContainer.style.position = 'relative';
+    doliContainer.style.display = 'inline-flex';
+    doliContainer.style.alignItems = 'center';
+    doliContainer.style.margin = '0 0 10px 15px';
+    doliContainer.style.cssFloat = 'right'; 
+    doliContainer.style.verticalAlign = 'middle';
+
+    const mainBtn = document.createElement('button');
+    mainBtn.style.display = 'inline-flex';
+    mainBtn.style.alignItems = 'center';
+    mainBtn.style.justifyContent = 'space-between';
+    mainBtn.style.padding = '0 10px';
+    mainBtn.style.width = '95px'; 
+    mainBtn.style.flexShrink = '0';
+    mainBtn.style.backgroundColor = '#084B54'; 
+    mainBtn.style.color = '#ffffff'; 
+    mainBtn.style.borderRadius = '10px'; 
+    mainBtn.style.border = 'none';
+    mainBtn.style.fontWeight = '600';
+    mainBtn.style.fontSize = '11px';
+    mainBtn.style.cursor = 'pointer';
+    mainBtn.style.height = '24px'; 
+    mainBtn.style.minHeight = '24px'; 
+    mainBtn.style.whiteSpace = 'nowrap';
+    mainBtn.title = "Actions ReedCRM";
+    
+    mainBtn.addEventListener('mouseenter', () => mainBtn.style.opacity = '0.9');
+    mainBtn.addEventListener('mouseleave', () => mainBtn.style.opacity = '1');
+    mainBtn.innerHTML = `<span style="color: #ffffff;">ReedCRM</span><span style="color: #ffffff; font-size: 8px; margin-top: 1px;">▼</span>`;
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'doli-dropdown-menu';
+    dropdown.style.display = 'none';
+    dropdown.style.position = 'absolute';
+    dropdown.style.zIndex = '2147483647'; // Maximum absolu
+    dropdown.style.backgroundColor = 'white';
+    dropdown.style.border = '1px solid #ddd';
+    dropdown.style.borderRadius = '4px';
+    dropdown.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    dropdown.style.padding = '4px';
+    dropdown.style.flexDirection = 'column';
+    dropdown.style.gap = '4px';
+    dropdown.style.minWidth = '140px';
+    
+    const actionStyle = `
+        padding: 8px 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 4px;
+        font-size: 13px;
+        color: #333;
+        white-space: nowrap;
+        transition: background-color 0.2s;
+    `;
+
+    const oppAction = document.createElement('div');
+    oppAction.style.cssText = actionStyle;
+    oppAction.title = 'Créer une Opportunité depuis ce mail';
+    oppAction.innerHTML = '<svg fill="#6c757d" width="16" height="16" viewBox="0 0 24 24"><path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.92 18,21.92C19.61,21.92 20.92,20.61 20.92,19C20.92,17.39 19.61,16.08 18,16.08Z" /></svg> Opportunité';
+    oppAction.addEventListener('mouseenter', () => oppAction.style.backgroundColor = '#f1f5f9');
+    oppAction.addEventListener('mouseleave', () => oppAction.style.backgroundColor = 'transparent');
+    
+    const handleOpp = (e) => {
+        e.preventDefault(); e.stopPropagation(); dropdown.style.display = 'none';
+        extractAndOpenRoundcubeReadEntity('opportunite');
+    };
+    oppAction.addEventListener('mousedown', handleOpp);
+    oppAction.addEventListener('click', handleOpp);
+
+    const ticketAction = document.createElement('div');
+    ticketAction.style.cssText = actionStyle;
+    ticketAction.title = 'Créer un Ticket depuis ce mail';
+    ticketAction.innerHTML = '<svg fill="#38b2ac" width="16" height="16" viewBox="0 0 24 24"><path d="M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z"></path></svg> Ticket';
+    ticketAction.addEventListener('mouseenter', () => ticketAction.style.backgroundColor = '#f1f5f9');
+    ticketAction.addEventListener('mouseleave', () => ticketAction.style.backgroundColor = 'transparent');
+    
+    const handleTicket = (e) => {
+        e.preventDefault(); e.stopPropagation(); dropdown.style.display = 'none';
+        extractAndOpenRoundcubeReadEntity('ticket');
+    };
+    ticketAction.addEventListener('mousedown', handleTicket);
+    ticketAction.addEventListener('click', handleTicket);
+
+    const handleMain = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        
+        // Anti-double toggle
+        const now = Date.now();
+        if (mainBtn.dataset.lastToggle && (now - parseInt(mainBtn.dataset.lastToggle)) < 150) return;
+        mainBtn.dataset.lastToggle = now.toString();
+        
+        document.querySelectorAll('.doli-dropdown-menu').forEach(el => {
+            if (el !== dropdown) el.style.display = 'none';
+        });
+        
+        if (dropdown.style.display === 'none') {
+            // Positionnement dynamique absolu pour casser les overflow:hidden
+            const rect = mainBtn.getBoundingClientRect();
+            dropdown.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+            // Alignement par la droite pour éviter les débordements d'écran
+            dropdown.style.left = (rect.right + window.scrollX - 140) + 'px'; 
+            dropdown.style.display = 'flex';
+        } else {
+            dropdown.style.display = 'none';
+        }
+    };
+    mainBtn.addEventListener('mousedown', handleMain);
+    mainBtn.addEventListener('click', handleMain);
+    
+    document.addEventListener('mousedown', (e) => {
+        if (!mainBtn.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+    
+    // Fermer le menu lors du défilement pour qu'il ne reste pas détaché du bouton
+    window.addEventListener('scroll', () => {
+        if (dropdown.style.display !== 'none') dropdown.style.display = 'none';
+    }, true);
+
+    dropdown.appendChild(oppAction);
+    dropdown.appendChild(ticketAction);
+    
+    // Extrêmement important : on attache le menu au BODY de la page, et pas au bouton !
+    // Cela empêche totalement le menu d'être masqué par un "overflow: hidden" du mail.
+    document.body.appendChild(dropdown);
+    
+    doliContainer.appendChild(mainBtn);
+    targetHeader.insertBefore(doliContainer, targetHeader.firstChild);
+}
+
+function extractAndOpenRoundcubeReadEntity(activeTab) {
+    let subject = "";
+    let message = "";
+
+    // Trouver le bloc qui contient le titre en évitant le header global
+    let subjectEl = document.querySelector('#message-header') || document.querySelector('.message-headers');
+    if (!subjectEl) {
+        const candidates = document.querySelectorAll('h2.subject, .subject, div.header, div.header-title');
+        for (let i = candidates.length - 1; i >= 0; i--) {
+            if (candidates.length > 1 && i === 0 && candidates[i].tagName === 'DIV') continue;
+            subjectEl = candidates[i];
+            break;
+        }
+    }
+
+    if (subjectEl) {
+        const clone = subjectEl.cloneNode(true);
+        const btn = clone.querySelector('.doli-roundcube-read-btn');
+        if (btn) btn.remove();
+        
+        // Extraire de préférence dans un heading, sinon prendre la première ligne
+        const heading = clone.querySelector('h1, h2, h3, .subject, .title');
+        if (heading) {
+            subject = heading.innerText.trim();
+        } else {
+            const lines = clone.innerText.trim().split('\n').filter(l => l.trim().length > 0);
+            if (lines.length > 0) subject = lines[0].trim();
+        }
+    } else if (document.title) {
+        subject = document.title.split('::')[0].trim();
+    }
+    
+    // Le corps est soit dans un iFrame (#messagecontframe), soit dans une div
+    try {
+        const bodyFrame = document.getElementById('messagecontframe') || document.querySelector('iframe[name="messagecontframe"]');
+        if (bodyFrame && bodyFrame.contentDocument) {
+            const bodyContent = bodyFrame.contentDocument.body;
+            if (bodyContent) message = bodyContent.innerText.trim().substring(0, 500);
+        } 
+    } catch (e) {
+        console.warn("Doli-ReedCRM: accès iFrame restreint par la politique CORS locale.");
+    }
+    
+    if (!message || message.length < 5) {
+        const bodyElement = document.getElementById('messagebody') || document.querySelector('.message-part') || document.querySelector('.message-htmlpart');
+        if (bodyElement) {
+            message = bodyElement.innerText.trim().substring(0, 500);
+        }
+    }
+
+    if (!message) {
+        message = "Corps de l'e-mail non lisible (accès iFrame bloqué).";
+    }
+
+    const defaultSubject = activeTab === 'opportunite' ? 'Nouvelle opp. Roundcube' : 'Nouveau ticket Roundcube';
+
+    chrome.storage.local.set({ 
+        doliActiveTab: activeTab,
+        doliPrefillSubject: subject || defaultSubject,
+        doliPrefillMessage: message
+    }, () => {
+        chrome.runtime.sendMessage({ action: "OPEN_EXTENSION_POPUP" });
+    });
+}
+
 // Observer DOM unifié (multisites)
 const mailObserver = new MutationObserver(() => {
-    if (window.location.href.includes('/apps/mail/box')) {
+    const url = window.location.href;
+    if (url.includes('/apps/mail/box')) {
         injectNextcloudButton();
-    } else if (window.location.href.includes('mail.google.com')) {
+    } else if (url.includes('mail.google.com')) {
         injectGmailButton();
+        injectGmailReadButton();
+    } else if (url.includes('outlook.live.com') || url.includes('outlook.office.com') || url.includes('outlook.office365.com')) {
+        injectOutlookReadButton();
+    } else if (isRoundcube()) {
+        injectRoundcubeReadButton();
     }
 });
 mailObserver.observe(document.body, { childList: true, subtree: true });
 
 // Lancement initial
 setTimeout(() => {
-    if (window.location.href.includes('/apps/mail/box')) injectNextcloudButton();
-    else if (window.location.href.includes('mail.google.com')) injectGmailButton();
+    const url = window.location.href;
+    if (url.includes('/apps/mail/box')) injectNextcloudButton();
+    else if (url.includes('mail.google.com')) {
+        injectGmailButton();
+        injectGmailReadButton();
+    } else if (url.includes('outlook.live.com') || url.includes('outlook.office.com') || url.includes('outlook.office365.com')) {
+        injectOutlookReadButton();
+    } else if (isRoundcube()) {
+        injectRoundcubeReadButton();
+    }
 }, 1500);
