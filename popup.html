@@ -29,6 +29,32 @@
         
         <div class="header-container">
             <h2 id="view-title">Nouveau Ticket</h2>
+            
+            <div id="ticket-top-actions" style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                <div class="new-ticket-badge" title="Nouveau ticket" style="display: flex; align-items: center; gap: 4px; color: #0d9488; font-weight: bold; margin-right: 5px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    <span>+1</span>
+                </div>
+                
+                <div class="searchable-select-container mini-select" style="flex: 1; min-width: 0;">
+                    <div class="mini-icon-wrap" style="position: absolute; left: 8px; top: 8px; z-index: 2; pointer-events: none; color: #64748b;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>
+                    </div>
+                    <select id="ticket-tiers" class="searchable-select hidden">
+                        <option value="">Client / Prospect</option>
+                    </select>
+                </div>
+                
+                <div class="searchable-select-container mini-select" id="ticket-contact-container" style="flex: 1; min-width: 0;">
+                    <div class="mini-icon-wrap" style="position: absolute; left: 8px; top: 8px; z-index: 2; pointer-events: none; color: #64748b;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </div>
+                    <select id="ticket-contact" class="searchable-select hidden">
+                        <option value="">Contact</option>
+                    </select>
+                </div>
+            </div>
+
             <div id="status-message"></div>
             <div id="opp-status-message"></div>
         </div>

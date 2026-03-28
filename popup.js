@@ -174,13 +174,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 tabTicket.classList.remove('active');
                 viewOpportunity.classList.remove('hidden');
                 viewTicket.classList.add('hidden');
+                viewTitle.classList.remove('hidden');
                 viewTitle.textContent = "Nouvelle Opp.";
+                const ticketActions = document.getElementById('ticket-top-actions');
+                if (ticketActions) ticketActions.style.display = 'none';
             } else {
                 tabTicket.classList.add('active');
                 tabOpportunite.classList.remove('active');
                 viewTicket.classList.remove('hidden');
                 viewOpportunity.classList.add('hidden');
-                viewTitle.textContent = "Nouveau Ticket";
+                viewTitle.classList.add('hidden');
+                const ticketActions = document.getElementById('ticket-top-actions');
+                if (ticketActions) ticketActions.style.display = 'flex';
             }
         }
 
@@ -272,6 +277,101 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (window.ticketAssigneeSelect) window.ticketAssigneeSelect.update();
                 return [];
             }
+        }
+
+        // Fonction pour charger les Tiers
+        async function loadThirdparties(apiUrl, token, entity) {
+            const tiersSelect = document.getElementById('ticket-tiers');
+            try {
+                // mode=1 pour ne lister que les clients/prospects (souvent suffisant pour devis/tickets)
+                const response = await fetch(`${apiUrl}/thirdparties?limit=500&sortfield=t.nom&sortorder=ASC&mode=1`, {
+                    headers: {
+                        'DOLAPIKEY': token,
+                        'Accept': 'application/json',
+                        ...(entity ? { 'DOLAPIENTITY': String(entity).trim() } : {})
+                    }
+                });
+                
+                tiersSelect.innerHTML = '<option value="">Client / Prospect</option>';
+                
+                if (response.ok) {
+                    const tiers = await response.json();
+                    if (Array.isArray(tiers)) {
+                        tiers.forEach(t => {
+                            const option = document.createElement('option');
+                            option.value = t.id;
+                            option.textContent = t.name || t.nom || `Tiers #${t.id}`;
+                            tiersSelect.appendChild(option);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error("Erreur fetch tiers:", error);
+                tiersSelect.innerHTML = '<option value="">Erreur chargement</option>';
+            }
+            
+            if (!window.ticketTiersSelect) {
+                window.ticketTiersSelect = new CustomSelect(tiersSelect);
+            } else {
+                window.ticketTiersSelect.update();
+            }
+            
+            // Initialisation Contact Select (vide par défaut)
+            const contactSelect = document.getElementById('ticket-contact');
+            if (!window.ticketContactSelect) {
+                window.ticketContactSelect = new CustomSelect(contactSelect);
+            }
+        }
+
+        // Fonction pour charger les Contacts d'un Tiers
+        async function loadContacts(apiUrl, token, entity, socid) {
+            const contactSelect = document.getElementById('ticket-contact');
+            const contactContainer = document.getElementById('ticket-contact-container');
+            
+            if (!socid) {
+                contactSelect.innerHTML = '<option value="">Contact</option>';
+                if (window.ticketContactSelect) window.ticketContactSelect.update();
+                contactContainer.classList.add('hidden'); // Optionnel - Hide if no tiers
+                return;
+            }
+            
+            contactContainer.classList.remove('hidden');
+            contactSelect.innerHTML = '<option value="">Chargement...</option>';
+            if (window.ticketContactSelect) window.ticketContactSelect.update();
+
+            try {
+                const response = await fetch(`${apiUrl}/contacts?limit=500&sortfield=t.lastname&sortorder=ASC&thirdparty_ids=${socid}`, {
+                    headers: {
+                        'DOLAPIKEY': token,
+                        'Accept': 'application/json',
+                        ...(entity ? { 'DOLAPIENTITY': String(entity).trim() } : {})
+                    }
+                });
+                
+                contactSelect.innerHTML = '<option value="">Contact</option>';
+                
+                if (response.ok) {
+                    const contacts = await response.json();
+                    if (Array.isArray(contacts) && contacts.length > 0) {
+                        contacts.forEach(c => {
+                            const option = document.createElement('option');
+                            option.value = c.id;
+                            option.textContent = [c.firstname, c.lastname].filter(Boolean).join(' ') || `Contact #${c.id}`;
+                            contactSelect.appendChild(option);
+                        });
+                    } else {
+                        contactSelect.innerHTML = '<option value="">Aucun contact lié</option>';
+                    }
+                } else if (response.status === 404) {
+                    contactSelect.innerHTML = '<option value="">Aucun contact lié</option>';
+                } else {
+                    contactSelect.innerHTML = '<option value="">Erreur chargement</option>';
+                }
+            } catch (error) {
+                console.error("Erreur fetch contacts:", error);
+                contactSelect.innerHTML = '<option value="">Erreur chargement</option>';
+            }
+            if (window.ticketContactSelect) window.ticketContactSelect.update();
         }
 
         // Fonction pour charger les derniers tickets
@@ -660,6 +760,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Chargement des utilisateurs en arrière-plan (on garde la promesse)
                 const usersPromise = loadUsers(p.doliUrl, p.doliApiToken, p.doliLogin, p.doliAutoAssign, p.doliEntity);
 
+                // Chargement des Tiers (Clients/Prospects)
+                loadThirdparties(p.doliUrl, p.doliApiToken, p.doliEntity);
+                
+                // Ecouteur sur le champ Tiers pour charger les Contacts
+                const tiersSelect = document.getElementById('ticket-tiers');
+                if (tiersSelect) {
+                    tiersSelect.addEventListener('change', (e) => {
+                        loadContacts(p.doliUrl, p.doliApiToken, p.doliEntity, e.target.value);
+                    });
+                }
+
                 // Fetch les derniers tickets avec la limite choisie par l'utilisateur (défaut: 10)
                 const recentLimit = items.doliRecentCount !== undefined ? parseInt(items.doliRecentCount, 10) || 10 : 10;
                 loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity);
@@ -688,7 +799,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const prefillKeys = [
                     'doliPrefillSubject', 'doliPrefillMessage', 'doliPrefillAssignee', 'doliActiveTab',
                     'doliPrefillOppNom', 'doliPrefillOppPrenom', 'doliPrefillOppTel', 'doliPrefillOppEmail',
-                    'doliPrefillOppProba', 'doliPrefillOppMontant'
+                    'doliPrefillOppProba', 'doliPrefillOppMontant', 'doliPrefillTicketTiers', 'doliPrefillTicketContact'
                 ];
                 chrome.storage.local.get(prefillKeys, async (localItems) => {
                     if (localItems.doliActiveTab) {
@@ -714,11 +825,33 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (localItems.doliPrefillOppMontant) document.getElementById('opp-montant').value = localItems.doliPrefillOppMontant;
                     } else {
+                        switchTab('ticket');
                         if (localItems.doliPrefillSubject) document.getElementById('ticket-subject').value = localItems.doliPrefillSubject;
                         if (localItems.doliPrefillMessage) document.getElementById('ticket-message').value = localItems.doliPrefillMessage;
                         if (localItems.doliPrefillAssignee) {
                             await usersPromise; // On attend que la liste déroulante soit remplie
                             assigneeSelect.value = localItems.doliPrefillAssignee;
+                        }
+                        if (localItems.doliPrefillTicketTiers) {
+                            const tiersElem = document.getElementById('ticket-tiers');
+                            if (tiersElem) {
+                                // On attend un peu que la liste des tiers soit chargée
+                                setTimeout(() => {
+                                    tiersElem.value = localItems.doliPrefillTicketTiers;
+                                    if (window.ticketTiersSelect) window.ticketTiersSelect.update();
+                                    
+                                    // Déclencher le loadContacts
+                                    loadContacts(p.doliUrl, p.doliApiToken, p.doliEntity, localItems.doliPrefillTicketTiers).then(() => {
+                                        if (localItems.doliPrefillTicketContact) {
+                                            const contactElem = document.getElementById('ticket-contact');
+                                            if (contactElem) {
+                                                contactElem.value = localItems.doliPrefillTicketContact;
+                                                if (window.ticketContactSelect) window.ticketContactSelect.update();
+                                            }
+                                        }
+                                    });
+                                }, 500);
+                            }
                         }
                     }
 
@@ -927,6 +1060,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const message = document.getElementById('ticket-message').value;
             const fileInput = document.getElementById('ticket-file');
             const assigneeId = assigneeSelect.value;
+            
+            const tiersSelectElem = document.getElementById('ticket-tiers');
+            const tiersId = tiersSelectElem ? tiersSelectElem.value : '';
+            
+            const contactSelectElem = document.getElementById('ticket-contact');
+            const contactId = contactSelectElem ? contactSelectElem.value : '';
 
             btnSubmit.disabled = true;
             btnSubmit.classList.add('btn-loading');
@@ -968,6 +1107,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     type_code: p.doliTicketType || 'ISSUE', // Valeur par défaut "ISSUE"
                     severity_code: p.doliTicketSeverity || 'NORMAL' // Valeur par défaut "NORMAL"
                 };
+
+                // Ajout Tiers et Contact si renseignés
+                if (tiersId && tiersId !== '') {
+                    ticketData.socid = parseInt(tiersId, 10);
+                    ticketData.fk_soc = parseInt(tiersId, 10); // Souvent l'un ou l'autre selon la version
+                }
+                if (contactId && contactId !== '') {
+                    ticketData.contactid = parseInt(contactId, 10);
+                    ticketData.fk_contact = parseInt(contactId, 10);
+                }
 
                 // Ajout de la catégorie (groupe) si configurée dans les options
                 if (p.doliTicketCategory && p.doliTicketCategory.trim() !== '') {
@@ -1237,6 +1386,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     storageData.doliPrefillOppEmail = document.getElementById('opp-email').value || '';
                     storageData.doliPrefillOppProba = document.getElementById('opp-proba').value || '50';
                     storageData.doliPrefillOppMontant = document.getElementById('opp-montant').value || '';
+                } else {
+                    const tiersElem = document.getElementById('ticket-tiers');
+                    const contactElem = document.getElementById('ticket-contact');
+                    if (tiersElem) storageData.doliPrefillTicketTiers = tiersElem.value || '';
+                    if (contactElem) storageData.doliPrefillTicketContact = contactElem.value || '';
                 }
 
                 chrome.storage.local.set(storageData);

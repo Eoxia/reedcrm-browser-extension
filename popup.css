@@ -766,3 +766,22 @@ button:disabled {
     pointer-events: none;
     font-style: italic;
 }
+
+/* MINI SELECT SPECIFIC FOR TOP ACTIONS */
+.mini-select .custom-select-trigger {
+    padding: 6px 8px 6px 28px; /* Room for absolute icon */
+    font-size: 11px;
+    border-radius: 4px;
+    height: 30px;
+}
+.mini-select .custom-options-container {
+    max-height: 150px;
+}
+.mini-select .custom-option {
+    padding: 6px 10px;
+    font-size: 11px;
+}
+.mini-select .custom-search-box input {
+    font-size: 11px;
+    padding: 4px 6px;
+}
