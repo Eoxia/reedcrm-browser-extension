@@ -497,16 +497,16 @@ function saveAndClose() {
     const activeText = document.getElementById('doli-floating-text-input');
     if (activeText) activeText.blur();
 
-    // Cache le curseur visuel s'il traîne, et ferme l'éditeur
-    closeEditor();
-
-    // Génère l'image finale selon la préférence utilisateur (JPG est souvent plus léger mais perd le canal alpha)
+    // EXTRACTION de l'image AVANT de détruire l'éditeur (certains navigateurs vident le buffer sinon)
     let dataUrl;
     if (userImageFormat === 'jpg') {
         dataUrl = canvas.toDataURL('image/jpeg', 0.85); // Option JPG avec 85% de qualité
     } else {
         dataUrl = canvas.toDataURL('image/png');
     }
+
+    // Cache le curseur visuel s'il traîne, et ferme l'éditeur
+    closeEditor();
     
     // Sauvegarde la capture pour le popup
     chrome.storage.local.set({ doliPendingScreenshot: dataUrl }, () => {
@@ -1195,17 +1195,13 @@ function extractAndOpenOutlookReadEntity(activeTab) {
 }
 
 function isRoundcube() {
+    // Liste de sélecteurs stricts prouvant qu'on est sur une interface type Webmail/Roundcube
     return !!document.getElementById('rcmApp') || 
            !!document.getElementById('messagetoolbar') ||
-           document.cookie.toLowerCase().includes('roundcube') ||
-           document.cookie.toLowerCase().includes('webmail') ||
            !!document.querySelector('meta[content*="Roundcube"]') ||
            !!document.querySelector('body.task-mail') ||
            !!document.querySelector('input[name="_task"][value="mail"]') ||
-           !!document.querySelector('#message-header .header-links') ||
-           !!document.querySelector('#message-header .header-link') ||
-           !!document.querySelector('div.header') ||
-           !!document.querySelector('#messagecontframe');
+           (document.cookie && document.cookie.toLowerCase().includes('roundcube'));
 }
 
 function injectRoundcubeReadButton() {

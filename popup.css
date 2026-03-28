@@ -766,13 +766,19 @@ button:disabled {
     pointer-events: none;
     font-style: italic;
 }
-
-/* MINI SELECT SPECIFIC FOR TOP ACTIONS */
 .mini-select .custom-select-trigger {
-    padding: 6px 8px 6px 28px; /* Room for absolute icon */
+    padding: 2px 8px; /* Removed left padding for absolute icon */
     font-size: 11px;
     border-radius: 4px;
-    height: 30px;
+    height: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.mini-select .custom-select-trigger span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .mini-select .custom-options-container {
     max-height: 150px;

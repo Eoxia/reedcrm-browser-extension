@@ -169,23 +169,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Logique de changement d'onglet
         function switchTab(view) {
+            viewTitle.classList.add('hidden'); // On masque le h2 "Nouveau Ticket/Opp" dans tous les cas
+            const ticketActions = document.getElementById('ticket-top-actions');
+            if (ticketActions) ticketActions.style.display = 'flex'; // On affiche le bloc Tiers/Contact/Projet dans tous les cas
+
+            const projectContainer = document.getElementById('ticket-project-container');
+
             if (view === 'opportunite') {
                 tabOpportunite.classList.add('active');
                 tabTicket.classList.remove('active');
                 viewOpportunity.classList.remove('hidden');
                 viewTicket.classList.add('hidden');
-                viewTitle.classList.remove('hidden');
-                viewTitle.textContent = "Nouvelle Opp.";
-                const ticketActions = document.getElementById('ticket-top-actions');
-                if (ticketActions) ticketActions.style.display = 'none';
+                if (projectContainer) projectContainer.style.display = 'none'; // Pas de projet dans une opportunité
             } else {
                 tabTicket.classList.add('active');
                 tabOpportunite.classList.remove('active');
                 viewTicket.classList.remove('hidden');
                 viewOpportunity.classList.add('hidden');
-                viewTitle.classList.add('hidden');
-                const ticketActions = document.getElementById('ticket-top-actions');
-                if (ticketActions) ticketActions.style.display = 'flex';
+                if (projectContainer) projectContainer.style.display = ''; // On réaffiche pour les tickets
             }
         }
 
@@ -321,6 +322,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!window.ticketContactSelect) {
                 window.ticketContactSelect = new CustomSelect(contactSelect);
             }
+            
+            // Initialisation Project Select (vide par défaut)
+            const projectSelect = document.getElementById('ticket-project');
+            if (!window.ticketProjectSelect) {
+                window.ticketProjectSelect = new CustomSelect(projectSelect);
+            }
         }
 
         // Fonction pour charger les Contacts d'un Tiers
@@ -372,6 +379,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 contactSelect.innerHTML = '<option value="">Erreur chargement</option>';
             }
             if (window.ticketContactSelect) window.ticketContactSelect.update();
+        }
+
+        // Fonction pour charger les Projets d'un Tiers
+        async function loadProjects(apiUrl, token, entity, socid) {
+            const projectSelect = document.getElementById('ticket-project');
+            const projectContainer = document.getElementById('ticket-project-container');
+            
+            if (!socid) {
+                projectSelect.innerHTML = '<option value="">Projet</option>';
+                if (window.ticketProjectSelect) window.ticketProjectSelect.update();
+                projectContainer.classList.add('hidden'); // Optionnel - Hide if no tiers
+                return;
+            }
+            
+            projectContainer.classList.remove('hidden');
+            projectSelect.innerHTML = '<option value="">Chargement...</option>';
+            if (window.ticketProjectSelect) window.ticketProjectSelect.update();
+
+            try {
+                // On utilise thirdparty_ids ou un filtre SQL si nécessaire. limit=500 pour avoir tout
+                const response = await fetch(`${apiUrl}/projects?limit=500&sortfield=t.ref&sortorder=DESC&thirdparty_ids=${socid}`, {
+                    headers: {
+                        'DOLAPIKEY': token,
+                        'Accept': 'application/json',
+                        ...(entity ? { 'DOLAPIENTITY': String(entity).trim() } : {})
+                    }
+                });
+                
+                projectSelect.innerHTML = '<option value="">Projet</option>';
+                
+                if (response.ok) {
+                    const projects = await response.json();
+                    if (Array.isArray(projects) && projects.length > 0) {
+                        projects.forEach(p => {
+                            const option = document.createElement('option');
+                            option.value = p.id;
+                            option.textContent = p.ref + (p.title ? ` - ${p.title}` : '');
+                            projectSelect.appendChild(option);
+                        });
+                    } else {
+                        projectSelect.innerHTML = '<option value="">Aucun projet lié</option>';
+                    }
+                } else if (response.status === 404) {
+                    projectSelect.innerHTML = '<option value="">Aucun projet lié</option>';
+                } else {
+                    projectSelect.innerHTML = '<option value="">Erreur chargement</option>';
+                }
+            } catch (error) {
+                console.error("Erreur fetch projets:", error);
+                projectSelect.innerHTML = '<option value="">Erreur chargement</option>';
+            }
+            if (window.ticketProjectSelect) window.ticketProjectSelect.update();
         }
 
         // Fonction pour charger les derniers tickets
@@ -763,11 +822,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Chargement des Tiers (Clients/Prospects)
                 loadThirdparties(p.doliUrl, p.doliApiToken, p.doliEntity);
                 
-                // Ecouteur sur le champ Tiers pour charger les Contacts
+                // Ecouteur sur le champ Tiers pour charger les Contacts et Projets
                 const tiersSelect = document.getElementById('ticket-tiers');
                 if (tiersSelect) {
                     tiersSelect.addEventListener('change', (e) => {
                         loadContacts(p.doliUrl, p.doliApiToken, p.doliEntity, e.target.value);
+                        loadProjects(p.doliUrl, p.doliApiToken, p.doliEntity, e.target.value);
                     });
                 }
 
@@ -799,7 +859,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const prefillKeys = [
                     'doliPrefillSubject', 'doliPrefillMessage', 'doliPrefillAssignee', 'doliActiveTab',
                     'doliPrefillOppNom', 'doliPrefillOppPrenom', 'doliPrefillOppTel', 'doliPrefillOppEmail',
-                    'doliPrefillOppProba', 'doliPrefillOppMontant', 'doliPrefillTicketTiers', 'doliPrefillTicketContact'
+                    'doliPrefillOppProba', 'doliPrefillOppMontant', 'doliPrefillTicketTiers', 'doliPrefillTicketContact', 'doliPrefillTicketProject'
                 ];
                 chrome.storage.local.get(prefillKeys, async (localItems) => {
                     if (localItems.doliActiveTab) {
@@ -832,26 +892,39 @@ document.addEventListener('DOMContentLoaded', () => {
                             await usersPromise; // On attend que la liste déroulante soit remplie
                             assigneeSelect.value = localItems.doliPrefillAssignee;
                         }
-                        if (localItems.doliPrefillTicketTiers) {
-                            const tiersElem = document.getElementById('ticket-tiers');
-                            if (tiersElem) {
-                                // On attend un peu que la liste des tiers soit chargée
-                                setTimeout(() => {
-                                    tiersElem.value = localItems.doliPrefillTicketTiers;
-                                    if (window.ticketTiersSelect) window.ticketTiersSelect.update();
-                                    
-                                    // Déclencher le loadContacts
-                                    loadContacts(p.doliUrl, p.doliApiToken, p.doliEntity, localItems.doliPrefillTicketTiers).then(() => {
-                                        if (localItems.doliPrefillTicketContact) {
-                                            const contactElem = document.getElementById('ticket-contact');
-                                            if (contactElem) {
-                                                contactElem.value = localItems.doliPrefillTicketContact;
-                                                if (window.ticketContactSelect) window.ticketContactSelect.update();
-                                            }
+                    }
+
+                    // On charge les sélections Tiers/Contact/Projet de façon globale (valable pour les 2 onglets)
+                    if (localItems.doliPrefillTicketTiers) {
+                        const tiersElem = document.getElementById('ticket-tiers');
+                        if (tiersElem) {
+                            // On attend un peu que la liste des tiers soit chargée
+                            setTimeout(() => {
+                                tiersElem.value = localItems.doliPrefillTicketTiers;
+                                if (window.ticketTiersSelect) window.ticketTiersSelect.update();
+                                
+                                // Déclencher le loadContacts
+                                loadContacts(p.doliUrl, p.doliApiToken, p.doliEntity, localItems.doliPrefillTicketTiers).then(() => {
+                                    if (localItems.doliPrefillTicketContact) {
+                                        const contactElem = document.getElementById('ticket-contact');
+                                        if (contactElem) {
+                                            contactElem.value = localItems.doliPrefillTicketContact;
+                                            if (window.ticketContactSelect) window.ticketContactSelect.update();
                                         }
-                                    });
-                                }, 500);
-                            }
+                                    }
+                                });
+
+                                // Déclencher le loadProjects
+                                loadProjects(p.doliUrl, p.doliApiToken, p.doliEntity, localItems.doliPrefillTicketTiers).then(() => {
+                                    if (localItems.doliPrefillTicketProject) {
+                                        const projectElem = document.getElementById('ticket-project');
+                                        if (projectElem) {
+                                            projectElem.value = localItems.doliPrefillTicketProject;
+                                            if (window.ticketProjectSelect) window.ticketProjectSelect.update();
+                                        }
+                                    }
+                                });
+                            }, 500);
                         }
                     }
 
@@ -890,6 +963,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const proba = document.getElementById('opp-proba').value;
                 const montant = document.getElementById('opp-montant').value;
                 const assigneeId = oppAssigneeSelect.value;
+                
+                const tiersSelectElem = document.getElementById('ticket-tiers');
+                const tiersId = tiersSelectElem ? tiersSelectElem.value : '';
+                
+                const projectSelectElem = document.getElementById('ticket-project');
+                const projectId = projectSelectElem ? projectSelectElem.value : '';
 
                 btnSubmitOpp.disabled = true;
                 btnSubmitOpp.classList.add('btn-loading');
@@ -922,6 +1001,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         description: message,
                         array_options: {}
                     };
+                    if (tiersId && tiersId !== '') projectData.socid = parseInt(tiersId, 10);
                     if (oppOnly) projectData.usage_opportunity = 1;
                     if (proba) projectData.opp_percent = parseInt(proba, 10);
                     if (montant) projectData.opp_amount = parseFloat(montant);
@@ -932,6 +1012,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (tel) projectData.array_options.options_projectphone = tel;
                     if (email) projectData.array_options.options_reedcrm_email = email;
 
+                    // Tentative d'injection native du contact à la création (comme pour les tickets)
+                    const contactSelectElem = document.getElementById('ticket-contact');
+                    const contactId = contactSelectElem ? contactSelectElem.value : '';
+                    if (contactId && contactId !== '') {
+                        projectData.contactid = parseInt(contactId, 10);
+                        projectData.fk_contact = parseInt(contactId, 10);
+                    }
+
                     const response = await fetch(`${apiUrl}/projects`, {
                         method: 'POST',
                         headers: baseHeaders,
@@ -940,16 +1028,81 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => null);
-                        let errMsg = "Erreur lors de la création de l'opportunité.";
-                        if (errorData && errorData.error && errorData.error.message) {
-                            errMsg = errorData.error.message;
-                        }
-                        throw new Error(errMsg);
+                        throw new DoliError('ReedCRM-4002', errorData);
                     }
 
                     const projResponseId = await response.json();
+                    
+                    btnSubmitOpp.querySelector('.btn-text').textContent = 'Projet créé...';
+                    
                     // Some Dolibarr versions/endpoints return an array [144] or a single int 144
                     const projectId = Array.isArray(projResponseId) ? projResponseId[0] : projResponseId;
+
+                    // Ajout du contact sélectionné au projet (comme Contributeur)
+                    let contactWasAssigned = true;
+                    let contactErrorCode = null;
+                    let contactErrorDetail = '';
+
+                    if (contactId && contactId !== '') {
+                        try {
+                            const contactRes = await fetch(`${apiUrl}/projects/${projectId}/contacts`, {
+                                method: 'POST',
+                                headers: baseHeaders,
+                                body: JSON.stringify({
+                                    fk_socpeople: parseInt(contactId, 10),
+                                    type_contact: "PROJECTCONTRIBUTOR",
+                                    source: "external"
+                                })
+                            });
+                            // Si PROJECTCONTRIBUTOR échoue, on essaie d'autres codes potentiels "CUSTOMER", "PROJECT_CONTRIBUTOR", "PROJECTCONTACT"
+                            if (!contactRes.ok) {
+                                const errFirst = await contactRes.json().catch(() => null);
+                                const errFirstMsg = errFirst?.error?.message || `HTTP ${contactRes.status}`;
+                                
+                                const contactResFallback = await fetch(`${apiUrl}/projects/${projectId}/contacts`, {
+                                    method: 'POST',
+                                    headers: baseHeaders,
+                                    body: JSON.stringify({
+                                        fk_socpeople: parseInt(contactId, 10),
+                                        type_contact: "PROJECT_CONTRIBUTOR",
+                                        source: "external"
+                                    })
+                                });
+                                
+                                if (!contactResFallback.ok) {
+                                    const errFall = await contactResFallback.json().catch(() => null);
+                                    
+                                    contactWasAssigned = false;
+                                    contactErrorCode = 'ReedCRM-4001';
+                                    contactErrorDetail = errFall?.error?.message || errFirstMsg || 'Inconnue';
+                                    
+                                    try {
+                                        const versionRes = await fetch(`${apiUrl}/status`, { headers: baseHeaders });
+                                        if (versionRes.ok) {
+                                            const statusData = await versionRes.json();
+                                            window.doliVersionStr = statusData?.dolibarr?.version || statusData?.version || '22.0.x';
+                                        } else {
+                                            window.doliVersionStr = 'HTTP ' + versionRes.status;
+                                        }
+                                    } catch(e) {
+                                        console.warn("Erreur fetch /status:", e);
+                                        window.doliVersionStr = "Illisible";
+                                    }
+                                }
+                            }
+                            
+                            if (contactWasAssigned) {
+                                btnSubmitOpp.querySelector('.btn-text').textContent = 'Contact affecté...';
+                                await new Promise(r => setTimeout(r, 600)); // Laisser l'utilisateur lire le message
+                            }
+                        } catch(e) {
+                            console.warn("Impossible d'associer le contact à l'opportunité:", e);
+                            contactWasAssigned = false;
+                            contactErrorCode = 'ReedCRM-4003';
+                            btnSubmitOpp.querySelector('.btn-text').textContent = 'Erreur réseau Contact...';
+                            await new Promise(r => setTimeout(r, 600));
+                        }
+                    }
 
                     // Récupérer les détails du projet pour avoir la référence (PROJ...)
                     let projectRef = projectId;
@@ -1010,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                     if (!docResponse.ok) {
                                         const docError = await docResponse.json().catch(() => null);
-                                        let errorMsg = docError?.error?.message || "Erreur upload PJ.";
+                                        let errorMsg = docError?.error?.message || ERROR_DICTIONARY['ReedCRM-4002'].userMessage;
                                         throw new Error(`Opportunité créée, mais erreur PJ: ${errorMsg}`);
                                     }
                                     resolve();
@@ -1025,16 +1178,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     const baseUrl = apiUrl.replace(/\/api\/index\.php\/?$/, '').replace(/\/htdocs\/api\/index\.php\/?$/, '/htdocs');
                     const projectLink = `${baseUrl}/projet/card.php?id=${projectId}`;
 
+                    btnSubmitOpp.disabled = false;
                     btnSubmitOpp.classList.remove('btn-loading');
                     btnSubmitOpp.querySelector('.btn-text').textContent = 'Opportunité créée !';
+                    
+                    let contactErrorHtml = '';
+                    if (contactId && contactId !== '' && !contactWasAssigned) {
+                        let errorMsg = ERROR_DICTIONARY[contactErrorCode]?.userMessage || "Erreur inconnue";
+                        
+                        // Injection dynamique de la version
+                        if (window.doliVersionStr && contactErrorCode === 'ReedCRM-4001') {
+                            errorMsg = errorMsg.replace('[VERSION]', window.doliVersionStr);
+                        } else {
+                            // Nettoyage de sécurité si la version n'a pas pu être chargée
+                            errorMsg = errorMsg.replace('[VERSION]', 'Inconnue');
+                        }
+                        
+                        contactErrorHtml = `
+                            <div style="color:#e74c3c; font-size:12px; margin-bottom: 6px; line-height: 1.4;">
+                                <strong>${contactErrorCode}:</strong><br>
+                                ${errorMsg}<br>
+                                <small style="color:#c0392b;">Détail API: ${contactErrorDetail}</small>
+                            </div>
+                        `;
+                    }
+                    
                     oppStatusMessage.innerHTML = `
-                        <div class="status-msg-texts">
-                            <span class="status-msg-title" style="color:#27ae60;">Opportunité <strong>${projectRef}</strong></span>
-                            <span class="status-msg-sub" style="color:#27ae60;">créée avec succès !</span>
+                        <div style="text-align:left;">
+                            ${contactErrorHtml}
+                            <div style="color:#27ae60; font-size:13px;">
+                                Opportunité <a href="${projectLink}" target="_blank" style="text-decoration:none; font-weight:bold; color:#27ae60;" title="Voir le projet">${projectRef}</a> créée avec succès !
+                            </div>
                         </div>
-                        <a href="${projectLink}" target="_blank" class="status-msg-link" title="Voir le projet">
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#27ae60" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                        </a>
                     `;
                     oppForm.reset();
                     if (typeof removeOppPastedImage === 'function') removeOppPastedImage();
@@ -1043,11 +1218,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } catch (error) {
                     btnSubmitOpp.classList.remove('btn-loading');
-                    btnSubmitOpp.querySelector('.btn-text').textContent = 'Erreur';
-                    oppStatusMessage.style.color = '#e74c3c';
-                    oppStatusMessage.innerHTML = error.message;
+                    // We reset the text so error doesn't overwrite the button completely wrongly
+                    btnSubmitOpp.querySelector('.btn-text').textContent = 'Réessayer';
                     btnSubmitOpp.disabled = false;
-                    btnSubmitOpp.textContent = 'Réessayer';
+                    
+                    showDoliError(error, oppStatusMessage);
                 }
             });
         }
@@ -1066,6 +1241,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const contactSelectElem = document.getElementById('ticket-contact');
             const contactId = contactSelectElem ? contactSelectElem.value : '';
+
+            const projectSelectElem = document.getElementById('ticket-project');
+            const projectId = projectSelectElem ? projectSelectElem.value : '';
 
             btnSubmit.disabled = true;
             btnSubmit.classList.add('btn-loading');
@@ -1116,6 +1294,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (contactId && contactId !== '') {
                     ticketData.contactid = parseInt(contactId, 10);
                     ticketData.fk_contact = parseInt(contactId, 10);
+                }
+                if (projectId && projectId !== '') {
+                    ticketData.fk_project = parseInt(projectId, 10);
                 }
 
                 // Ajout de la catégorie (groupe) si configurée dans les options
@@ -1202,7 +1383,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                 if (!docResponse.ok) {
                                     const docError = await docResponse.json().catch(() => null);
-                                    let errorMsg = "La pièce jointe n'a pas pu être envoyée.";
+                                    let errorMsg = ERROR_DICTIONARY['ReedCRM-4004'].userMessage;
                                     if (docError && docError.error && docError.error.message) {
                                         errorMsg = docError.error.message;
                                         // Capture ciblée pour l'erreur Dolibarr d'upload ticket si jamais
@@ -1242,47 +1423,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnSubmit.classList.remove('btn-loading');
                 btnSubmit.querySelector('.btn-text').textContent = 'Ticket créé !';
                 statusMessage.innerHTML = `
-                    <div class="status-msg-texts">
-                        <span class="status-msg-title" style="color:#27ae60;">Ticket <strong>${displayRef}</strong></span>
-                        <span class="status-msg-sub" style="color:#27ae60;">créé avec succès !</span>
+                    <div style="color:#27ae60; font-size:13px; text-align:left;">
+                        Ticket <a href="${ticketLink}" target="_blank" style="text-decoration:none; font-weight:bold; color:#27ae60;" title="Voir le ticket">${displayRef}</a> créé avec succès !
                     </div>
-                    <a href="${ticketLink}" target="_blank" class="status-msg-link" title="Voir le ticket">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#27ae60" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                    </a>
                 `;
                 ticketForm.reset();
                 if (typeof removePastedImage === 'function') removePastedImage();
 
-                // S'il n'y a pas eu d'erreur jetée, on ferme le popup après 5s pour laisser le temps de cliquer
-                setTimeout(() => {
-                    window.close();
-                }, 5000);
-
             } catch (error) {
                 btnSubmit.classList.remove('btn-loading');
-                btnSubmit.querySelector('.btn-text').textContent = 'Erreur';
-                statusMessage.style.color = '#e74c3c';
+                btnSubmit.querySelector('.btn-text').textContent = 'Réessayer';
+                btnSubmit.disabled = false;
 
-                // Si l'erreur contient un ID/Ref (erreur PJ ou autre après création), on tente de générer le lien
-                if (error.message.includes('Ticket créé')) {
-                    // Récupération "sale" de l'ID conservé plus haut si dispo (limite de la structure actuelle)
-                    // Pour simplifier on affiche juste le texte d'erreur exact, l'URL complète nécessiterait de remonter ticketId
-                    // Vu qu'on l'a dans le scope local, refaisons le calcul de l'URL web s'il a planté dans le if file
-
-                    // Astuce : On récupère l'URL de base depuis le champ si possible
-                    const items = await new Promise(resolve => chrome.storage.sync.get(['doliUrl'], resolve));
+                // Si l'erreur signale que le ticket a quand même été créé (ex: échec d'upload)
+                if (error.message && error.message.includes('Ticket créé')) {
+                    statusMessage.style.color = '#e74c3c';
+                    const items = await new Promise(resolve => chrome.storage.local.get(['doliUrl'], resolve));
                     const baseUrl = items.doliUrl ? items.doliUrl.replace(/\/api\/index\.php\/?$/, '').replace(/\/htdocs\/api\/index\.php\/?$/, '/htdocs') : '#';
-
-                    // On essaie d'extraire la ref qui est entre parenthèses dans le message: Ticket créé (TCK...)
                     const match = error.message.match(/Ticket créé \((.*?)\)/);
                     const extractedRef = match ? match[1] : '';
+                    let detailsMsg = error.message.split('pièce jointe échouée:');
+                    detailsMsg = detailsMsg.length > 1 ? detailsMsg[1].trim() : 'Erreur inconnue de la PJ';
 
-                    statusMessage.innerHTML = `${error.message}. <br>Le ticket a bien été créé.<br><a href="${baseUrl}/ticket/list.php" target="_blank" style="color: #3498db; text-decoration: underline;">Aller aux tickets</a>`;
+                    statusMessage.innerHTML = `
+                        <div style="font-size:13px; text-align:left;">
+                            <span style="color:#e67e22; font-weight:bold;">⚠️ Créé partiellement :</span>
+                            Le <a href="${baseUrl}/ticket/card.php?id=${extractedRef}" target="_blank" style="text-decoration:none; font-weight:bold; color:#e67e22;">Ticket ${extractedRef}</a> a été enregistré, mais la pièce jointe n'a pas pu être envoyée.
+                            <br><small style="color:#e74c3c;"><i>Détail : ${detailsMsg}</i></small>
+                        </div>
+                    `;
                 } else {
                     showDoliError(error, statusMessage);
                 }
-
-                btnSubmit.disabled = false;
                 btnSubmit.textContent = 'Réessayer';
             }
         });
@@ -1386,12 +1558,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     storageData.doliPrefillOppEmail = document.getElementById('opp-email').value || '';
                     storageData.doliPrefillOppProba = document.getElementById('opp-proba').value || '50';
                     storageData.doliPrefillOppMontant = document.getElementById('opp-montant').value || '';
-                } else {
-                    const tiersElem = document.getElementById('ticket-tiers');
-                    const contactElem = document.getElementById('ticket-contact');
-                    if (tiersElem) storageData.doliPrefillTicketTiers = tiersElem.value || '';
-                    if (contactElem) storageData.doliPrefillTicketContact = contactElem.value || '';
                 }
+
+                // Sauvegarde globale des 3 listes déroulantes (valable pour Ticket et Opp)
+                const tiersElem = document.getElementById('ticket-tiers');
+                const contactElem = document.getElementById('ticket-contact');
+                const projectElem = document.getElementById('ticket-project');
+                if (tiersElem) storageData.doliPrefillTicketTiers = tiersElem.value || '';
+                if (contactElem) storageData.doliPrefillTicketContact = contactElem.value || '';
+                if (projectElem) storageData.doliPrefillTicketProject = projectElem.value || '';
 
                 chrome.storage.local.set(storageData);
 
