@@ -515,14 +515,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             const ticketHtml = `
                             <div class="recent-ticket-item">
                                 <div class="rt-left">
-                                    <div class="rt-ref" title="Référence du ticket">${ticketRef}</div>
+                                    <a href="${doliBaseUrl}/ticket/card.php?id=${ticket.id}" target="_blank" class="rt-ref" title="Ouvrir le ticket" style="display: block;">${ticketRef}</a>
                                     <div class="rt-subject" title="${ticket.subject}">${subject}</div>
                                 </div>
                                 <div class="rt-right" style="display: flex; align-items: center; gap: 8px;">
                                     <div class="rt-status-dot" title="Statut: ${stat}" style="width: 8px; height: 8px; border-radius: 50%; background-color: ${statusColor};"></div>
-                                    <a href="${doliBaseUrl}/ticket/card.php?id=${ticket.id}" target="_blank" class="rt-link" title="Ouvrir">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #0ea5e9;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                                    </a>
                                 </div>
                             </div>
                         `;
@@ -675,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="recent-ticket-item">
                                 <div class="rt-left">
                                     <div class="rt-ref-group" style="display: flex; align-items: center; gap: 6px;">
-                                        <div class="rt-ref" title="Référence">${projectRef}</div>
+                                        <a href="${doliBaseUrl}/projet/card.php?id=${project.id}" target="_blank" class="rt-ref" title="Ouvrir le projet">${projectRef}</a>
                                         ${dateCStr ? `<span class="rt-sep">&bull;</span><div style="font-size: 10px; color: #888;">${dateCStr}</div>` : ''}
                                         ${initials !== "?" ? `<span class="rt-sep">&bull;</span><div style="font-size: 9px; background: #e2e8f0; color: #475569; padding: 1px 4px; border-radius: 4px;" title="Créé par">#${initials}</div>` : ''}
                                     </div>
@@ -692,9 +689,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                     </div>
                                     ` : ''}
                                     <div class="rt-status-dot" title="Statut: ${stat}" style="width: 8px; height: 8px; border-radius: 50%; background-color: ${statusColor}; flex-shrink: 0;"></div>
-                                    <a href="${doliBaseUrl}/projet/card.php?id=${project.id}" target="_blank" class="rt-link" title="Ouvrir">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #0ea5e9;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                                    </a>
                                 </div>
                             </div>`;
                                 recentOppList.insertAdjacentHTML('beforeend', html);
@@ -962,6 +956,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const email = document.getElementById('opp-email').value;
                 const proba = document.getElementById('opp-proba').value;
                 const montant = document.getElementById('opp-montant').value;
+                const websiteProtocol = document.getElementById('opp-website-protocol').value;
+                let websiteDomain = document.getElementById('opp-website').value.trim();
                 const assigneeId = oppAssigneeSelect.value;
                 
                 const tiersSelectElem = document.getElementById('ticket-tiers');
@@ -1011,6 +1007,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (prenom) projectData.array_options.options_reedcrm_firstname = prenom;
                     if (tel) projectData.array_options.options_projectphone = tel;
                     if (email) projectData.array_options.options_reedcrm_email = email;
+                    
+                    if (websiteDomain) {
+                        // Nettoyage sécurité : si l'utilisateur a collé l'url complète avec protocole (https://...) on l'enlève
+                        websiteDomain = websiteDomain.replace(/^https?:\/\//i, '');
+                        projectData.array_options.options_website = websiteProtocol + websiteDomain;
+                    }
 
                     // Tentative d'injection native du contact à la création (comme pour les tickets)
                     const contactSelectElem = document.getElementById('ticket-contact');

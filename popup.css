@@ -536,6 +536,13 @@ button:disabled {
     overflow: hidden;
     text-overflow: ellipsis;
     width: 100%;
+    text-decoration: none;
+    transition: color 0.15s ease-in-out;
+}
+
+a.rt-ref:hover {
+    text-decoration: underline;
+    color: #0ea5e9; /* Lighter blue on hover to indicate a link */
 }
 
 .rt-subject {

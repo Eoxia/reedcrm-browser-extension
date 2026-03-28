@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Doli-ReedCRM Extension",
+  "name": "ReedCRM",
   "version": "1.0",
-  "description": "Extension Chrome pour Doli-ReedCRM",
+  "description": "Extension Chrome pour ReedCRM",
   "icons": {
     "32": "icon32.png",
     "128": "icon128.png",

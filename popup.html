@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Doli-ReedCRM - Nouveau Ticket</title>
+    <title>ReedCRM - Nouveau Ticket</title>
     <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -134,7 +134,6 @@
             </div>
 
             <div class="form-group">
-                <label for="opp-message">Description</label>
                 <textarea id="opp-message" rows="4" placeholder="Détails de l'opportunité..."></textarea>
             </div>
 
@@ -149,26 +148,37 @@
 
             <div class="form-row">
                 <div class="form-col">
-                    <input type="tel" id="opp-tel" placeholder="Téléphone projet">
+                    <input type="tel" id="opp-tel" placeholder="Téléphone projet" pattern="^\+?[0-9\s\(\)\-\.]{6,20}$" oninput="this.value = this.value.replace(/[^0-9\s()+\-.]/g, '');" title="Veuillez saisir un numéro valide (ex: 06 12 34 56 78 ou +3361234...)">
                 </div>
                 <div class="form-col">
                     <input type="email" id="opp-email" placeholder="Email">
                 </div>
             </div>
 
-            <div class="form-group" style="margin-top: 10px;">
-                <label for="opp-proba" style="font-size: 11px;">Probabilité projet <span id="opp-proba-val">(%)</span></label>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 14px;">🥵</span>
-                    <input type="range" id="opp-proba" min="0" max="100" value="50" style="flex: 1; cursor: pointer;">
-                    <span style="font-size: 14px;">🤑</span>
+            <div class="form-row" style="margin-top: 10px; align-items: center;">
+                <div class="form-group" style="flex: 3; margin-bottom: 0;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 24px;">🥵</span>
+                        <input type="range" id="opp-proba" min="0" max="100" value="50" style="flex: 1; cursor: pointer;">
+                        <span style="font-size: 24px;">🤑</span>
+                    </div>
+                </div>
+
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <div class="input-with-icon">
+                        <span class="input-icon">€</span>
+                        <input type="number" id="opp-montant" placeholder="Montant" min="0" step="0.01">
+                    </div>
                 </div>
             </div>
 
-            <div class="form-group">
-                <div class="input-with-icon">
-                    <span class="input-icon">€</span>
-                    <input type="number" id="opp-montant" placeholder="Montant opportunité" min="0" step="0.01">
+            <div class="form-group website-group" style="margin-top: 8px;">
+                <div style="display: flex; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden; height: 34px; background: #fff;">
+                    <select id="opp-website-protocol" style="width: auto; flex-shrink: 0; border: none; background: #f8f9fa; padding: 0 4px 0 8px; outline: none; font-size: 13px; color: #333; cursor: pointer; border-right: 1px solid #cbd5e1; border-radius: 0;">
+                        <option value="https://">https://</option>
+                        <option value="http://">http://</option>
+                    </select>
+                    <input type="text" id="opp-website" placeholder="Website" pattern="^(?:https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/.*)?$" title="Exemple de domaine valide: monsite.com" style="flex: 1; min-width: 0; border: none; padding: 0 10px; font-size: 13px; outline: none; box-shadow: none;">
                 </div>
             </div>
 
