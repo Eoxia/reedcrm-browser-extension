@@ -195,6 +195,10 @@ function loadProfileIntoForm(p) {
     document.getElementById('doli-ticket-type').value = p.doliTicketType || 'ISSUE';
     document.getElementById('doli-ticket-severity').value = p.doliTicketSeverity || 'NORMAL';
     document.getElementById('doli-ticket-category').value = p.doliTicketCategory || '';
+    
+    if (document.getElementById('doli-dict-map')) {
+        document.getElementById('doli-dict-map').value = p.doliDictMap || '';
+    }
 
     // Affichage des permissions si elles existent
     if (p.doliStatus) {
@@ -235,13 +239,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 doliTicketType: items.doliTicketType,
                 doliTicketSeverity: items.doliTicketSeverity,
                 doliTicketCategory: items.doliTicketCategory,
+                doliDictMap: items.doliDictMap,
                 doliStatus: items.doliStatus
             };
             profiles = [migratedProfile];
             activeProfileId = migratedProfile.id;
             
             // Nettoyage de l'ancienne config
-            chrome.storage.sync.remove(['doliUrl', 'doliLogin', 'doliApiToken', 'doliEntity', 'doliAutoAssign', 'doliOppOnly', 'doliTicketType', 'doliTicketSeverity', 'doliTicketCategory', 'doliStatus']);
+            chrome.storage.sync.remove(['doliUrl', 'doliLogin', 'doliApiToken', 'doliEntity', 'doliAutoAssign', 'doliOppOnly', 'doliTicketType', 'doliTicketSeverity', 'doliTicketCategory', 'doliStatus', 'doliDictMap']);
             chrome.storage.sync.set({ doliProfiles: profiles, doliActiveProfileId: activeProfileId });
         } else {
             profiles = items.doliProfiles || [];
@@ -418,6 +423,104 @@ document.getElementById('doli-blur').addEventListener('input', (e) => {
     }
 });
 
+// Maj Dictionnaire via API
+if(document.getElementById('btn-update-dict')){
+    document.getElementById('btn-update-dict').addEventListener('click', async () => {
+        const statusDiv = document.getElementById('dict-status');
+        const textarea = document.getElementById('doli-dict-map');
+        const p = getActiveProfile();
+
+        if (!p || !p.doliUrl || !p.doliApiToken) {
+            statusDiv.style.color = "#e74c3c";
+            statusDiv.textContent = "Veuillez d'abord Tester et Enregistrer votre connexion haut-dessus.";
+            return;
+        }
+
+        const token = p.doliApiToken;
+        const entity = p.doliEntity;
+        const headers = { 'DOLAPIKEY': token, 'Accept': 'application/json' };
+        if (entity && String(entity).trim() !== '') headers['DOLAPIENTITY'] = String(entity).trim();
+
+        statusDiv.style.color = "#3498db";
+        statusDiv.textContent = "Récupération en cours...";
+
+        let newDictLines = [];
+        
+        try {
+            const dictRes = await fetch(`${p.doliUrl}/setup/dictionary/c_input_reason`, { headers: headers });
+            if (dictRes.ok) {
+                const dictJson = await dictRes.json();
+                if (Array.isArray(dictJson)) {
+                    dictJson.forEach(row => {
+                        const rowId = row.id || row.rowid;
+                        if (rowId) newDictLines.push(`${rowId} : ${row.label || row.libelle || row.code}`);
+                    });
+                }
+            }
+        } catch(e) {}
+
+        try {
+            const efRes = await fetch(`${p.doliUrl}/setup/extrafields`, { headers: headers });
+            if (efRes.ok) {
+                const efJson = await efRes.json();
+                let oField = null;
+                if (Array.isArray(efJson)) {
+                    oField = efJson.find(f => f.name === 'opporigin' || f.name === 'origine_opportunite' || f.name === 'origine');
+                } else {
+                    const pFields = efJson.project || efJson.projet || efJson;
+                    oField = pFields.options_opporigin || pFields.opporigin || pFields.origine_opportunite || pFields.options_origine_opportunite;
+                }
+
+                if (oField && oField.param) {
+                    let parsedParams = oField.param;
+                    if (typeof oField.param === 'string') {
+                        // cas string (code:label,code2:label2) - on ne parse que si on est sûr du format
+                    } else if (typeof oField.param === 'object') {
+                        const paramsToMerge = oField.param.options || oField.param;
+                        Object.keys(paramsToMerge).forEach(k => {
+                            if (!newDictLines.some(l => l.startsWith(`${k} :`))) {
+                                const val = paramsToMerge[k];
+                                // Skip metadata properties stored in param (e.g. {"c_input_reason:code": null})
+                                if (k.includes(':') && (val === null || val === '')) return;
+                                newDictLines.push(`${k} : ${val}`);
+                            }
+                        });
+                    }
+                }
+            }
+        } catch(e) {}
+
+        if (newDictLines.length === 0) {
+            // Injection du dictionnaire standard si les API refusent l'accès
+            const dolibarrNativeInputReasons = {
+                "1": "Campagne d'emailing",
+                "2": "Campagne Fax",
+                "3": "Campagne Publipostage",
+                "4": "Campagne Téléphonique",
+                "5": "Contact commercial",
+                "6": "Contact entrant",
+                "7": "Employé",
+                "8": "Internet",
+                "9": "Partenaire",
+                "10": "Contact en boutique",
+                "11": "Parrainage",
+                "12": "Bouche à oreille"
+            };
+            Object.keys(dolibarrNativeInputReasons).forEach(k => {
+                newDictLines.push(`${k} : ${dolibarrNativeInputReasons[k]}`);
+            });
+            
+            textarea.value = newDictLines.join('\n');
+            statusDiv.style.color = "#f39c12"; // Orange warning
+            statusDiv.textContent = "API verrouillée (404/403). Le dictionnaire standard Dolibarr par défaut a été rempli. Pensez à Enregistrer !";
+        } else {
+            textarea.value = newDictLines.join('\n');
+            statusDiv.style.color = "#27ae60";
+            statusDiv.textContent = "Dictionnaire mis à jour ! Pensez à Enregistrer de nouveau le profil en haut pour valider.";
+        }
+    });
+}
+
 // Sauvegarde les options
 document.getElementById('save-btn').addEventListener('click', async () => {
     const urlInput = document.getElementById('doli-url');
@@ -467,6 +570,11 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     const ticketTypeVal = document.getElementById('doli-ticket-type').value.trim();
     const ticketSeverityVal = document.getElementById('doli-ticket-severity').value.trim();
     const ticketCategoryVal = document.getElementById('doli-ticket-category').value.trim();
+    
+    let dictMapVal = '';
+    if (document.getElementById('doli-dict-map')) {
+        dictMapVal = document.getElementById('doli-dict-map').value.trim();
+    }
 
     // On récupère le profil actif pour le mettre à jour
     const p = getActiveProfile();
@@ -484,6 +592,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     p.doliTicketType = ticketTypeVal;
     p.doliTicketSeverity = ticketSeverityVal;
     p.doliTicketCategory = ticketCategoryVal;
+    p.doliDictMap = dictMapVal;
 
     chrome.storage.sync.set({ 
         doliProfiles: profiles,

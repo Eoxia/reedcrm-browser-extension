@@ -98,6 +98,24 @@
         </fieldset>
 
         <fieldset class="settings-section">
+            <legend>Dictionnaire (Origines Opportunité)</legend>
+            <p style="font-size: 11px; color: #7f8c8d; margin-bottom: 10px; margin-top: 0;">
+                Associez les identifiants (ID) renvoyés par Dolibarr à leur vraie valeur. Un par ligne sous la forme <code>ID : Label</code> (Ex: <code>6 : Shop contact</code>).<br>
+                <i>Pour consulter votre dictionnaire dans Dolibarr il faut cliquer sur <b>Accueil > Configuration > Dictionnaires</b> (Le nom du Dictionnaire : Origines ou Raison refus).</i>
+            </p>
+            <div class="form-group" style="position: relative;">
+                <textarea id="doli-dict-map" rows="5" placeholder="1 : Appel entrant&#10;6 : Shop contact" style="width: 100%; box-sizing: border-box; padding: 8px; font-size: 13px; border-radius: 4px; border: 1px solid #ccc; font-family: monospace;"></textarea>
+                <div style="text-align: right; margin-top: 5px;">
+                    <button id="btn-update-dict" type="button" style="display: inline-flex; justify-content: center; align-items: center; gap: 6px; padding: 6px 12px; background-color: #3498db; color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;" title="Récupérer depuis l'API Dolibarr">
+                        <svg width="12" height="12" fill="currentColor" viewBox="0 0 512 512"><path d="M105.1 202.6c7.7-21.8 20.2-42.3 37.8-59.8c62.5-62.5 163.8-62.5 226.3 0L386.3 160H336c-13.3 0-24 10.7-24 24s10.7 24 24 24H432c13.3 0 24-10.7 24-24V88c0-13.3-10.7-24-24-24s-24 10.7-24 24v49.4L390.5 120.6c-75-75-196.8-75-271.8 0c-26.1 26.1-45.9 57.6-58.2 92.4c-4.4 12.5 2.1 26.2 14.6 30.6s26.2-2.1 30.6-14.6zM406.9 309.4c-7.7 21.8-20.2 42.3-37.8 59.8c-62.5 62.5-163.8 62.5-226.3 0L125.7 352H176c13.3 0 24-10.7 24-24s-10.7-24-24-24H80c-13.3 0-24 10.7-24 24v96c0 13.3 10.7 24 24 24s24-10.7 24-24V399.4l17.5 17.5c75 75 196.8 75 271.8 0c26.1-26.1 45.9-57.6 58.2-92.4c4.4-12.5-2.1-26.2-14.6-30.6s-26.2 2.1-30.6 14.6z"/></svg>
+                        Mettre à jour via l'API
+                    </button>
+                </div>
+                <div id="dict-status" style="font-size: 11px; margin-top: 5px; text-align: right;"></div>
+            </div>
+        </fieldset>
+
+        <fieldset class="settings-section">
             <legend>Paramètres Opportunités/Projet</legend>
             <div class="form-group" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; background-color: #fff; padding: 10px 15px; border-radius: 6px; border: 1px solid #e0e0e0;">
                 <label for="doli-opp-only" style="margin: 0; cursor: pointer; display: inline-block; font-size: 13px; font-weight: 600; flex: 1; padding-right: 10px;">Forcer "Suivre une opportunité"</label>

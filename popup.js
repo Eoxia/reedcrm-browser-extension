@@ -537,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Fonction pour charger les dernières opportunités (Projets)
-        async function loadRecentOpportunities(apiUrl, token, limit = 10, entity, doliOppOnly = true, usersPromise = null) {
+        async function loadRecentOpportunities(apiUrl, token, limit = 10, entity, doliOppOnly = true, usersPromise = null, customDictMapStr = "") {
             recentOppContainer.classList.remove('hidden');
             recentOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Chargement des opportunités...</div>`;
 
@@ -566,6 +566,89 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         if (oppProjects.length > 0) {
+                            let customOppDict = {};
+                            
+                            // 0. Injection du dictionnaire personnalisé de l'utilisateur (depuis Profils)
+                            if (customDictMapStr) {
+                                customDictMapStr.split(/\r?\n/).forEach(line => {
+                                    if(line.includes(':')){
+                                        let [k,v] = line.split(':');
+                                        k = k.replace(/^[iI][dD]\s*/, '').trim();
+                                        if (k && v.trim()) customOppDict[k] = v.trim();
+                                    } else if(line.includes('=')){
+                                        let [k,v] = line.split('=');
+                                        k = k.replace(/^[iI][dD]\s*/, '').trim();
+                                        if (k && v.trim()) customOppDict[k] = v.trim();
+                                    }
+                                });
+                            }
+                            
+                            let oppOriginDict = {};
+                            
+                            // 1. Cas où l'origine est tirée d'une table dictionnaire (sellist) comme c_input_reason
+                            try {
+                                const dictRes = await fetch(`${apiUrl}/setup/dictionary/c_input_reason`, { headers: headers });
+                                if (dictRes.ok) {
+                                    const dictJson = await dictRes.json();
+                                    if (Array.isArray(dictJson)) {
+                                        dictJson.forEach(row => {
+                                            const rowId = row.id || row.rowid;
+                                            if (rowId) {
+                                                oppOriginDict[rowId.toString()] = row.label || row.libelle || row.code;
+                                            }
+                                        });
+                                    }
+                                }
+                            } catch(e) { console.warn("Erreur fetch dictionary", e); }
+
+                            // 1.b Fallback : Si l'API renvoie 404 (non exposé), on injecte le dictionnaire natif Dolibarr de base (c_input_reason)
+                            const dolibarrNativeInputReasons = {
+                                "1": "Campagne d'emailing",
+                                "2": "Campagne Fax",
+                                "3": "Campagne Publipostage",
+                                "4": "Campagne Téléphonique",
+                                "5": "Contact commercial",
+                                "6": "Contact entrant",
+                                "7": "Employé",
+                                "8": "Internet",
+                                "9": "Partenaire",
+                                "10": "Contact en boutique",
+                                "11": "Parrainage",
+                                "12": "Bouche à oreille"
+                            };
+
+                            // 2. Cas où l'origine est une simple liste déroulante (select) gérée dans les paramètres de l'extrafield
+                            try {
+                                const efRes = await fetch(`${apiUrl}/setup/extrafields`, { headers: headers });
+                                if (efRes.ok) {
+                                    const efJson = await efRes.json();
+                                    let oField = null;
+                                    
+                                    // Dolibarr API generally returns an array of objects for extrafields
+                                    if (Array.isArray(efJson)) {
+                                        oField = efJson.find(f => f.name === 'opporigin' || f.name === 'origine_opportunite' || f.name === 'origine');
+                                    } else {
+                                        // Fallback if it returns a grouped object
+                                        const pFields = efJson.project || efJson.projet || efJson;
+                                        oField = pFields.options_opporigin || pFields.opporigin || pFields.origine_opportunite || pFields.options_origine_opportunite;
+                                    }
+
+                                    if (oField && oField.param) {
+                                        if (typeof oField.param === 'string') {
+                                            oField.param.split(/\r?\n/).forEach(line => {
+                                                const parts = line.split(',');
+                                                if (parts.length >= 2) oppOriginDict[parts[0].trim()] = parts.slice(1).join(',').trim();
+                                            });
+                                        } else if (typeof oField.param === 'object') {
+                                            const paramsToMerge = oField.param.options || oField.param;
+                                            Object.keys(paramsToMerge).forEach(k => {
+                                                oppOriginDict[k.toString()] = paramsToMerge[k];
+                                            });
+                                        }
+                                    }
+                                }
+                            } catch(e) { console.warn("Erreur fetch extrafields", e); }
+
                             recentOppList.innerHTML = ''; // Nettoyer
                             const sortedProjects = oppProjects.sort((a, b) => b.date_c - a.date_c).slice(0, limit);
                             
@@ -614,6 +697,20 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const oppTel = opts.options_projectphone || '';
                                 const oppEmail = opts.options_reedcrm_email || '';
                                 const oppWebsite = opts.options_reedcrm_website || opts.options_website || project.url || '';
+                                const oppOriginRaw = opts.options_opporigin || opts.options_origine_opportunite || opts.options_origine || opts.options_origin || opts.options_source || opts.options_provenance || opts.options_prov || opts.options_opp_origin || opts.options_canal || '';
+                                
+                                // On essaie de traduire la valeur brute via les dictionnaires (Perso > API > Natif)
+                                let mappedOrigin = oppOriginRaw;
+                                if (oppOriginRaw && customOppDict && customOppDict[oppOriginRaw]) {
+                                    mappedOrigin = customOppDict[oppOriginRaw];
+                                } else if (oppOriginRaw && oppOriginDict && oppOriginDict[oppOriginRaw]) {
+                                    mappedOrigin = oppOriginDict[oppOriginRaw];
+                                } else if (oppOriginRaw && dolibarrNativeInputReasons[oppOriginRaw]) {
+                                    mappedOrigin = dolibarrNativeInputReasons[oppOriginRaw]; // Fallback to native DB rows
+                                }
+                                
+                                // Dolibarr often returns the raw key of a select list, we'll try to display it cleanly if no map found.
+                                const oppOrigin = typeof mappedOrigin === 'string' ? mappedOrigin.charAt(0).toUpperCase() + mappedOrigin.slice(1).replace(/_/g, ' ') : mappedOrigin;
 
                                 let line1Html = '';
                                 const fullName = `${oppPrenom} ${oppNom}`.trim();
@@ -644,13 +741,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                                 
                                 let contactHtml = '';
-                                if (line1Html !== '' || line2Html !== '') {
+                                if (line1Html !== '' || line2Html !== '' || oppOrigin !== '') {
                                     contactHtml = `<div class="rt-contact">`;
                                     if (line1Html !== '') {
                                         contactHtml += `<div class="rt-contact-line1">${line1Html}</div>`;
                                     }
                                     if (line2Html !== '') {
-                                        contactHtml += `<div class="rt-contact-line2">${line2Html}</div>`;
+                                        contactHtml += `<div class="rt-contact-line2" style="margin-top: 1px;">${line2Html}</div>`;
+                                    }
+                                    if (oppOrigin !== '') {
+                                        contactHtml += `<div class="rt-contact-line3" style="margin-top: 3px; display: flex; align-items: center; color: #475569; font-size: 11px;">
+                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                                            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${oppOrigin}">${oppOrigin}</span>
+                                        </div>`;
                                     }
                                     contactHtml += `</div>`;
                                 }
@@ -669,26 +772,29 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
 
                                 const html = `
-                            <div class="recent-ticket-item">
+                            <div class="recent-ticket-item" style="align-items: flex-start;">
                                 <div class="rt-left">
-                                    <div class="rt-ref-group" style="display: flex; align-items: center; gap: 6px;">
+                                    <div class="rt-ref-group" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
                                         <a href="${doliBaseUrl}/projet/card.php?id=${project.id}" target="_blank" class="rt-ref" title="Ouvrir le projet">${projectRef}</a>
                                         ${dateCStr ? `<span class="rt-sep">&bull;</span><div style="font-size: 10px; color: #888;">${dateCStr}</div>` : ''}
                                         ${initials !== "?" ? `<span class="rt-sep">&bull;</span><div style="font-size: 9px; background: #e2e8f0; color: #475569; padding: 1px 4px; border-radius: 4px;" title="Créé par">#${initials}</div>` : ''}
                                     </div>
-                                    <div class="rt-subject" title="${project.title || ''}">${subject}</div>
+                                    <div class="rt-subject" title="${project.title || ''}" style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
+                                        <div class="rt-status-dot" title="Statut: ${stat}" style="width: 8px; height: 8px; border-radius: 50%; background-color: ${statusColor}; flex-shrink: 0;"></div>
+                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; flex: 1; font-size: 13px; color: #334155; font-weight: 400;">${subject}</span>
+                                    </div>
                                     ${contactHtml}
                                     ${extraPlayerHtml}
                                     <div id="audio-slot-${project.id}"></div>
                                 </div>
-                                <div class="rt-right" style="display: flex; align-items: center; gap: 8px;">
+                                <div class="rt-right" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start;">
                                     ${(probDisplay || amountDisplay) ? `
-                                    <div class="rt-stats">
-                                        <div class="rt-prob">${probDisplay}</div>
-                                        <div class="rt-amount">${amountDisplay}</div>
+                                    <div class="rt-stats" style="font-size: 13px; font-weight: 400; display: flex; flex-direction: row; align-items: center; gap: 4px; white-space: nowrap;">
+                                        ${probDisplay ? `<span style="color: #1e293b;">${probDisplay}</span>` : ''}
+                                        ${(probDisplay && amountDisplay) ? `<span style="color: #1e293b; font-weight: 700; margin: 0 2px;">-</span>` : ''}
+                                        ${amountDisplay ? `<span style="color: #0ea5e9;">${amountDisplay}</span>` : ''}
                                     </div>
                                     ` : ''}
-                                    <div class="rt-status-dot" title="Statut: ${stat}" style="width: 8px; height: 8px; border-radius: 50%; background-color: ${statusColor}; flex-shrink: 0;"></div>
                                 </div>
                             </div>`;
                                 recentOppList.insertAdjacentHTML('beforeend', html);
@@ -828,7 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Fetch les derniers tickets avec la limite choisie par l'utilisateur (défaut: 10)
                 const recentLimit = items.doliRecentCount !== undefined ? parseInt(items.doliRecentCount, 10) || 10 : 10;
                 loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity);
-                loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly, usersPromise);
+                loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly, usersPromise, p.doliDictMap || "");
 
                 // Optionnel: copier les assignees dans le select opp s'il se charge 
                 const setupOppAssignees = () => {
