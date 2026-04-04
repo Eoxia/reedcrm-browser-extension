@@ -961,7 +961,55 @@ document.addEventListener('DOMContentLoaded', () => {
                     'doliPrefillOppNom', 'doliPrefillOppPrenom', 'doliPrefillOppTel', 'doliPrefillOppEmail',
                     'doliPrefillOppProba', 'doliPrefillOppMontant', 'doliPrefillTicketTiers', 'doliPrefillTicketContact', 'doliPrefillTicketProject'
                 ];
-                chrome.storage.local.get(prefillKeys, async (localItems) => {
+                
+                const profId = p.id || 'default';
+                const draftOppKey = `draftOpp_${profId}`;
+                const draftTicketKey = `draftTicket_${profId}`;
+                const draftSharedKey = `draftShared_${profId}`;
+                
+                chrome.storage.local.get([...prefillKeys, draftOppKey, draftTicketKey, draftSharedKey], async (localItems) => {
+                    
+                    // 1. Restauration des drafts (brouillons) spécifiques au profil
+                    if (localItems[draftTicketKey]) {
+                        const dt = localItems[draftTicketKey];
+                        if (dt.subject !== undefined) document.getElementById('ticket-subject').value = dt.subject;
+                        if (dt.message !== undefined) document.getElementById('ticket-message').value = dt.message;
+                        if (dt.assignee !== undefined && dt.assignee !== '') {
+                            await usersPromise;
+                            assigneeSelect.value = dt.assignee;
+                        }
+                    }
+                    if (localItems[draftOppKey]) {
+                        const drop = localItems[draftOppKey];
+                        if (drop.subject !== undefined) document.getElementById('opp-subject').value = drop.subject;
+                        if (drop.message !== undefined) document.getElementById('opp-message').value = drop.message;
+                        if (drop.nom !== undefined) document.getElementById('opp-nom').value = drop.nom;
+                        if (drop.prenom !== undefined) document.getElementById('opp-prenom').value = drop.prenom;
+                        if (drop.tel !== undefined) document.getElementById('opp-tel').value = drop.tel;
+                        if (drop.email !== undefined) document.getElementById('opp-email').value = drop.email;
+                        if (drop.proba !== undefined) {
+                            const probaInput = document.getElementById('opp-proba');
+                            if (probaInput) {
+                                probaInput.value = drop.proba;
+                                const probaVal = document.getElementById('opp-proba-val');
+                                if (probaVal) probaVal.textContent = `(${drop.proba}%)`;
+                            }
+                        }
+                        if (drop.montant !== undefined) document.getElementById('opp-montant').value = drop.montant;
+                        if (drop.websiteProtocol !== undefined) document.getElementById('opp-website-protocol').value = drop.websiteProtocol;
+                        if (drop.website !== undefined) document.getElementById('opp-website').value = drop.website;
+                        if (drop.assignee !== undefined && drop.assignee !== '') {
+                            await usersPromise;
+                            if (oppAssigneeSelect) oppAssigneeSelect.value = drop.assignee;
+                        }
+                    }
+
+                    // Tiers/Contact/Projet global depuis le draft ou le prefill
+                    const doliTiers = localItems.doliPrefillTicketTiers || (localItems[draftSharedKey] ? localItems[draftSharedKey].tiers : '');
+                    const doliContact = localItems.doliPrefillTicketContact || (localItems[draftSharedKey] ? localItems[draftSharedKey].contact : '');
+                    const doliProject = localItems.doliPrefillTicketProject || (localItems[draftSharedKey] ? localItems[draftSharedKey].project : '');
+
+                    // 2. Écrasement éventuel par les PREFILLS (Mail / Screenshot)
                     if (localItems.doliActiveTab) {
                         activeTab = localItems.doliActiveTab;
                     }
@@ -994,32 +1042,32 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
 
-                    // On charge les sélections Tiers/Contact/Projet de façon globale (valable pour les 2 onglets)
-                    if (localItems.doliPrefillTicketTiers) {
+                    // On charge les sélections Tiers/Contact/Projet de façon globale
+                    if (doliTiers) {
                         const tiersElem = document.getElementById('ticket-tiers');
                         if (tiersElem) {
                             // On attend un peu que la liste des tiers soit chargée
                             setTimeout(() => {
-                                tiersElem.value = localItems.doliPrefillTicketTiers;
+                                tiersElem.value = doliTiers;
                                 if (window.ticketTiersSelect) window.ticketTiersSelect.update();
                                 
                                 // Déclencher le loadContacts
-                                loadContacts(p.doliUrl, p.doliApiToken, p.doliEntity, localItems.doliPrefillTicketTiers).then(() => {
-                                    if (localItems.doliPrefillTicketContact) {
+                                loadContacts(p.doliUrl, p.doliApiToken, p.doliEntity, doliTiers).then(() => {
+                                    if (doliContact) {
                                         const contactElem = document.getElementById('ticket-contact');
                                         if (contactElem) {
-                                            contactElem.value = localItems.doliPrefillTicketContact;
+                                            contactElem.value = doliContact;
                                             if (window.ticketContactSelect) window.ticketContactSelect.update();
                                         }
                                     }
                                 });
 
                                 // Déclencher le loadProjects
-                                loadProjects(p.doliUrl, p.doliApiToken, p.doliEntity, localItems.doliPrefillTicketTiers).then(() => {
-                                    if (localItems.doliPrefillTicketProject) {
+                                loadProjects(p.doliUrl, p.doliApiToken, p.doliEntity, doliTiers).then(() => {
+                                    if (doliProject) {
                                         const projectElem = document.getElementById('ticket-project');
                                         if (projectElem) {
-                                            projectElem.value = localItems.doliPrefillTicketProject;
+                                            projectElem.value = doliProject;
                                             if (window.ticketProjectSelect) window.ticketProjectSelect.update();
                                         }
                                     }
@@ -1030,6 +1078,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // On nettoie la mémoire locale pour ne pas pré-remplir la prochaine fois
                     chrome.storage.local.remove(prefillKeys);
+                    
+                    // --- Mise en place de la sauvegarde de brouillons sur tout changement ---
+                    let draftTimeout;
+                    const saveDraft = () => {
+                        clearTimeout(draftTimeout);
+                        draftTimeout = setTimeout(() => {
+                            const draftOpp = {
+                                subject: document.getElementById('opp-subject').value,
+                                message: document.getElementById('opp-message').value,
+                                nom: document.getElementById('opp-nom').value,
+                                prenom: document.getElementById('opp-prenom').value,
+                                tel: document.getElementById('opp-tel').value,
+                                email: document.getElementById('opp-email').value,
+                                proba: document.getElementById('opp-proba').value,
+                                montant: document.getElementById('opp-montant').value,
+                                websiteProtocol: document.getElementById('opp-website-protocol').value,
+                                website: document.getElementById('opp-website').value,
+                                assignee: oppAssigneeSelect ? oppAssigneeSelect.value : ''
+                            };
+                            
+                            const draftTicket = {
+                                subject: document.getElementById('ticket-subject').value,
+                                message: document.getElementById('ticket-message').value,
+                                assignee: assigneeSelect ? assigneeSelect.value : ''
+                            };
+                            
+                            const draftShared = {
+                                tiers: document.getElementById('ticket-tiers') ? document.getElementById('ticket-tiers').value : '',
+                                contact: document.getElementById('ticket-contact') ? document.getElementById('ticket-contact').value : '',
+                                project: document.getElementById('ticket-project') ? document.getElementById('ticket-project').value : ''
+                            };
+                            chrome.storage.local.set({ [draftOppKey]: draftOpp, [draftTicketKey]: draftTicket, [draftSharedKey]: draftShared });
+                        }, 800);
+                    };
+
+                    const allInputs = document.querySelectorAll('#view-ticket input, #view-ticket textarea, #view-ticket select, #view-opportunity input, #view-opportunity textarea, #view-opportunity select, #ticket-top-actions select');
+                    allInputs.forEach(el => {
+                        el.addEventListener('input', saveDraft);
+                        el.addEventListener('change', saveDraft);
+                    });
                 });
             } else {
                 // Configuration manquante
@@ -1321,6 +1409,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                     oppForm.reset();
                     if (typeof removeOppPastedImage === 'function') removeOppPastedImage();
+                    
+                    // Nettoyage des brouillons après création réussie
+                    const prId = p ? (p.id || 'default') : 'default';
+                    chrome.storage.local.remove([`draftOpp_${prId}`, `draftShared_${prId}`]);
 
                     setTimeout(() => window.close(), 5000);
 
@@ -1537,6 +1629,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
                 ticketForm.reset();
                 if (typeof removePastedImage === 'function') removePastedImage();
+                
+                // Nettoyage des brouillons après création réussie
+                const prfId = p ? (p.id || 'default') : 'default';
+                chrome.storage.local.remove([`draftTicket_${prfId}`, `draftShared_${prfId}`]);
 
             } catch (error) {
                 btnSubmit.classList.remove('btn-loading');
