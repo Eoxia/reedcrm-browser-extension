@@ -65,7 +65,8 @@ class CustomSelect {
 
         Array.from(this.selectElement.options).forEach((option, index) => {
             const text = option.textContent;
-            if (text.toLowerCase().includes(lowercaseFilter)) {
+            const searchContext = (text + ' ' + (option.dataset.search || '')).toLowerCase();
+            if (searchContext.includes(lowercaseFilter)) {
                 const customOption = document.createElement('div');
                 customOption.className = 'custom-option';
                 if (option.disabled) customOption.classList.add('disabled');
@@ -285,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tiersSelect = document.getElementById('ticket-tiers');
             try {
                 // mode=1 pour ne lister que les clients/prospects (souvent suffisant pour devis/tickets)
-                const response = await fetch(`${apiUrl}/thirdparties?limit=500&sortfield=t.nom&sortorder=ASC&mode=1`, {
+                const response = await fetch(`${apiUrl}/thirdparties?limit=50000&sortfield=t.nom&sortorder=ASC&mode=1`, {
                     headers: {
                         'DOLAPIKEY': token,
                         'Accept': 'application/json',
@@ -301,7 +302,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         tiers.forEach(t => {
                             const option = document.createElement('option');
                             option.value = t.id;
-                            option.textContent = t.name || t.nom || `Tiers #${t.id}`;
+                            let displayName = t.name || t.nom || `Tiers #${t.id}`;
+                            if (t.name_alias) displayName += ` - ${t.name_alias}`;
+                            option.textContent = displayName;
+                            
+                            // On stocke aussi l'alias et d'autres infos dans un dataset pour la recherche si on modifie CustomSelect un jour
+                            option.dataset.search = (t.name_alias || '').toLowerCase();
                             tiersSelect.appendChild(option);
                         });
                     }
