@@ -1,0 +1,282 @@
+Charte de Développement IA pour Extension Chrome
+
+1. Gestion des Locales & I18n
+
+* Uniformité :
+  * Toutes les chaînes de caractères doivent être extraites dans _locales/.
+  * Le code généré ne doit jamais contenir de texte "en dur" dans le HTML ou le JS.
+  * Format de nommage : Utiliser exclusivement le format court (ISO 639-1) comme fr, en, es pour maximiser la compatibilité, sauf besoin régional spécifique.
+
+* Vérification IA :
+  * Demander systématiquement à l'IA de fournir le bloc JSON correspondant pour messages.json lors de la création d'une nouvelle fonctionnalité.
+
+2. Sécurité & Manifest V3
+
+* Conformité CSP :
+  * L'IA a tendance à suggérer du "Inline Script" ou des eval(). C'est interdit en Manifest V3.
+* Règle :
+  * Tout le code JS doit être dans des fichiers .js séparés.
+* Permissions minimales :
+  * Ne demander que les permissions strictement nécessaires dans le manifest.json.
+  * Si l'IA propose *://*/*, la corriger pour cibler uniquement les domaines du CRM.
+
+3. Format de Prompt Obligatoire
+
+Chaque prompt doit contenir :
+
+3.1 Contexte :
+"Extension Chrome Manifest V3 avec chrome.i18n et storage API"
+
+3.2 Objectif :
+"Créer / modifier / corriger ..."
+
+3.3 Contraintes :
+
+* Pas de inline JS
+* I18n obligatoire
+* Gestion erreurs obligatoire
+
+3.4 Sortie attendue :
+
+* Code complet
+* messages.json associé
+
+4. Audit du Code Généré
+
+* Refactorisation :
+  * Avant de valider un code généré, vérifier la cohérence des noms de variables (ex: camelCase partout).
+* Gestion d'erreurs :
+  * L'IA oublie souvent les try/catch.
+  * Imposer une gestion d'erreur sur chaque appel à l'API Chrome (chrome.runtime.lastError).
+
+5. Architecture Modulaire & Nomenclature
+
+* Respecter l'arborescence standard pour que l'IA ne s'y perde pas lors des itérations :
+* Structure recommandée :
+/extension-root
+  ├── _locales/       (Traductions)
+  ├── assets/         (Images, icônes)
+  ├── src/            (Scripts logiques)
+  │   ├── background/
+  │   ├── services/    (API CRM, storage)
+  │   ├── utils/       (helpers)
+  │   ├── content/     (scripts injectés)
+  │   └── popup/
+  ├── ui/             (HTML/CSS des popups)
+  └── manifest.json   (Configuration)
+
+6. Architecture Manifest V3 & Bonnes Pratiques
+
+* Cycle de vie des Service Workers :
+  * Les scripts d'arrière-plan (background.js) sont éphémères et se mettent en veille au bout de 30 secondes d'inactivité. Le code généré ne doit JAMAIS utiliser de variables globales pour persister un état. Tout état doit passer par chrome.storage.
+* Sécurité et manipulation du DOM (XSS) :
+  * Le code généré doit s'interdire d'utiliser `.innerHTML` avec des données entrantes dynamiques provenant du CRM ou de l'utilisateur. Utiliser exclusivement `.textContent` ou `document.createElement()` pour prévenir l'injection XSS.
+* Gestion du Stockage (chrome.storage) :
+  * Le code généré doit faire la distinction rigoureuse entre les environnements de stockage.
+  * Utiliser obligatoirement `storage.sync` pour la configuration durable (URL Dolibarr, Token API, langue), et `storage.local` pour toutes les données lourdes ou éphémères (mise en cache des requêtes, brouillons de formulaires).
+
+7. Qualité du Code
+
+* Lisibilité :
+  * Fonctions courtes (< 30 lignes)
+  * Noms explicites (ex: fetchCustomerData, pas dataFn)
+
+* Documentation :
+  * Chaque fonction doit avoir un commentaire JSDoc
+
+* Interdit :
+  * Pas de code mort
+  * Pas de duplication (DRY)
+
+* Gestion asynchrone :
+  * Toute Promise doit être gérée avec async/await
+  * Interdiction des .then() imbriqués
+  * Toujours encapsuler await dans try/catch
+
+8. Performance
+
+* Limiter les appels API
+* Mettre en cache via storage.local
+* Débouncer les actions utilisateur (ex: recherche)
+
+9. UX/UI
+
+* Respecter :
+  * Temps de réponse < 300ms
+  * Feedback utilisateur (loader, erreur)
+
+* Accessibilité :
+  * aria-label obligatoire
+  * contrastes respectés
+
+10. Checklist de Validation
+Avant validation du code :
+
+☐ Pas de texte en dur
+☐ Pas de inline JS
+☐ Permissions minimales
+☐ Gestion erreurs OK
+☐ i18n OK
+☐ Respect architecture
+☐ Pas de innerHTML
+☐ Stockage correct (sync vs local)
+
+11. Vérification IA
+
+* Toute API Chrome utilisée doit être :
+  * Vérifiée dans la documentation officielle
+  * Compatible Manifest V3
+
+* Refuser :
+  * API obsolètes
+  * API inventées
+
+
+12. Gestion des Appels API
+
+* Centralisation :
+  * Tous les appels API doivent passer par src/services/api.js
+
+* Règles :
+  * Timeout obligatoire
+  * Gestion des erreurs HTTP (status !== 200)
+  * Retry simple (max 2 tentatives)
+
+* Interdit :
+  * Aucun fetch directement dans UI ou content script
+
+
+13. Content Scripts
+
+* Rôle limité :
+  * Lecture du DOM uniquement
+  * Pas de logique métier
+
+* Communication obligatoire :
+  * Passer par chrome.runtime.sendMessage vers background
+
+* Interdit :
+  * Pas d’accès direct au storage ou API CRM
+  * Pas de messages implicites ou non typés
+
+* Standard de messages :
+  * Chaque message doit contenir :
+    * type (string)
+    * payload (object)
+
+  * Exemple :
+    ```json
+    {
+      "type": "GET_CUSTOMER",
+      "payload": { "id": 123 }
+    }
+    ```
+
+
+14. Gestion des Secrets
+
+* Interdit :
+  * Aucun token en dur dans le code
+  * Aucun stockage en clair dans storage.local
+
+* Exigé :
+  * Utiliser storage.sync pour configuration sensible
+  * Masquer les logs contenant des données sensibles
+
+15. Règles Manifest.json
+
+* Toujours inclure :
+  * "manifest_version": 3
+
+* Vérifications :
+  * permissions strictement minimales
+  * host_permissions ciblées
+  * background.service_worker utilisé (pas background scripts)
+
+* Interdit :
+  * permissions globales (*://*/*)
+
+16. Tests & Validation
+
+* Exigé :
+  * Tester chaque feature dans Chrome (mode développeur)
+
+* Vérifications :
+  * Chargement extension OK
+  * Aucune erreur console
+  * Messages inter-scripts fonctionnels
+
+17. Simplicité du Code
+
+* Priorité :
+  * Solution la plus simple possible
+
+* Interdit :
+  * Pas de sur-ingénierie
+  * Pas de patterns complexes inutiles (factory, singleton...)
+
+* Règle :
+  * Si une fonction peut être écrite en 10 lignes, ne pas en faire 30
+
+18. Nettoyage & Cycle de Vie
+
+* Exigé :
+  * Supprimer les listeners inutilisés
+  * Nettoyer les timers (clearTimeout / clearInterval)
+
+* Objectif :
+  * Éviter les fuites mémoire dans les content scripts
+
+19. Formatage Markdown
+
+* Règles de présentation :
+  * Utiliser rigoureusement des astérisques `*` pour les listes (ne jamais mixer avec des tirets `-`)
+
+20. Gestion des Constantes
+
+* Exigé :
+  * Centraliser toutes les constantes dans src/utils/constants.js
+
+* Exemples :
+  * URLs API
+  * clés storage
+  * types de messages
+
+* Interdit :
+  * Pas de strings magiques dans le code
+
+21. Versioning
+
+* Exigé :
+  * Mettre à jour la version dans manifest.json à chaque modification
+
+* Compatibilité :
+  * Tester les mises à jour sans perte de données storage
+
+22. Validation des Données
+
+* Exigé :
+  * Vérifier toutes les données entrantes (API, user input)
+
+* Règles :
+  * Vérifier types (string, number, etc.)
+  * Vérifier présence des champs obligatoires
+
+* Interdit :
+  * Ne jamais faire confiance aux données externes
+
+23. Dépendances
+
+* Interdit :
+  * Aucune librairie externe sans justification
+
+* Priorité :
+  * JavaScript natif (vanilla JS)
+
+* Vérification :
+  * Compatibilité avec Manifest V3
+
+24. Règle Absolue
+
+* Précaution critique :
+  * Toute réponse générée par l'IA doit être considérée comme NON fiable tant qu'elle n'a pas été vérifiée.

@@ -1,97 +1,50 @@
-// Dictionnaire standardisé des erreurs Doli-ReedCRM
+// Dictionnaire standardisé des erreurs Doli-ReedCRM (Métadonnées uniquement)
 const ERROR_DICTIONARY = {
     // ---- Catégorie : API & Réseau (Série 1000) ----
-    'ReedCRM-1001': {
-        category: 'Réseau',
-        userMessage: 'Impossible de joindre le serveur Dolibarr. Vérifiez votre connexion internet ou que l\'URL configurée est accessible.',
-        file: 'options.js',
-        line: 155
-    },
-    'ReedCRM-1002': {
-        category: 'Authentification',
-        userMessage: 'Identifiant ou mot de passe/token invalide. Veuillez vérifier vos accès dans les options.',
-        file: 'options.js',
-        line: 35
-    },
-    'ReedCRM-1003': {
-        category: 'Permissions',
-        userMessage: 'Votre utilisateur Dolibarr n\'a pas les droits nécessaires pour effectuer cette action (Erreur 403).',
-        file: 'popup.js',
-        line: 1276
-    },
-    'ReedCRM-1004': {
-        category: 'Ressource Introuvable',
-        userMessage: 'La ressource demandée n\'existe pas (Erreur 404). Vérifiez que le module API REST est bien activé sur Dolibarr.',
-        file: 'popup.js',
-        line: 1279
-    },
-    'ReedCRM-1500': {
-        category: 'Serveur Dolibarr (Erreur Interne)',
-        userMessage: 'Dolibarr a rencontré une erreur grave (Erreur 500) et a interrompu la requête. Il manque souvent un champ obligatoire (Configuration Tickets) ou un module tiers (ex: Digirisk) a provoqué un plantage PHP.',
-        file: 'popup.js',
-        line: 1282
-    },
+    'ReedCRM-1001': { category: 'Réseau', key: 'error_1001', file: 'options.js', line: 155 },
+    'ReedCRM-1002': { category: 'Authentification', key: 'error_1002', file: 'options.js', line: 35 },
+    'ReedCRM-1003': { category: 'Permissions', key: 'error_1003', file: 'popup.js', line: 1276 },
+    'ReedCRM-1004': { category: 'Ressource Introuvable', key: 'error_1004', file: 'popup.js', line: 1279 },
+    'ReedCRM-1500': { category: 'Serveur Dolibarr (Erreur Interne)', key: 'error_1500', file: 'popup.js', line: 1282 },
     
     // ---- Catégorie : Configuration (Série 2000) ----
-    'ReedCRM-2001': {
-        category: 'Configuration Manquante',
-        userMessage: 'L\'URL de Dolibarr n\'est pas configurée. Veuillez ouvrir les options de l\'extension.',
-        file: 'popup.js',
-        line: 1216
-    },
-    'ReedCRM-2002': {
-        category: 'Configuration Manquante',
-        userMessage: 'Le Token API de Dolibarr est introuvable. Veuillez vous reloguer dans les options.',
-        file: 'background.js',
-        line: 'multiple'
-    },
+    'ReedCRM-2001': { category: 'Configuration Manquante', key: 'error_2001', file: 'popup.js', line: 1216 },
+    'ReedCRM-2002': { category: 'Configuration Manquante', key: 'error_2002', file: 'background.js', line: 'multiple' },
 
     // ---- Catégorie : Validation Formulaire (Série 3000) ----
-    'ReedCRM-3001': {
-        category: 'Validation',
-        userMessage: 'Le sujet (Titre) du ticket est obligatoire pour valider la création.',
-        file: 'popup.js',
-        line: '1190-1200'
-    },
-    'ReedCRM-3002': {
-        category: 'Validation',
-        userMessage: 'Le nom du contact, de l\'entreprise (Tiers), et le titre de l\'opportunité sont obligatoires.',
-        file: 'popup.js',
-        line: '950-960'
-    },
+    'ReedCRM-3001': { category: 'Validation', key: 'error_3001', file: 'popup.js', line: '1190-1200' },
+    'ReedCRM-3002': { category: 'Validation', key: 'error_3002', file: 'popup.js', line: '950-960' },
 
     // ---- Catégorie : Traitement Métier / Création Entités (Série 4000) ----
-    'ReedCRM-4001': {
-        category: 'Affectation Contact',
-        userMessage: 'Dolibarr [VERSION] - Cette fonction est utilisable à partir de Dolibarr 23.x, L\'ajout du contact sur le projet n\'est pas réalisé.',
-        file: 'popup.js',
-        line: 1056
-    },
-    'ReedCRM-4002': {
-        category: 'Sauvegarde API',
-        userMessage: 'L\'API de Dolibarr a retourné une erreur lors de l\'insertion de la nouvelle opportunité.',
-        file: 'popup.js',
-        line: 1023
-    },
-    'ReedCRM-4003': {
-        category: 'Erreur Réseau (Contact)',
-        userMessage: 'Une erreur de communication est survenue lors de l\'affectation du contact à l\'opportunité (la demande réseau a échoué).',
-        file: 'popup.js',
-        line: 1067
-    },
-    'ReedCRM-4004': {
-        category: 'Sauvegarde API',
-        userMessage: 'L\'API de Dolibarr a retourné une erreur lors de l\'insertion du nouveau ticket.',
-        file: 'popup.js',
-        line: 1341
-    },
+    'ReedCRM-4001': { category: 'Affectation Contact', key: 'error_4001', file: 'popup.js', line: 1056 },
+    'ReedCRM-4002': { category: 'Sauvegarde API', key: 'error_4002', file: 'popup.js', line: 1023 },
+    'ReedCRM-4003': { category: 'Erreur Réseau (Contact)', key: 'error_4003', file: 'popup.js', line: 1067 },
+    'ReedCRM-4004': { category: 'Sauvegarde API', key: 'error_4004', file: 'popup.js', line: 1341 },
 
     // ---- Défaut ----
-    'ReedCRM-9999': {
-        category: 'Erreur Inconnue',
-        userMessage: 'Une erreur inattendue et non répertoriée s\'est produite dans l\'extension.',
-        file: 'Partout',
-        line: 'auto'
+    'ReedCRM-9999': { category: 'Erreur Inconnue', key: 'error_9999', file: 'Partout', line: 'auto' }
+};
+
+const ErrorManager = {
+    getMessage(errorCode, fallbackString = "") {
+        let msgKey = errorCode;
+        
+        // Si c'est un code du dictionnaire, on prend la clé associée
+        if (ERROR_DICTIONARY[errorCode]) {
+            msgKey = ERROR_DICTIONARY[errorCode].key;
+        }
+
+        // Tentative de récupération depuis chrome.i18n
+        if (chrome && chrome.i18n) {
+            const translatedMessage = chrome.i18n.getMessage(msgKey, fallbackString ? [fallbackString] : undefined);
+            if (translatedMessage) {
+                return translatedMessage;
+            }
+        }
+        
+        // Fallback si pas de traduction trouvée
+        if (fallbackString) return `Erreur : ${fallbackString}`;
+        return `Code d'erreur inconnu : ${errorCode}`;
     }
 };
 
@@ -101,12 +54,15 @@ const ERROR_DICTIONARY = {
 class DoliError extends Error {
     constructor(code, originalError = null, context = {}) {
         const errorDef = ERROR_DICTIONARY[code] || ERROR_DICTIONARY['ReedCRM-9999'];
-        super(errorDef.userMessage);
+        
+        // Récupération dynamique du message traduit
+        const translatedMessage = ErrorManager.getMessage(code);
+        super(translatedMessage);
         
         this.name = 'DoliError';
         this.code = code;
         this.category = errorDef.category;
-        this.userMessage = errorDef.userMessage;
+        this.userMessage = translatedMessage;
         
         // Extraction des méta-données statiques du dictionnaire
         this.dictFile = errorDef.file || 'non défini';

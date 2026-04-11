@@ -1,3 +1,58 @@
+
+import { MESSAGE_TYPES } from '../../src/utils/constants.js';
+
+// Remplacement global pour intercepter les fetch et les envoyer au SW (Règle 12)
+async function fetchDoli(url, options = {}) {
+    return new Promise((resolve, reject) => {
+        let method = options.method || 'GET';
+        let body = options.body ? JSON.parse(options.body) : null;
+        let doliUrl = '', endpoint = '', apiKey = '';
+
+        try {
+            const urlObj = new URL(url);
+            doliUrl = urlObj.origin + (urlObj.pathname.includes('/api/index.php') ? urlObj.pathname.split('/api/index.php')[0] : '');
+            endpoint = url.replace(doliUrl + '/api/index.php', '');
+            if(!endpoint.startsWith('/')) {
+                endpoint = url.replace(doliUrl, '');
+            }
+        } catch(e) {}
+
+        apiKey = options.headers?.DOLAPIKEY || options.headers?.['DOLAPIKEY'];
+
+        chrome.runtime.sendMessage({
+            type: MESSAGE_TYPES.API_CALL,
+            payload: { method, doliUrl, apiKey, endpoint, body }
+        }, response => {
+            if (chrome.runtime.lastError) {
+                return reject(new Error(chrome.runtime.lastError.message));
+            }
+            if (response && response.error) {
+                return resolve({
+                    ok: false,
+                    status: 500,
+                    statusText: response.error,
+                    json: async () => { throw new Error(response.error); }
+                });
+            }
+            resolve({
+                ok: true,
+                status: 200,
+                json: async () => response.data,
+                blob: async () => {
+                    if(response.data) { // si base64 passé dans data
+                        const bstr = atob(response.data);
+                        const n = bstr.length;
+                        const u8arr = new Uint8Array(n);
+                        for(let i=0; i<n; i++) u8arr[i] = bstr.charCodeAt(i);
+                        return new Blob([u8arr], {type: response.mime || 'application/octet-stream'});
+                    }
+                    return null;
+                }
+            });
+        });
+    });
+}
+
 // Fonction pour tester la connexion à l'API Dolibarr
 async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
     try {
@@ -13,7 +68,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
         }
 
         // 1. Test d'authentification (Récupération du token ou validation de la clé API)
-        const loginResponse = await fetch(`${apiUrl}/login?login=${encodeURIComponent(login)}&password=${encodeURIComponent(passwordOrToken)}`, {
+        const loginResponse = await fetchDoli(`${apiUrl}/login?login=${encodeURIComponent(login)}&password=${encodeURIComponent(passwordOrToken)}`, {
             method: 'POST',
             headers: baseHeaders
         });
@@ -23,7 +78,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
             apiTokenFinal = data.success ? data.success.token : null;
             authSuccess = true;
         } else {
-            const testKeyResponse = await fetch(`${apiUrl}/status`, {
+            const testKeyResponse = await fetchDoli(`${apiUrl}/status`, {
                 headers: { ...baseHeaders, 'DOLAPIKEY': passwordOrToken }
             });
             if (testKeyResponse.ok) {
@@ -44,7 +99,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
         let hasGedPR37499 = false;
         try {
             // Test super-tolérant : Utilisateurs
-            const usersResponse = await fetch(`${apiUrl}/users?limit=1`, {
+            const usersResponse = await fetchDoli(`${apiUrl}/users?limit=1`, {
                 method: 'GET',
                 headers: { ...baseHeaders, 'DOLAPIKEY': apiTokenFinal }
             });
@@ -53,7 +108,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
             }
 
             // Test super-tolérant : Tickets
-            const ticketsResponse = await fetch(`${apiUrl}/tickets?limit=1`, {
+            const ticketsResponse = await fetchDoli(`${apiUrl}/tickets?limit=1`, {
                 method: 'GET',
                 headers: { ...baseHeaders, 'DOLAPIKEY': apiTokenFinal }
             });
@@ -62,7 +117,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
             }
 
             // Test super-tolérant : Tiers (262)
-            const thirdpartiesResponse = await fetch(`${apiUrl}/thirdparties?limit=1`, {
+            const thirdpartiesResponse = await fetchDoli(`${apiUrl}/thirdparties?limit=1`, {
                 method: 'GET',
                 headers: { ...baseHeaders, 'DOLAPIKEY': apiTokenFinal }
             });
@@ -71,7 +126,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
             }
 
             // Test super-tolérant : Projets (41)
-            const projectsResponse = await fetch(`${apiUrl}/projects?limit=1`, {
+            const projectsResponse = await fetchDoli(`${apiUrl}/projects?limit=1`, {
                 method: 'GET',
                 headers: { ...baseHeaders, 'DOLAPIKEY': apiTokenFinal }
             });
@@ -80,7 +135,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
             }
 
             // Test super-tolérant : Droit d'accès aux documents (GED)
-            const gedResponse = await fetch(`${apiUrl}/documents?modulepart=ticket&id=1`, {
+            const gedResponse = await fetchDoli(`${apiUrl}/documents?modulepart=ticket&id=1`, {
                 method: 'GET',
                 headers: { ...baseHeaders, 'DOLAPIKEY': apiTokenFinal }
             });
@@ -92,7 +147,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
             // Test PR 37499 : Vérification que le modulepart 'ticket' est supporté par l'API POST /documents/upload
             // Si le PR est absent : renvoie 500 "Modulepart ticket not implemented yet."
             // Si le PR est présent : la classe Ticket est chargée, mais le ticket "99999999" n'existe pas, renvoyant 404.
-            const prResponse = await fetch(`${apiUrl}/documents/upload`, {
+            const prResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
                 method: 'POST',
                 headers: { ...baseHeaders, 'DOLAPIKEY': apiTokenFinal, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -120,7 +175,7 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
         // 3. Récupérer le nom de l'entreprise/entité
         let entityName = "Inconnue";
         try {
-            const companyResponse = await fetch(`${apiUrl}/setup/company`, {
+            const companyResponse = await fetchDoli(`${apiUrl}/setup/company`, {
                 method: 'GET',
                 headers: {
                     ...baseHeaders,
@@ -320,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Supprimer Profil
     document.getElementById('btn-delete-profile').addEventListener('click', () => {
-        if (confirm("Voulez-vous vraiment supprimer ce profil ? Toutes ses données seront effacées.")) {
+        if (confirm(chrome.i18n.getMessage("opt_js_confirm"))) {
             profiles = profiles.filter(p => p.id !== activeProfileId);
             
             if (profiles.length === 0) {
@@ -349,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (!url || !login || !password) {
             testStatusDiv.style.color = "#e74c3c";
-            testStatusDiv.textContent = 'Veuillez remplir l\'URL, l\'identifiant et le mot de passe avant de tester.';
+            testStatusDiv.textContent = chrome.i18n.getMessage('opt_js_135');
             return;
         }
 
@@ -361,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         btnTest.disabled = true;
-        btnTest.textContent = "Test en cours...";
+        btnTest.textContent = chrome.i18n.getMessage('opt_js_136');
         testStatusDiv.textContent = "";
 
         statusDashboard.classList.remove('hidden');
@@ -403,12 +458,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } else {
             testStatusDiv.style.color = "#e74c3c";
-            testStatusDiv.textContent = '❌ Échec de la connexion.';
+            testStatusDiv.textContent = chrome.i18n.getMessage('opt_js_137');
             renderPermissions({ connection: 'ko', users: 'pending', tickets: 'pending', thirdparties: 'pending', projects: 'pending', ged: 'pending', ged_pr: 'pending' }, normalizedUrl);
         }
 
         btnTest.disabled = false;
-        btnTest.textContent = "🔌 Tester";
+        btnTest.textContent = chrome.i18n.getMessage('opt_js_138');
     });
 });
 // Gestion du slider de floutage
@@ -432,7 +487,7 @@ if(document.getElementById('btn-update-dict')){
 
         if (!p || !p.doliUrl || !p.doliApiToken) {
             statusDiv.style.color = "#e74c3c";
-            statusDiv.textContent = "Veuillez d'abord Tester et Enregistrer votre connexion haut-dessus.";
+            statusDiv.textContent = chrome.i18n.getMessage('opt_js_139');
             return;
         }
 
@@ -442,12 +497,12 @@ if(document.getElementById('btn-update-dict')){
         if (entity && String(entity).trim() !== '') headers['DOLAPIENTITY'] = String(entity).trim();
 
         statusDiv.style.color = "#3498db";
-        statusDiv.textContent = "Récupération en cours...";
+        statusDiv.textContent = chrome.i18n.getMessage('opt_js_140');
 
         let newDictLines = [];
         
         try {
-            const dictRes = await fetch(`${p.doliUrl}/setup/dictionary/c_input_reason`, { headers: headers });
+            const dictRes = await fetchDoli(`${p.doliUrl}/setup/dictionary/c_input_reason`, { headers: headers });
             if (dictRes.ok) {
                 const dictJson = await dictRes.json();
                 if (Array.isArray(dictJson)) {
@@ -460,7 +515,7 @@ if(document.getElementById('btn-update-dict')){
         } catch(e) {}
 
         try {
-            const efRes = await fetch(`${p.doliUrl}/setup/extrafields`, { headers: headers });
+            const efRes = await fetchDoli(`${p.doliUrl}/setup/extrafields`, { headers: headers });
             if (efRes.ok) {
                 const efJson = await efRes.json();
                 let oField = null;
@@ -512,11 +567,11 @@ if(document.getElementById('btn-update-dict')){
             
             textarea.value = newDictLines.join('\n');
             statusDiv.style.color = "#f39c12"; // Orange warning
-            statusDiv.textContent = "API verrouillée (404/403). Le dictionnaire standard Dolibarr par défaut a été rempli. Pensez à Enregistrer !";
+            statusDiv.textContent = chrome.i18n.getMessage('opt_js_141');
         } else {
             textarea.value = newDictLines.join('\n');
             statusDiv.style.color = "#27ae60";
-            statusDiv.textContent = "Dictionnaire mis à jour ! Pensez à Enregistrer de nouveau le profil en haut pour valider.";
+            statusDiv.textContent = chrome.i18n.getMessage('opt_js_142');
         }
     });
 }
@@ -533,7 +588,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
 
     if (!url || !login || !password) {
         statusDiv.style.color = "#e74c3c";
-        statusDiv.textContent = 'Veuillez remplir tous les champs obligatoires (URL, Login, Mot de passe).';
+        statusDiv.textContent = chrome.i18n.getMessage('opt_js_143');
         return;
     }
 
@@ -555,7 +610,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
 
     // Mise à jour de l'UI pour indiquer le chargement
     btn.disabled = true;
-    btn.textContent = "Sauvegarde en cours...";
+    btn.textContent = chrome.i18n.getMessage('opt_js_144');
     statusDiv.textContent = "";
 
     const formatVal = document.querySelector('input[name="doli-format"]:checked').value;
@@ -594,7 +649,29 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     p.doliTicketCategory = ticketCategoryVal;
     p.doliDictMap = dictMapVal;
 
-    chrome.storage.sync.set({ 
+    // Règle 15 : Demande de permissions dynamiques au lieu de <all_urls>
+    try {
+        const urlObj = new URL(normalizedUrl);
+        const originPattern = urlObj.origin + "/*";
+        
+        // La demande doit être asynchrone mais couplée au clic utilisateur
+        chrome.permissions.request({
+            origins: [originPattern]
+        }, (granted) => {
+            if (!granted) {
+                statusDiv.style.color = "#f39c12";
+                statusDiv.innerHTML = '⚠️ ' + chrome.i18n.getMessage("error_permission_denied");
+            }
+            
+            saveToStorage();
+        });
+    } catch (e) {
+        console.warn("Permission request failed or not supported in this context.", e);
+        saveToStorage();
+    }
+
+    function saveToStorage() {
+        chrome.storage.sync.set({  
         doliProfiles: profiles,
         doliActiveProfileId: activeProfileId,
         'doliImageFormat': formatVal,
@@ -603,7 +680,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
         'doliRecentCount': recentCountVal
     }, () => {
         statusDiv.style.color = "#27ae60";
-        statusDiv.textContent = '✅ Paramètres sauvegardés avec succès !';
+        statusDiv.textContent = chrome.i18n.getMessage('opt_js_145');
         
         // Nettoyer le message après quelques secondes
         setTimeout(() => {
@@ -611,8 +688,9 @@ document.getElementById('save-btn').addEventListener('click', async () => {
         }, 3000);
 
         btn.disabled = false;
-        btn.textContent = "Enregistrer";
+        btn.textContent = chrome.i18n.getMessage('opt_js_146');
     });
+    }
 });
 
 // Affiche le tableau des droits

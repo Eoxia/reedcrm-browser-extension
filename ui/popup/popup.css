@@ -430,6 +430,9 @@ button:disabled {
     font-weight: 600;
     max-width: 150px;
 }
+.profile-switcher.has-favicon {
+    padding-left: 28px;
+}
 .profile-switcher:focus {
     outline: none;
     border-color: #3498db;
@@ -443,17 +446,20 @@ button:disabled {
 
 .nav-tab {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    gap: 4px;
     background: none;
     border: none;
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 600;
     color: #475569;
     cursor: pointer;
-    padding: 6px 8px;
+    padding: 2px 6px;
     border-bottom: 2px solid transparent; /* default state */
     transition: all 0.2s;
+    min-width: 45px;
 }
 
 .nav-tab svg {
@@ -797,4 +803,63 @@ a.rt-ref:hover {
 .mini-select .custom-search-box input {
     font-size: 11px;
     padding: 4px 6px;
+}
+.btn-clear { flex: 0 0 40px; background: transparent; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.btn-clear:hover { background-color: #fee2e2 !important; color: #ef4444 !important; border-color: #f87171 !important; }
+.btn-clear-hover:hover { background: #2980b9 !important; }
+
+
+/* --- Dynamic Bottom Actions Row --- */
+.attachment-section.bottom-actions-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 0px;
+    align-items: stretch; /* Les 3 colonnes font la même hauteur */
+}
+
+/* On force certains éléments à s'étirer */
+.attachment-section.bottom-actions-row .attachment-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.attachment-section.bottom-actions-row .left-col {
+    flex: 6; /* Un peu plus grand pour la zone fichier */
+}
+
+.attachment-section.bottom-actions-row .left-col .file-paste-zone {
+    flex: 1; /* Etirer la zone de drag&drop sur la hauteur restante */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.attachment-section.bottom-actions-row .center-col {
+    flex: 4;
+}
+
+.attachment-section.bottom-actions-row .center-col .btn-orange {
+    flex: 1; /* Occupe toute la place verticale disponible */
+    margin: 0; 
+    padding: 2px 4px; /* Réduire un peu le padding pour qu'il loge mieux */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.attachment-section.bottom-actions-row .right-submit-col {
+    flex: 5;
+    padding-top: 19px; /* Compensate the absence of a <label> which is around 14+5px tall */
+}
+
+.btn-submit-inline {
+    width: 100%;
+    flex: 1;
+    margin: 0 !important;
+    white-space: pre-wrap; /* Autorise le retour à la ligne pour "Créer\nl'opportunité" */
+    line-height: 1.2;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }

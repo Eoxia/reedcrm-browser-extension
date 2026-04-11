@@ -128,3 +128,11 @@
     pointer-events: none;
     z-index: 3;
 }
+
+.doli-tool-input-row { display: flex; align-items: center; justify-content: center; gap: 6px; background: #34495e; color: white; padding: 0 10px; border-radius: 4px; height: 35px; }
+.doli-editor-color { -webkit-appearance: none; border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; padding: 0; background: transparent; }
+.doli-editor-color::-webkit-color-swatch-wrapper { padding: 0; }
+.doli-editor-color::-webkit-color-swatch { border: 2px solid #ecf0f1; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.doli-editor-range { -webkit-appearance: none; width: 60px; height: 4px; background: #7f8c8d; border-radius: 2px; outline: none; }
+.doli-editor-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #ecf0f1; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.doli-editor-separator { width: 1px; height: 25px; background: #7f8c8d; margin: 0 5px; align-self: center; opacity: 0.5; }

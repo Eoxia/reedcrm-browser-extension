@@ -1,3 +1,60 @@
+
+import { MESSAGE_TYPES } from '../../src/utils/constants.js';
+
+// Remplacement global pour intercepter les fetch et les envoyer au SW (Règle 12)
+async function fetchDoli(url, options = {}) {
+    return new Promise((resolve, reject) => {
+        let method = options.method || 'GET';
+        let body = options.body ? JSON.parse(options.body) : null;
+        let doliUrl = '', endpoint = '', apiKey = '';
+
+        try {
+            const urlObj = new URL(url);
+            doliUrl = urlObj.origin + (urlObj.pathname.includes('/api/index.php') ? urlObj.pathname.split('/api/index.php')[0] : '');
+            endpoint = url.replace(doliUrl + '/api/index.php', '');
+            if(!endpoint.startsWith('/')) {
+                endpoint = url.replace(doliUrl, '');
+            }
+        } catch(e) {}
+
+        apiKey = options.headers?.DOLAPIKEY || options.headers?.['DOLAPIKEY'];
+
+        chrome.runtime.sendMessage({
+            type: MESSAGE_TYPES.API_CALL,
+            payload: { method, doliUrl, apiKey, endpoint, body }
+        }, response => {
+            if (chrome.runtime.lastError) {
+                return reject(new Error(chrome.runtime.lastError.message));
+            }
+            if (response && response.error) {
+                return resolve({
+                    ok: false,
+                    status: 500,
+                    statusText: response.error,
+                    json: async () => { throw new Error(response.error); },
+                    text: async () => response.error
+                });
+            }
+            resolve({
+                ok: true,
+                status: 200,
+                json: async () => response.data,
+                text: async () => typeof response.data === 'string' ? response.data : JSON.stringify(response.data),
+                blob: async () => {
+                    if(response.data) { // si base64 passé dans data
+                        const bstr = atob(response.data);
+                        const n = bstr.length;
+                        const u8arr = new Uint8Array(n);
+                        for(let i=0; i<n; i++) u8arr[i] = bstr.charCodeAt(i);
+                        return new Blob([u8arr], {type: response.mime || 'application/octet-stream'});
+                    }
+                    return null;
+                }
+            });
+        });
+    });
+}
+
 class CustomSelect {
     constructor(selectElement) {
         this.selectElement = selectElement;
@@ -41,7 +98,7 @@ class CustomSelect {
         searchBox.className = 'custom-search-box';
         this.searchInput = document.createElement('input');
         this.searchInput.type = 'text';
-        this.searchInput.placeholder = 'Rechercher...';
+        this.searchInput.placeholder = chrome.i18n.getMessage('popup_jsph_134');
         searchBox.appendChild(this.searchInput);
 
         this.optionsList = document.createElement('div');
@@ -89,7 +146,7 @@ class CustomSelect {
         if (matchCount === 0) {
             const noMatch = document.createElement('div');
             noMatch.className = 'custom-option disabled';
-            noMatch.textContent = 'Aucun résultat...';
+            noMatch.textContent = chrome.i18n.getMessage('popup_js_110');
             this.optionsList.appendChild(noMatch);
         }
     }
@@ -163,6 +220,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const oppForm = document.getElementById('opp-form');
         const btnSubmitOpp = document.getElementById('opp-btn-submit');
+        
+        // --- Handlers migrés pour conformité CSP ---
+        const tabOppList = document.getElementById('tab-opp-list');
+        if (tabOppList) {
+            tabOppList.addEventListener('click', () => alert('Fonctionnalité à venir !'));
+        }
+        const oppTelInput = document.getElementById('opp-tel');
+        if (oppTelInput) {
+            oppTelInput.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9\s()+\-.]/g, '');
+            });
+        }
+        // -------------------------------------------
         const oppAssigneeSelect = document.getElementById('opp-assignee');
         const oppStatusMessage = document.getElementById('opp-status-message');
         const recentOppContainer = document.getElementById('recent-opp-container');
@@ -214,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // On peut ajouter ?limit=100&statut=1 pour n'avoir que les actifs
                 // NOTE: On retire le '&entity=' de l'URL car cela force Dolibarr à filtrer *strictement* sur l'entité de création
                 // ignorant ainsi les partages multi-company. On s'en remet à l'entête DOLAPIENTITY et on augmente la limite.
-                const response = await fetch(`${apiUrl}/users?limit=500&statut=1`, {
+                const response = await fetchDoli(`${apiUrl}/users?limit=500&statut=1`, {
                     method: 'GET',
                     headers: headers
                 });
@@ -286,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tiersSelect = document.getElementById('ticket-tiers');
             try {
                 // mode=1 pour ne lister que les clients/prospects (souvent suffisant pour devis/tickets)
-                const response = await fetch(`${apiUrl}/thirdparties?limit=50000&sortfield=t.nom&sortorder=ASC&mode=1`, {
+                const response = await fetchDoli(`${apiUrl}/thirdparties?limit=50000&sortfield=t.nom&sortorder=ASC&mode=1`, {
                     headers: {
                         'DOLAPIKEY': token,
                         'Accept': 'application/json',
@@ -353,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.ticketContactSelect) window.ticketContactSelect.update();
 
             try {
-                const response = await fetch(`${apiUrl}/contacts?limit=500&sortfield=t.lastname&sortorder=ASC&thirdparty_ids=${socid}`, {
+                const response = await fetchDoli(`${apiUrl}/contacts?limit=500&sortfield=t.lastname&sortorder=ASC&thirdparty_ids=${socid}`, {
                     headers: {
                         'DOLAPIKEY': token,
                         'Accept': 'application/json',
@@ -405,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 // On utilise thirdparty_ids ou un filtre SQL si nécessaire. limit=500 pour avoir tout
-                const response = await fetch(`${apiUrl}/projects?limit=500&sortfield=t.ref&sortorder=DESC&thirdparty_ids=${socid}`, {
+                const response = await fetchDoli(`${apiUrl}/projects?limit=500&sortfield=t.ref&sortorder=DESC&thirdparty_ids=${socid}`, {
                     headers: {
                         'DOLAPIKEY': token,
                         'Accept': 'application/json',
@@ -458,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // On retire tous les paramètres complexes (sortorder, sortfield, sqlfilters) car ils
                 // provoquent des erreurs 400 ou 500 sur certaines versions de l'API Dolibarr.
                 // On demande juste un lot de 100 tickets bruts, et on triera en JavaScript.
-                const response = await fetch(`${apiUrl}/tickets?limit=100`, {
+                const response = await fetchDoli(`${apiUrl}/tickets?limit=100`, {
                     method: 'GET',
                     headers: headers
                 });
@@ -535,10 +605,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         recentTicketsList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucun ticket récent trouvé (ou accès API refusé pour cet utilisateur).</div>`;
                     }
                 } else {
-                    recentTicketsList.innerHTML = `<div style="text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;">Erreur API (${response.status})</div>`;
+                    recentTicketsList.innerHTML = '';
+                    const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
+                    d.textContent = `Erreur API (${response.status})`;
+                    recentTicketsList.appendChild(d);
                 }
             } catch (error) {
-                recentTicketsList.innerHTML = `<div style="text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;">Erreur JS: ${error.message}</div>`;
+                recentTicketsList.innerHTML = '';
+                const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
+                d.textContent = `Erreur JS: ${error.message}`;
+                recentTicketsList.appendChild(d);
             }
         }
 
@@ -556,7 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // On demande directement les derniers projets créés (t.rowid DESC) 
                 // pour s'assurer d'avoir les opportunités les plus récentes.
-                const response = await fetch(`${apiUrl}/projects?sortfield=t.rowid&sortorder=DESC&limit=100`, {
+                const response = await fetchDoli(`${apiUrl}/projects?sortfield=t.rowid&sortorder=DESC&limit=100`, {
                     method: 'GET',
                     headers: headers
                 });
@@ -593,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             
                             // 1. Cas où l'origine est tirée d'une table dictionnaire (sellist) comme c_input_reason
                             try {
-                                const dictRes = await fetch(`${apiUrl}/setup/dictionary/c_input_reason`, { headers: headers });
+                                const dictRes = await fetchDoli(`${apiUrl}/setup/dictionary/c_input_reason`, { headers: headers });
                                 if (dictRes.ok) {
                                     const dictJson = await dictRes.json();
                                     if (Array.isArray(dictJson)) {
@@ -625,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             // 2. Cas où l'origine est une simple liste déroulante (select) gérée dans les paramètres de l'extrafield
                             try {
-                                const efRes = await fetch(`${apiUrl}/setup/extrafields`, { headers: headers });
+                                const efRes = await fetchDoli(`${apiUrl}/setup/extrafields`, { headers: headers });
                                 if (efRes.ok) {
                                     const efJson = await efRes.json();
                                     let oField = null;
@@ -764,19 +840,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                     contactHtml += `</div>`;
                                 }
 
-                                // Intégration du Player Audio depuis l'extrafield "Vocal" ou directement depuis l'API
-                                let extraPlayerHtml = '';
-                                const vocalVal = project.vocal_file || project.vocal || opts.options_vocal || opts.options_reedcrm_vocal || opts.options_fichier_vocal || '';
-                                if (vocalVal) {
-                                    // Si c'est une URL externe complète (ex: lien Aircall/3CX)
-                                    if (vocalVal.startsWith('http')) {
-                                        extraPlayerHtml = `<div style="margin-top: 4px;"><audio controls src="${vocalVal}" style="height: 25px; width: 100%; max-width: 250px; outline: none; border-radius: 20px; background: #f1f5f9;"></audio></div>`;
-                                    } else {
-                                        // Si c'est juste un nom de fichier stocké dans l'attribut supplémentaire, on préparera un slot pour le chargeur asynchrone
-                                        extraPlayerHtml = `<div id="vocal-slot-${project.id}" data-filename="${vocalVal}"></div>`;
-                                    }
-                                }
-
                                 const html = `
                             <div class="recent-ticket-item" style="align-items: flex-start;">
                                 <div class="rt-left">
@@ -790,8 +853,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; flex: 1; font-size: 13px; color: #334155; font-weight: 400;">${subject}</span>
                                     </div>
                                     ${contactHtml}
-                                    ${extraPlayerHtml}
-                                    <div id="audio-slot-${project.id}"></div>
                                 </div>
                                 <div class="rt-right" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start;">
                                     ${(probDisplay || amountDisplay) ? `
@@ -805,56 +866,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>`;
                                 recentOppList.insertAdjacentHTML('beforeend', html);
 
-                                // Recherche asynchrone pointue d'un fichier audio ciblé par l'extrafield ou la liste des documents joints
-                                setTimeout(async () => {
-                                    try {
-                                        let targetFileName = null;
-                                        const vocalSlot = document.getElementById(`vocal-slot-${project.id}`);
-                                        if (vocalSlot && vocalSlot.dataset.filename) {
-                                            targetFileName = vocalSlot.dataset.filename; // Venant de opts.options_vocal
-                                        }
-                                        
-                                        // Scan asynchrone du dossier projet par la route REST si pas d'extrafield défini
-                                        if (!targetFileName) {
-                                            const docRes = await fetch(`${apiUrl}/documents?modulepart=project&id=${project.id}`, { headers: headers });
-                                            if (docRes.ok) {
-                                                const docs = await docRes.json();
-                                                if (Array.isArray(docs)) {
-                                                    const audioDoc = docs.find(d => {
-                                                        const n = d.name.toLowerCase();
-                                                        return n.endsWith('.wav') || n.endsWith('.mp3') || n.endsWith('.m4a');
-                                                    });
-                                                    if (audioDoc) targetFileName = audioDoc.name;
-                                                }
-                                            }
-                                        }
-
-                                        if (targetFileName) {
-                                            const slot = vocalSlot || document.getElementById(`audio-slot-${project.id}`);
-                                            if (slot) {
-                                                const playerStyle = 'height: 25px; width: 100%; max-width: 250px; outline: none; margin-top: 6px; border-radius: 20px; background: #f1f5f9;';
-                                                
-                                                // Approche 1: Téléchargement du fichier sous forme de flux Base64 par l'API
-                                                const dlRes = await fetch(`${apiUrl}/documents/download?modulepart=project&original_file=${encodeURIComponent(project.ref + '/' + targetFileName)}`, { headers: headers });
-                                                if (dlRes.ok) {
-                                                    const dlJson = await dlRes.json();
-                                                    if (dlJson && dlJson.content) {
-                                                        const mime = targetFileName.toLowerCase().endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav';
-                                                        const dataUri = `data:${mime};base64,${dlJson.content}`;
-                                                        slot.innerHTML = `<audio controls src="${dataUri}" style="${playerStyle}" controlslist="nodownload"></audio>`;
-                                                        return; // Succès
-                                                    }
-                                                }
-                                                
-                                                // Approche 2 (Fallback absolu): Streaming HTTPS direct depuis le serveur WAMP (nécessite une session, ce qui est validé sur la machine locale chrome)
-                                                const doliRoot = apiUrl.replace(/\/api\/index\.php\/?$/, '').replace(/\/htdocs\/api\/index\.php\/?$/, '/htdocs');
-                                                const fallbackUrl = `${doliRoot}/document.php?modulepart=projet&file=${encodeURIComponent(project.ref + '/' + targetFileName)}`;
-                                                slot.innerHTML = `<audio controls src="${fallbackUrl}" style="${playerStyle}" controlslist="nodownload"></audio>`;
-                                            }
-                                        }
-                                    } catch(e) { console.error("Audio Load Error", e); }
-                                }, 150 + (limit * 5)); // Léger délai décalé
-
                             });
                         } else {
                             recentOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunité trouvée.</div>`;
@@ -863,10 +874,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         recentOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunité trouvée.</div>`;
                     }
                 } else {
-                    recentOppList.innerHTML = `<div style="text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;">Erreur API (${response.status})</div>`;
+                    recentOppList.innerHTML = '';
+                    const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
+                    d.textContent = `Erreur API (${response.status})`;
+                    recentOppList.appendChild(d);
                 }
             } catch (error) {
-                recentOppList.innerHTML = `<div style="text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;">Erreur JS: ${error.message}</div>`;
+                recentOppList.innerHTML = '';
+                const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
+                d.textContent = `Erreur JS: ${error.message}`;
+                recentOppList.appendChild(d);
             }
         }
 
@@ -884,6 +901,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Gestion du Switcher de Profils UI
             const profileSwitcher = document.getElementById('doli-active-profile');
+            const navFavicon = document.getElementById('nav-favicon');
+
             if (profiles.length > 1) {
                 profileSwitcher.classList.remove('hidden');
                 profileSwitcher.innerHTML = '';
@@ -905,18 +924,67 @@ document.addEventListener('DOMContentLoaded', () => {
                 profileSwitcher.classList.add('hidden'); // S'il n'y a qu'un profil on le cache
             }
 
+            // Affichage du favicon si le sélecteur est visible et que le profil a une URL
+            if (p && p.doliUrl && p.doliApiToken && profileSwitcher && !profileSwitcher.classList.contains('hidden')) {
+                (async () => {
+                    try {
+                        const headers = { 'DOLAPIKEY': p.doliApiToken, 'Accept': 'application/json' };
+                        if (p.doliEntity) headers['DOLAPIENTITY'] = String(p.doliEntity).trim();
+                        
+                        const compRes = await fetchDoli(`${p.doliUrl}/setup/company`, { headers });
+                        if (!compRes.ok) throw new Error('Company fetch failed');
+                        const compData = await compRes.json();
+                        
+                        const logoName = compData.logo_squarred || compData.logo;
+                        if (!logoName) throw new Error('No logo found');
+                        
+                        let filePath = 'logos/' + logoName;
+                        if (logoName === compData.logo_squarred) filePath = 'logos/thumbs/' + logoName;
+                        
+                        let docRes = await fetchDoli(`${p.doliUrl}/documents/download?modulepart=mycompany&original_file=${encodeURIComponent(filePath)}`, { headers });
+                        
+                        if (!docRes.ok && filePath.includes('thumbs/')) {
+                            docRes = await fetchDoli(`${p.doliUrl}/documents/download?modulepart=mycompany&original_file=${encodeURIComponent('logos/' + logoName)}`, { headers });
+                        }
+                        
+                        if (docRes.ok) {
+                            const docData = await docRes.json();
+                            if (docData && docData.content) {
+                                const contentType = docData['content-type'] || 'image/png';
+                                if (navFavicon) {
+                                    navFavicon.src = `data:${contentType};base64,${docData.content}`;
+                                    navFavicon.style.display = 'block';
+                                    profileSwitcher.classList.add('has-favicon');
+                                }
+                                return; // Success, skip fallback
+                            }
+                        }
+                        throw new Error('Download logo failed');
+                    } catch (err) {
+                        try {
+                            const domain = new URL(p.doliUrl).origin;
+                            if (navFavicon) {
+                                navFavicon.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+                                navFavicon.style.display = 'block';
+                                profileSwitcher.classList.add('has-favicon');
+                            }
+                        } catch(e) {}
+                    }
+                })();
+            }
+
             // --- SUITE LOGIQUE HABITUELLE (avec le profil P) ---
             if (p && p.doliUrl && p.doliApiToken) {
                 // Configuration OK, on affiche le formulaire
                 setupWarning.classList.add('hidden');
                 ticketForm.classList.remove('hidden');
                 btnSubmit.disabled = false;
-                btnSubmit.querySelector('.btn-text').textContent = 'Créer le ticket';
+                btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_111');
 
                 if (oppForm) {
                     oppForm.classList.remove('hidden');
                     btnSubmitOpp.disabled = false;
-                    btnSubmitOpp.querySelector('.btn-text').textContent = 'Créer l\'opportunité';
+                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_34');
                 }
 
                 const oppOnly = p.doliOppOnly !== false; // true par défaut
@@ -998,7 +1066,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (probaInput) {
                                 probaInput.value = drop.proba;
                                 const probaVal = document.getElementById('opp-proba-val');
-                                if (probaVal) probaVal.textContent = `(${drop.proba}%)`;
+                                if (probaVal) probaVal.textContent = chrome.i18n.getMessage('popup_js_113');
                             }
                         }
                         if (drop.montant !== undefined) document.getElementById('opp-montant').value = drop.montant;
@@ -1035,7 +1103,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             const probaInput = document.getElementById('opp-proba');
                             probaInput.value = localItems.doliPrefillOppProba;
                             const probaVal = document.getElementById('opp-proba-val');
-                            if (probaVal) probaVal.textContent = `(${localItems.doliPrefillOppProba}%)`;
+                            if (probaVal) probaVal.textContent = chrome.i18n.getMessage('popup_js_114');
                         }
                         if (localItems.doliPrefillOppMontant) document.getElementById('opp-montant').value = localItems.doliPrefillOppMontant;
                     } else {
@@ -1087,42 +1155,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // --- Mise en place de la sauvegarde de brouillons sur tout changement ---
                     let draftTimeout;
-                    const saveDraft = () => {
+                    
+                    const performSaveDraft = () => {
+                        const draftOpp = {
+                            subject: document.getElementById('opp-subject').value,
+                            message: document.getElementById('opp-message').value,
+                            nom: document.getElementById('opp-nom').value,
+                            prenom: document.getElementById('opp-prenom').value,
+                            tel: document.getElementById('opp-tel').value,
+                            email: document.getElementById('opp-email').value,
+                            proba: document.getElementById('opp-proba').value,
+                            montant: document.getElementById('opp-montant').value,
+                            websiteProtocol: document.getElementById('opp-website-protocol').value,
+                            website: document.getElementById('opp-website').value,
+                            assignee: oppAssigneeSelect ? oppAssigneeSelect.value : ''
+                        };
+                        
+                        const draftTicket = {
+                            subject: document.getElementById('ticket-subject').value,
+                            message: document.getElementById('ticket-message').value,
+                            assignee: assigneeSelect ? assigneeSelect.value : ''
+                        };
+                        
+                        const draftShared = {
+                            tiers: document.getElementById('ticket-tiers') ? document.getElementById('ticket-tiers').value : '',
+                            contact: document.getElementById('ticket-contact') ? document.getElementById('ticket-contact').value : '',
+                            project: document.getElementById('ticket-project') ? document.getElementById('ticket-project').value : ''
+                        };
+                        chrome.storage.local.set({ [draftOppKey]: draftOpp, [draftTicketKey]: draftTicket, [draftSharedKey]: draftShared });
+                    };
+
+                    const saveDraftDebounced = () => {
                         clearTimeout(draftTimeout);
-                        draftTimeout = setTimeout(() => {
-                            const draftOpp = {
-                                subject: document.getElementById('opp-subject').value,
-                                message: document.getElementById('opp-message').value,
-                                nom: document.getElementById('opp-nom').value,
-                                prenom: document.getElementById('opp-prenom').value,
-                                tel: document.getElementById('opp-tel').value,
-                                email: document.getElementById('opp-email').value,
-                                proba: document.getElementById('opp-proba').value,
-                                montant: document.getElementById('opp-montant').value,
-                                websiteProtocol: document.getElementById('opp-website-protocol').value,
-                                website: document.getElementById('opp-website').value,
-                                assignee: oppAssigneeSelect ? oppAssigneeSelect.value : ''
-                            };
-                            
-                            const draftTicket = {
-                                subject: document.getElementById('ticket-subject').value,
-                                message: document.getElementById('ticket-message').value,
-                                assignee: assigneeSelect ? assigneeSelect.value : ''
-                            };
-                            
-                            const draftShared = {
-                                tiers: document.getElementById('ticket-tiers') ? document.getElementById('ticket-tiers').value : '',
-                                contact: document.getElementById('ticket-contact') ? document.getElementById('ticket-contact').value : '',
-                                project: document.getElementById('ticket-project') ? document.getElementById('ticket-project').value : ''
-                            };
-                            chrome.storage.local.set({ [draftOppKey]: draftOpp, [draftTicketKey]: draftTicket, [draftSharedKey]: draftShared });
-                        }, 800);
+                        draftTimeout = setTimeout(performSaveDraft, 300);
                     };
 
                     const allInputs = document.querySelectorAll('#view-ticket input, #view-ticket textarea, #view-ticket select, #view-opportunity input, #view-opportunity textarea, #view-opportunity select, #ticket-top-actions select');
                     allInputs.forEach(el => {
-                        el.addEventListener('input', saveDraft);
-                        el.addEventListener('change', saveDraft);
+                        el.addEventListener('input', saveDraftDebounced);
+                        el.addEventListener('change', performSaveDraft);
+                        el.addEventListener('blur', performSaveDraft);
                     });
                 });
             } else {
@@ -1140,7 +1212,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const probaVal = document.getElementById('opp-proba-val');
             if (probaInput && probaVal) {
                 probaInput.addEventListener('input', () => {
-                    probaVal.textContent = `(${probaInput.value}%)`;
+                    probaVal.textContent = chrome.i18n.getMessage('popup_js_115');
                 });
             }
 
@@ -1168,7 +1240,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 btnSubmitOpp.disabled = true;
                 btnSubmitOpp.classList.add('btn-loading');
-                btnSubmitOpp.querySelector('.btn-text').textContent = 'Création Opportunité...';
+                btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_116');
                 oppStatusMessage.textContent = '';
                 oppStatusMessage.style.color = '#333';
 
@@ -1222,7 +1294,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         projectData.fk_contact = parseInt(contactId, 10);
                     }
 
-                    const response = await fetch(`${apiUrl}/projects`, {
+                    const response = await fetchDoli(`${apiUrl}/projects`, {
                         method: 'POST',
                         headers: baseHeaders,
                         body: JSON.stringify(projectData)
@@ -1235,7 +1307,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const projResponseId = await response.json();
                     
-                    btnSubmitOpp.querySelector('.btn-text').textContent = 'Projet créé...';
+                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_117');
                     
                     // Some Dolibarr versions/endpoints return an array [144] or a single int 144
                     const projectId = Array.isArray(projResponseId) ? projResponseId[0] : projResponseId;
@@ -1247,7 +1319,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (contactId && contactId !== '') {
                         try {
-                            const contactRes = await fetch(`${apiUrl}/projects/${projectId}/contacts`, {
+                            const contactRes = await fetchDoli(`${apiUrl}/projects/${projectId}/contacts`, {
                                 method: 'POST',
                                 headers: baseHeaders,
                                 body: JSON.stringify({
@@ -1261,7 +1333,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const errFirst = await contactRes.json().catch(() => null);
                                 const errFirstMsg = errFirst?.error?.message || `HTTP ${contactRes.status}`;
                                 
-                                const contactResFallback = await fetch(`${apiUrl}/projects/${projectId}/contacts`, {
+                                const contactResFallback = await fetchDoli(`${apiUrl}/projects/${projectId}/contacts`, {
                                     method: 'POST',
                                     headers: baseHeaders,
                                     body: JSON.stringify({
@@ -1279,7 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     contactErrorDetail = errFall?.error?.message || errFirstMsg || 'Inconnue';
                                     
                                     try {
-                                        const versionRes = await fetch(`${apiUrl}/status`, { headers: baseHeaders });
+                                        const versionRes = await fetchDoli(`${apiUrl}/status`, { headers: baseHeaders });
                                         if (versionRes.ok) {
                                             const statusData = await versionRes.json();
                                             window.doliVersionStr = statusData?.dolibarr?.version || statusData?.version || '22.0.x';
@@ -1294,14 +1366,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                             
                             if (contactWasAssigned) {
-                                btnSubmitOpp.querySelector('.btn-text').textContent = 'Contact affecté...';
+                                btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_118');
                                 await new Promise(r => setTimeout(r, 600)); // Laisser l'utilisateur lire le message
                             }
                         } catch(e) {
                             console.warn("Impossible d'associer le contact à l'opportunité:", e);
                             contactWasAssigned = false;
                             contactErrorCode = 'ReedCRM-4003';
-                            btnSubmitOpp.querySelector('.btn-text').textContent = 'Erreur réseau Contact...';
+                            btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_119');
                             await new Promise(r => setTimeout(r, 600));
                         }
                     }
@@ -1310,7 +1382,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let projectRef = projectId;
                     try {
                         // Cherche le dernier projet créé (qui devrait être celui-ci) pour récupérer sa Ref propre
-                        const refResponse = await fetch(`${apiUrl}/projects?sortfield=t.rowid&sortorder=DESC&limit=1`, {
+                        const refResponse = await fetchDoli(`${apiUrl}/projects?sortfield=t.rowid&sortorder=DESC&limit=1`, {
                             method: 'GET',
                             headers: baseHeaders
                         });
@@ -1340,7 +1412,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (fileToSend && projectId) {
-                        btnSubmitOpp.querySelector('.btn-text').textContent = 'Envoi Pièce jointe...';
+                        btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_120');
 
                         const reader = new FileReader();
                         reader.readAsDataURL(fileToSend);
@@ -1357,7 +1429,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         ref: projectRef
                                     };
 
-                                    const docResponse = await fetch(`${apiUrl}/documents/upload`, {
+                                    const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
                                         method: 'POST',
                                         headers: baseHeaders,
                                         body: JSON.stringify(documentData)
@@ -1382,7 +1454,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     btnSubmitOpp.disabled = false;
                     btnSubmitOpp.classList.remove('btn-loading');
-                    btnSubmitOpp.querySelector('.btn-text').textContent = 'Opportunité créée !';
+                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_121');
                     
                     let contactErrorHtml = '';
                     if (contactId && contactId !== '' && !contactWasAssigned) {
@@ -1425,7 +1497,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (error) {
                     btnSubmitOpp.classList.remove('btn-loading');
                     // We reset the text so error doesn't overwrite the button completely wrongly
-                    btnSubmitOpp.querySelector('.btn-text').textContent = 'Réessayer';
+                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_122');
                     btnSubmitOpp.disabled = false;
                     
                     showDoliError(error, oppStatusMessage);
@@ -1453,7 +1525,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             btnSubmit.disabled = true;
             btnSubmit.classList.add('btn-loading');
-            btnSubmit.querySelector('.btn-text').textContent = 'Création du ticket...';
+            btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_123');
             statusMessage.textContent = '';
             statusMessage.style.color = '#333';
 
@@ -1515,7 +1587,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ticketData.fk_user_assign = parseInt(assigneeId, 10);
                 }
 
-                const response = await fetch(`${apiUrl}/tickets`, {
+                const response = await fetchDoli(`${apiUrl}/tickets`, {
                     method: 'POST',
                     headers: baseHeaders,
                     body: JSON.stringify(ticketData)
@@ -1545,11 +1617,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // 2. Gestion de la pièce jointe (si présente)
                 if (fileToSend && ticketId) {
-                    btnSubmit.querySelector('.btn-text').textContent = 'Envoi de la pièce jointe...';
+                    btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_124');
 
                     // --- Récupération de la référence textuelle (ex: TCK2402-0001) ---
                     // Pour l'affichage final, on récupère la Ref textuelle.
-                    const getTicketRes = await fetch(`${apiUrl}/tickets/${ticketId}`, {
+                    const getTicketRes = await fetchDoli(`${apiUrl}/tickets/${ticketId}`, {
                         headers: baseHeaders
                     });
 
@@ -1572,7 +1644,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const base64Content = reader.result.split(',')[1];
 
                                 // IMPORTANT : Pour le module 'ticket', l'API Dolibarr (selon le fichier api_documents.class.php)
-                                // attend l'ID numérique ($object->fetch((int) $ref)) dans le champ 'ref' et non la ref texte.
+                                // attend l'ID numérique ($object->fetchDoli((int) $ref)) dans le champ 'ref' et non la ref texte.
                                 const documentData = {
                                     filecontent: base64Content,
                                     filename: fileToSend.name,
@@ -1581,7 +1653,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ref: ticketId.toString() // Le PHP modifié attend l'ID numérique ($fetchbyid = true)
                                 };
 
-                                const docResponse = await fetch(`${apiUrl}/documents/upload`, {
+                                const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
                                     method: 'POST',
                                     headers: baseHeaders,
                                     body: JSON.stringify(documentData)
@@ -1608,7 +1680,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 } else if (ticketId) {
                     // Si pas de fichier, on récupère quand même la ref pour l'affichage
-                    const getTicketRes = await fetch(`${apiUrl}/tickets/${ticketId}`, {
+                    const getTicketRes = await fetchDoli(`${apiUrl}/tickets/${ticketId}`, {
                         headers: baseHeaders
                     });
                     if (getTicketRes.ok) {
@@ -1627,7 +1699,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Succès final (On injecte du HTML ici pour avoir un lien cliquable)
                 btnSubmit.classList.remove('btn-loading');
-                btnSubmit.querySelector('.btn-text').textContent = 'Ticket créé !';
+                btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_125');
                 statusMessage.innerHTML = `
                     <div style="color:#27ae60; font-size:13px; text-align:left;">
                         Ticket <a href="${ticketLink}" target="_blank" style="text-decoration:none; font-weight:bold; color:#27ae60;" title="Voir le ticket">${displayRef}</a> créé avec succès !
@@ -1642,7 +1714,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (error) {
                 btnSubmit.classList.remove('btn-loading');
-                btnSubmit.querySelector('.btn-text').textContent = 'Réessayer';
+                btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_126');
                 btnSubmit.disabled = false;
 
                 // Si l'erreur signale que le ticket a quand même été créé (ex: échec d'upload)
@@ -1665,7 +1737,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     showDoliError(error, statusMessage);
                 }
-                btnSubmit.textContent = 'Réessayer';
+                btnSubmit.textContent = chrome.i18n.getMessage('popup_js_127');
             }
         });
 
@@ -1747,7 +1819,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const triggerCapture = async (btnElement, statusElementId) => {
             try {
-                btnElement.textContent = "Capture...";
+                btnElement.textContent = chrome.i18n.getMessage('popup_js_128');
                 btnElement.disabled = true;
                 const statusMessage = document.getElementById(statusElementId);
                 if (statusMessage) { statusMessage.textContent = ""; }
@@ -1785,7 +1857,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (chrome.runtime.lastError || !dataUrl) {
                         const err = chrome.runtime.lastError ? chrome.runtime.lastError.message : "Pas d'image";
                         if (statusMessage) {
-                            statusMessage.textContent = "Erreur capture (Permissions ?): " + err;
+                            statusMessage.textContent = chrome.i18n.getMessage('popup_js_129') + err;
                             statusMessage.style.color = "#e74c3c";
                         }
                         resetCaptureButton(btnElement);
@@ -1795,7 +1867,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
                         if (!tabs || tabs.length === 0) {
                             if (statusMessage) {
-                                statusMessage.textContent = "Erreur: Impossible de trouver l'onglet actif.";
+                                statusMessage.textContent = chrome.i18n.getMessage('popup_js_130');
                                 statusMessage.style.color = "#e74c3c";
                             }
                             resetCaptureButton(btnElement);
@@ -1804,25 +1876,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         let promises = tabs.map(tab => {
                             return new Promise(resolve => {
-                                chrome.tabs.sendMessage(tab.id, {
-                                    action: "START_IN_PAGE_EDITOR",
-                                    image: dataUrl
-                                }, (response) => {
-                                    if (chrome.runtime.lastError) resolve({ success: false, error: chrome.runtime.lastError.message });
-                                    else resolve({ success: true });
-                                });
+                                // Vérifier directement si l'URL est interdite par Chrome
+                                if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('https://chrome.google.com/webstore'))) {
+                                    resolve({ success: false, error: "FORBIDDEN_URL" });
+                                    return;
+                                }
+
+                                const trySendMessage = (retryCount = 0) => {
+                                    chrome.tabs.sendMessage(tab.id, {
+                                        action: "START_IN_PAGE_EDITOR",
+                                        image: dataUrl
+                                    }, (response) => {
+                                        if (chrome.runtime.lastError) {
+                                            const errMessage = chrome.runtime.lastError.message;
+                                            
+                                            // Si le content script n'est pas trouvé (Ex: extension rechargée ou page ouverte avant installation)
+                                            if (retryCount === 0 && errMessage.includes("Receiving end does not exist") && chrome.scripting) {
+                                                // Injection dynamique pour éviter à l'utilisateur de faire F5
+                                                chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["src/content/content.css"] }, () => {
+                                                    chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/content/content.js"] }, () => {
+                                                        // Laisser 250ms au content script pour écouter les messages
+                                                        setTimeout(() => trySendMessage(1), 250);
+                                                    });
+                                                });
+                                                return; // On attend la fin de l'injection
+                                            }
+                                            resolve({ success: false, error: errMessage });
+                                        }
+                                        else resolve({ success: true });
+                                    });
+                                };
+                                
+                                trySendMessage(0);
                             });
                         });
 
-                        const timeout = new Promise(resolve => setTimeout(() => resolve([{ success: false, timeout: true }]), 1500));
+                        const timeout = new Promise(resolve => setTimeout(() => resolve([{ success: false, timeout: true }]), 4000));
 
                         Promise.race([Promise.all(promises), timeout]).then((results) => {
                             let failed = false;
-                            for (let res of results) if (!res.success) failed = true;
+                            let isTimeout = false;
+                            let specificError = "";
+
+                            for (let res of results) {
+                                if (!res.success) {
+                                    failed = true;
+                                    if (res.timeout) isTimeout = true;
+                                    if (res.error) specificError = res.error;
+                                }
+                            }
 
                             if (failed) {
                                 if (statusMessage) {
-                                    statusMessage.textContent = "Veuillez recharger la page web (F5) pour activer la capture.";
+                                    let errorKey = 'error_5099';
+                                    if (isTimeout) {
+                                        errorKey = 'error_5001';
+                                    } else if (specificError === "FORBIDDEN_URL") {
+                                        errorKey = 'error_5002';
+                                    } else if (specificError.includes("Receiving end does not exist")) {
+                                        errorKey = 'error_5003';
+                                    }
+
+                                    statusMessage.textContent = ErrorManager.getMessage(errorKey, specificError);
                                     statusMessage.style.color = "#e74c3c";
                                 }
                                 resetCaptureButton(btnElement);
@@ -1836,11 +1951,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error("CRITICAL ERROR CAPTURE:", e);
                 const statusMessage = document.getElementById(statusElementId);
                 if (statusMessage) {
-                    statusMessage.textContent = "Bug critique capture: " + e.message;
+                    statusMessage.textContent = chrome.i18n.getMessage('popup_js_131') + e.message;
                     statusMessage.style.color = "#e74c3c";
                 }
                 btnElement.disabled = false;
-                btnElement.textContent = "Erreur Capture";
+                btnElement.textContent = chrome.i18n.getMessage('popup_js_132');
             }
         };
 
@@ -1884,6 +1999,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        const btnClearTicket = document.getElementById('btn-clear-ticket');
+        if (btnClearTicket) {
+            btnClearTicket.addEventListener('click', () => {
+                document.getElementById('ticket-form').reset();
+                document.getElementById('ticket-subject').focus();
+                // Forcer la sauvegarde d'un brouillon vide (ou la suppression)
+                const pId = document.getElementById('doli-active-profile').value;
+                if (pId) chrome.storage.local.remove([`draftTicket_${pId}`, `draftShared_${pId}`]);
+            });
+        }
+
+        const oppBtnClear = document.getElementById('opp-btn-clear');
+        if (oppBtnClear) {
+            oppBtnClear.addEventListener('click', () => {
+                document.getElementById('opp-form').reset();
+                document.getElementById('opp-subject').focus();
+                const pId = document.getElementById('doli-active-profile').value;
+                if (pId) chrome.storage.local.remove([`draftOpp_${pId}`, `draftShared_${pId}`]);
+            });
+        }
+
     } catch (fatalError) {
         document.body.innerHTML = `<div style="padding: 20px; color: red; font-family: sans-serif;">
             <h3 style="margin-top:0;">Erreur fatale de l'extension</h3>
@@ -1899,7 +2035,7 @@ document.addEventListener('dblclick', (e) => {
         if (textToCopy) {
             navigator.clipboard.writeText(textToCopy).then(() => {
                 const originalText = e.target.textContent;
-                e.target.textContent = 'Copié !';
+                e.target.textContent = chrome.i18n.getMessage('popup_js_133');
                 e.target.style.color = '#27ae60';
                 e.target.style.fontWeight = 'bold';
                 setTimeout(() => {

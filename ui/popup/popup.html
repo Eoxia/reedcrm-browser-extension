@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title><span data-i18n="popup_1"></span></title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="top-nav">
+            <div class="nav-logo" style="display: flex; align-items: center; gap: 10px;">
+                <div class="profile-switcher-wrapper" style="position: relative; display: flex; align-items: center;">
+                    <img id="nav-favicon" src="" style="position: absolute; left: 8px; width: 14px; height: 14px; pointer-events: none; display: none;">
+                    <select id="doli-active-profile" class="profile-switcher hidden">
+                        <!-- Rempli dynamiquement en JS -->
+                    </select>
+                </div>
+            </div>
+            <div class="nav-tabs">
+                <button class="nav-tab" id="tab-opportunite" data-i18n-title="popup_title_37">
+                    <svg width="18" height="18" viewBox="0 0 640 512" fill="currentColor"><path d="M519.2 127.9l-47.6-47.6A56.252 56.252 0 0 0 432 64H205.2c-14.8 0-29.1 5.9-39.6 16.3L118 127.9H0v255.7h64c17.6 0 31.8-14.2 31.9-31.7h9.1l84.6 76.4c30.9 25.1 73.8 25.7 105.6 3.8 12.5 10.8 26 15.9 41.1 15.9 18.2 0 35.3-7.4 48.8-24 22.1 8.7 48.2 2.6 64-16.8l26.2-32.3c5.6-6.9 9.1-14.8 10.9-23h57.9c.1 17.5 14.4 31.7 31.9 31.7h64V127.9H519.2zM48 351.6c-8.8 0-16-7.2-16-16s7.2-16 16-16 16 7.2 16 16c0 8.9-7.2 16-16 16zm390-6.9l-26.1 32.2c-2.8 3.4-7.8 4-11.3 1.2l-23.9-19.4-30 36.5c-6 7.3-15 4.8-18 2.4l-36.8-31.5-15.6 19.2c-13.9 17.1-39.2 19.7-55.3 6.6l-97.3-88H96V175.8h41.9l61.7-61.6c2-.8 3.7-1.5 5.7-2.3H262l-38.7 35.5c-29.4 26.9-31.1 72.3-4.4 101.3 14.8 16.2 61.2 41.2 101.5 4.4l8.2-7.5 108.2 87.8c3.4 2.8 3.9 7.9 1.2 11.3zm106-40.8h-69.2c-2.3-2.8-4.9-5.4-7.7-7.7l-102.7-83.4 12.5-11.4c6.5-6 7-16.1 1-22.6L367 167.1c-6-6.5-16.1-6.9-22.6-1l-55.2 50.6c-9.5 8.7-25.7 9.4-34.6 0-9.3-9.9-8.5-25.1 1.2-33.9l65.6-60.1c7.4-6.8 17-10.5 27-10.5l83.7-.2c2.1 0 4.1.8 5.5 2.3l61.7 61.6H544v128zm48 47.7c-8.8 0-16-7.2-16-16s7.2-16 16-16 16 7.2 16 16c0 8.9-7.2 16-16 16z"></path></svg>
+                    <span><span data-i18n="popup_2"></span></span>
+                </button>
+                <button class="nav-tab" id="tab-opp-list" data-i18n-title="popup_title_38">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    <span><span data-i18n="popup_3"></span></span>
+                </button>
+                <button class="nav-tab active" id="tab-ticket" data-i18n-title="popup_title_39">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(-45deg)"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path><path d="M13 5v2"></path><path d="M13 11v2"></path><path d="M13 17v2"></path></svg>
+                    <span><span data-i18n="popup_4"></span></span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="global-status-container" style="text-align: left; margin: 10px 0;">
+            <div id="status-message"></div>
+            <div id="opp-status-message"></div>
+        </div>
+        
+        <div class="header-container">
+            <h2 id="view-title">Nouveau Ticket</h2>
+            
+            <div id="ticket-top-actions" style="display: flex; align-items: center; gap: 8px; flex: 1;">                
+                <div class="searchable-select-container mini-select" style="flex: 1; min-width: 0;">
+                    <select id="ticket-tiers" class="searchable-select hidden">
+                        <option value=""><span data-i18n="popup_5"></span></option>
+                    </select>
+                </div>
+                
+                <div class="searchable-select-container mini-select" id="ticket-contact-container" style="flex: 1; min-width: 0;">
+                    <select id="ticket-contact" class="searchable-select hidden">
+                        <option value=""><span data-i18n="popup_6"></span></option>
+                    </select>
+                </div>
+                
+                <div class="searchable-select-container mini-select" id="ticket-project-container" style="flex: 1; min-width: 0;">
+                    <select id="ticket-project" class="searchable-select hidden">
+                        <option value=""><span data-i18n="popup_7"></span></option>
+                    </select>
+                </div>
+            </div>
+
+        </div>
+        
+        <div id="setup-warning" class="warning hidden">
+            <p><span data-i18n="popup_8"></span></p>
+            <button id="btn-open-options"><span data-i18n="popup_9"></span></button>
+        </div>
+
+        <!-- VUE TICKET -->
+        <div id="view-ticket" class="tab-content">
+            <form id="ticket-form" class="hidden">
+            <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4px;">
+                    <label for="ticket-subject" style="margin-bottom: 0;"><span data-i18n="popup_10"></span></label>
+                    <button type="button" id="btn-clear-ticket" data-i18n-title="popup_title_40" style="padding: 2px; width: 22px; height: 22px; border-radius: 4px; background: #3498db; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" class="btn-clear-hover">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                </div>
+                <input type="text" id="ticket-subject" data-i18n-placeholder="popup_ph_44" required>
+            </div>
+
+            <div class="form-group">
+                <label for="ticket-message"><span data-i18n="popup_11"></span></label>
+                <textarea id="ticket-message" rows="4" data-i18n-placeholder="popup_ph_45" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="ticket-assignee"><span data-i18n="popup_12"></span></label>
+                <div class="searchable-select-container">
+                    <select id="ticket-assignee" class="searchable-select hidden">
+                        <option value=""><span data-i18n="popup_13"></span></option>
+                        <option value="loading" disabled><span data-i18n="popup_14"></span></option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="ged-warning" class="hidden" style="color: #e74c3c; font-size: 11px; margin-bottom: 8px; font-weight: 500; text-align: center;"><span data-i18n="popup_19"></span></div>
+            <div class="attachment-section bottom-actions-row">
+                <div class="attachment-col left-col">
+                    <label for="ticket-file"><span data-i18n="popup_15"></span></label>
+                    <div class="file-paste-zone" id="paste-zone">
+                        <input type="file" id="ticket-file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx">
+                        <div class="paste-hint"><span data-i18n="popup_16"></span></div>
+                        
+                        <div id="preview-container" class="hidden">
+                            <img id="image-preview" src="" alt="Aperçu">
+                            <button type="button" id="btn-remove-image">✖</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="attachment-col center-col">
+                    <label><span data-i18n="popup_17"></span></label>
+                    <button type="button" id="btn-capture-screen" class="btn-orange">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg><span data-i18n="popup_18"></span></button>
+                </div>
+                <div class="attachment-col right-submit-col">
+                    <button type="submit" id="btn-submit" disabled class="btn-submit-inline">
+                        <span class="spinner"></span>
+                        <span class="btn-text"><span data-i18n="popup_20"></span></span>
+                    </button>
+                </div>
+            </div>
+            </form>
+
+            <!-- LISTE DES DERNIERS TICKETS -->
+            <div id="recent-tickets-container" class="recent-list hidden">
+                <div class="recent-header"><span data-i18n="popup_21"></span></div>
+                <div id="recent-tickets-list">
+                    <div style="text-align: center; color: #999;font-size: 11px; padding: 10px;"><span data-i18n="popup_22"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VUE OPPORTUNITE -->
+        <div id="view-opportunity" class="tab-content hidden">
+            <form id="opp-form">
+            <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4px;">
+                    <label for="opp-subject" style="margin-bottom: 0;"><span data-i18n="popup_23"></span></label>
+                    <button type="button" id="opp-btn-clear" data-i18n-title="popup_title_41" style="padding: 2px; width: 22px; height: 22px; border-radius: 4px; background: #3498db; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" class="btn-clear-hover">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                </div>
+                <input type="text" id="opp-subject" data-i18n-placeholder="popup_ph_46" required>
+            </div>
+
+            <div class="form-group">
+                <textarea id="opp-message" rows="4" data-i18n-placeholder="popup_ph_47"></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <input type="text" id="opp-nom" data-i18n-placeholder="popup_ph_48">
+                </div>
+                <div class="form-col">
+                    <input type="text" id="opp-prenom" data-i18n-placeholder="popup_ph_49">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <input type="tel" id="opp-tel" data-i18n-placeholder="popup_ph_50" pattern="^\+?[0-9\s\(\)\-\.]{6,20}$" data-i18n-title="popup_title_42">
+                </div>
+                <div class="form-col">
+                    <input type="email" id="opp-email" data-i18n-placeholder="popup_ph_51">
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-top: 10px; align-items: center;">
+                <div class="form-group" style="flex: 3; margin-bottom: 0;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 24px;">🥵</span>
+                        <input type="range" id="opp-proba" min="0" max="100" value="50" style="flex: 1; cursor: pointer;">
+                        <span style="font-size: 24px;">🤑</span>
+                    </div>
+                </div>
+
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <div class="input-with-icon">
+                        <span class="input-icon">€</span>
+                        <input type="number" id="opp-montant" placeholder="999,99" min="0" step="0.01">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group website-group" style="margin-top: 8px;">
+                <div style="display: flex; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden; height: 34px; background: #fff;">
+                    <select id="opp-website-protocol" style="width: auto; flex-shrink: 0; border: none; background: #f8f9fa; padding: 0 4px 0 8px; outline: none; font-size: 13px; color: #333; cursor: pointer; border-right: 1px solid #cbd5e1; border-radius: 0;">
+                        <option value="https://"><span data-i18n="popup_24"></span></option>
+                        <option value="http://"><span data-i18n="popup_25"></span></option>
+                    </select>
+                    <input type="text" id="opp-website" data-i18n-placeholder="popup_ph_52" pattern="^(?:https?:\/\/)?([a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,}(?:\/.*)?$" data-i18n-title="popup_title_43" style="flex: 1; min-width: 0; border: none; padding: 0 10px; font-size: 13px; outline: none; box-shadow: none;">
+                </div>
+            </div>
+
+            <div class="form-group hidden">
+                <label for="opp-assignee"><span data-i18n="popup_26"></span></label>
+                <select id="opp-assignee">
+                    <option value=""><span data-i18n="popup_27"></span></option>
+                    <option value="loading" disabled><span data-i18n="popup_28"></span></option>
+                </select>
+            </div>
+
+            <div id="opp-ged-warning" class="hidden" style="color: #e74c3c; font-size: 11px; margin-bottom: 8px; font-weight: 500; text-align: center;"><span data-i18n="popup_33"></span></div>
+            <div class="attachment-section bottom-actions-row">
+                <div class="attachment-col left-col">
+                    <label for="opp-file"><span data-i18n="popup_29"></span></label>
+                    <div class="file-paste-zone" id="opp-paste-zone">
+                        <input type="file" id="opp-file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx">
+                        <div class="paste-hint"><span data-i18n="popup_30"></span></div>
+                        
+                        <div id="opp-preview-container" class="hidden">
+                            <img id="opp-image-preview" src="" alt="Aperçu">
+                            <button type="button" id="opp-btn-remove-image">✖</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="attachment-col center-col">
+                    <label><span data-i18n="popup_31"></span></label>
+                    <button type="button" id="opp-btn-capture-screen" class="btn-orange">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg><span data-i18n="popup_32"></span></button>
+                </div>
+                <div class="attachment-col right-submit-col">
+                    <button type="submit" id="opp-btn-submit" disabled class="btn-submit-inline">
+                        <span class="spinner"></span>
+                        <span class="btn-text"><span data-i18n="popup_34"></span></span>
+                    </button>
+                </div>
+            </div>
+            </form>
+
+            <!-- LISTE DES DERNIERES OPPORTUNITES -->
+            <div id="recent-opp-container" class="recent-list hidden">
+                <div class="recent-header"><span data-i18n="popup_35"></span></div>
+                <div id="recent-opp-list">
+                    <div style="text-align: center; color: #999;font-size: 11px; padding: 10px;"><span data-i18n="popup_36"></span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../src/utils/i18n.js"></script>
+    <script src="../../src/utils/errors.js"></script>
+    <script type="module" src="popup.js"></script>
+</body>
+</html>
