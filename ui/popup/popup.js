@@ -1616,6 +1616,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // 2. Gestion de la pièce jointe (si présente)
+                let ticketRef = ticketId ? ticketId.toString() : '';
+
                 if (fileToSend && ticketId) {
                     btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_124');
 
@@ -1625,7 +1627,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         headers: baseHeaders
                     });
 
-                    let ticketRef = ticketId.toString();
                     if (getTicketRes.ok) {
                         const ticketDetails = await getTicketRes.json();
                         if (ticketDetails && ticketDetails.ref) {
@@ -1686,7 +1687,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (getTicketRes.ok) {
                         const ticketDetails = await getTicketRes.json();
                         if (ticketDetails && ticketDetails.ref) {
-                            ticketIdOrRef = ticketDetails.ref; // On écrase ticketId avec la ref texte si dispo
+                            ticketRef = ticketDetails.ref; // On écrase avec la ref texte si dispo
                         }
                     }
                 }
@@ -1695,7 +1696,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // On retire la partie "/api/index.php" (ou sa variante) de l'URL pour pointer vers la racine web
                 const baseUrl = apiUrl.replace(/\/api\/index\.php\/?$/, '').replace(/\/htdocs\/api\/index\.php\/?$/, '/htdocs');
                 const ticketLink = `${baseUrl}/ticket/card.php?id=${ticketId}`;
-                const displayRef = (typeof ticketRef !== 'undefined') ? ticketRef : (typeof ticketIdOrRef !== 'undefined' ? ticketIdOrRef : ticketId);
+                const displayRef = ticketRef || ticketId;
 
                 // Succès final (On injecte du HTML ici pour avoir un lien cliquable)
                 btnSubmit.classList.remove('btn-loading');
