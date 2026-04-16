@@ -246,6 +246,10 @@ function loadProfileIntoForm(p) {
     if (document.getElementById('doli-opp-only')) {
         document.getElementById('doli-opp-only').checked = p.doliOppOnly !== false;
     }
+    
+    if (document.getElementById('doli-contact-role')) {
+        document.getElementById('doli-contact-role').value = p.doliContactRole || '';
+    }
 
     document.getElementById('doli-ticket-type').value = p.doliTicketType || 'ISSUE';
     document.getElementById('doli-ticket-severity').value = p.doliTicketSeverity || 'NORMAL';

@@ -61,7 +61,9 @@ const apiCall = async (url, options = {}, retries = 0) => {
             await new Promise(res => setTimeout(res, 1000 * (retries + 1)));
             return await apiCall(url, options, retries + 1);
         }
-        console.error(`[API] Echoué après ${retries} tentatives :`, err);
+        if (!err.message.includes('404')) {
+            console.error(`[API] Echoué après ${retries} tentatives :`, err);
+        }
         throw err;
     }
 };

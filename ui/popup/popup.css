@@ -849,7 +849,8 @@ a.rt-ref:hover {
 
 .attachment-section.bottom-actions-row .right-submit-col {
     flex: 5;
-    padding-top: 19px; /* Compensate the absence of a <label> which is around 14+5px tall */
+    display: flex;
+    flex-direction: column;
 }
 
 .btn-submit-inline {

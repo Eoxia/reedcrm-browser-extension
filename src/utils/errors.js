@@ -11,6 +11,9 @@ const ERROR_DICTIONARY = {
     'ReedCRM-2001': { category: 'Configuration Manquante', key: 'error_2001', file: 'popup.js', line: 1216 },
     'ReedCRM-2002': { category: 'Configuration Manquante', key: 'error_2002', file: 'background.js', line: 'multiple' },
 
+    // ---- Catégorie : Performance (Série 2500) ----
+    'ReedCRM-2003': { category: 'Performance: Miniature Manquante', key: 'error_2003', file: 'popup.js', line: 950 },
+
     // ---- Catégorie : Validation Formulaire (Série 3000) ----
     'ReedCRM-3001': { category: 'Validation', key: 'error_3001', file: 'popup.js', line: '1190-1200' },
     'ReedCRM-3002': { category: 'Validation', key: 'error_3002', file: 'popup.js', line: '950-960' },

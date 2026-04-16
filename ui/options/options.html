@@ -108,11 +108,22 @@
 
         <fieldset class="settings-section">
             <legend><span data-i18n="opt_76"></span></legend>
+            
             <div class="form-group" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; background-color: #fff; padding: 10px 15px; border-radius: 6px; border: 1px solid #e0e0e0;">
                 <label for="doli-opp-only" style="margin: 0; cursor: pointer; display: inline-block; font-size: 13px; font-weight: 600; flex: 1; padding-right: 10px;"><span data-i18n="opt_77"></span></label>
                 <input type="checkbox" id="doli-opp-only" style="margin: 0; cursor: pointer; width: 18px; height: 18px; flex-shrink: 0;" checked>
             </div>
-            <p style="font-size: 11px; color: #7f8c8d; margin-top: 5px; margin-bottom: 0;"><span data-i18n="opt_78"></span></p>
+            <p style="font-size: 11px; color: #7f8c8d; margin-top: 5px; margin-bottom: 20px;"><span data-i18n="opt_78"></span></p>
+
+            <div class="form-group">
+                <label for="doli-contact-role"><span data-i18n="opt_contact_role"></span></label>
+                <input type="text" id="doli-contact-role" data-i18n-placeholder="opt_ph_contact_role" list="role-codes-list">
+                <datalist id="role-codes-list">
+                    <option value="PROJECTCONTRIBUTOR">Contributeur</option>
+                    <option value="PROJECTEXECUTIVE">Chef de projet</option>
+                </datalist>
+                <p style="font-size: 11px; color: #7f8c8d; margin-top: 5px; margin-bottom: 0;"><span data-i18n="opt_desc_contact_role"></span></p>
+            </div>
         </fieldset>
 
         <fieldset class="settings-section">

@@ -354,6 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fonction pour charger les Tiers
         async function loadThirdparties(apiUrl, token, entity) {
             const tiersSelect = document.getElementById('ticket-tiers');
+            let fetchedTiers = [];
             try {
                 // mode=1 pour ne lister que les clients/prospects (souvent suffisant pour devis/tickets)
                 const response = await fetchDoli(`${apiUrl}/thirdparties?limit=50000&sortfield=t.nom&sortorder=ASC&mode=1`, {
@@ -369,6 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok) {
                     const tiers = await response.json();
                     if (Array.isArray(tiers)) {
+                        fetchedTiers = tiers;
                         tiers.forEach(t => {
                             const option = document.createElement('option');
                             option.value = t.id;
@@ -404,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!window.ticketProjectSelect) {
                 window.ticketProjectSelect = new CustomSelect(projectSelect);
             }
+            return fetchedTiers;
         }
 
         // Fonction pour charger les Contacts d'un Tiers
@@ -510,9 +513,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Fonction pour charger les derniers tickets
-        async function loadRecentTickets(apiUrl, token, limit = 10, entity) {
+        async function loadRecentTickets(apiUrl, token, limit = 10, entity, usersPromise, thirdpartiesPromise) {
             recentTicketsContainer.classList.remove('hidden');
             recentTicketsList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Chargement des tickets...</div>`;
+
+            let usersList = [];
+            if (usersPromise) {
+                try { usersList = await usersPromise || []; } catch(e) { console.error("Erreur attente users dans tickets", e); }
+            }
+            
+            let thirdpartiesList = [];
+            if (thirdpartiesPromise) {
+                try { thirdpartiesList = await thirdpartiesPromise || []; } catch(e) { console.error("Erreur attente tiers dans tickets", e); }
+            }
 
             try {
                 const doliBaseUrl = apiUrl.replace(/\/api\/index\.php\/?$/, '');
@@ -525,13 +538,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers['DOLAPIENTITY'] = String(entity).trim();
                 }
 
-                // On retire tous les paramètres complexes (sortorder, sortfield, sqlfilters) car ils
-                // provoquent des erreurs 400 ou 500 sur certaines versions de l'API Dolibarr.
-                // On demande juste un lot de 100 tickets bruts, et on triera en JavaScript.
-                const response = await fetchDoli(`${apiUrl}/tickets?limit=100`, {
+                // On tente de récupérer les tickets les plus récents via l'API (sortfield)
+                let response = await fetchDoli(`${apiUrl}/tickets?sortfield=t.rowid&sortorder=DESC&limit=${limit}`, {
                     method: 'GET',
                     headers: headers
                 });
+
+                // Fallback de sécurité si l'API Dolibarr (versions anciennes) refuse le tri
+                if (!response.ok && (response.status === 400 || response.status === 500)) {
+                    response = await fetchDoli(`${apiUrl}/tickets?limit=${limit}`, {
+                        method: 'GET',
+                        headers: headers
+                    });
+                }
 
                 if (response.ok) {
                     const textData = await response.text();
@@ -546,6 +565,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         sortedTickets.forEach(ticket => {
                             // 2. Initiales
                             let initials = "";
+                            
+                            // Enrichissement via la liste des utilisateurs mise en cache si l'API native ne remonte que l'ID (très fréquent sur REST)
+                            if (ticket.fk_user_assign && usersList && usersList.length > 0) {
+                                const matchedUser = usersList.find(u => String(u.id) === String(ticket.fk_user_assign));
+                                if (matchedUser) {
+                                    if (!ticket.user_assign_firstname) ticket.user_assign_firstname = matchedUser.firstname;
+                                    if (!ticket.user_assign_lastname) ticket.user_assign_lastname = matchedUser.lastname;
+                                    if (!ticket.user_assign_photo) ticket.user_assign_photo = matchedUser.photo;
+                                }
+                            }
+
                             if (ticket.user_assign_firstname && ticket.user_assign_lastname) {
                                 initials = ticket.user_assign_firstname.charAt(0).toUpperCase() + ticket.user_assign_lastname.charAt(0).toUpperCase();
                             } else if (ticket.user_assign_fullname) {
@@ -569,37 +599,214 @@ document.addEventListener('DOMContentLoaded', () => {
                             let subject = ticket.subject || "Sans titre";
                             if (subject.length > 50) subject = subject.substring(0, 50) + '...';
 
-                            // Détermination de la couleur de la puce d'état
+                            // Détermination de la couleur de la puce d'état et de son libellé
                             let statusColor = "#95a5a6"; // Gris par défaut (Inconnu)
                             const stat = String(ticket.status || ticket.fk_statut || ticket.statut || "").toLowerCase();
+                            
+                            let statusLabelText = stat;
+                            const ticketStatusMap = {
+                                "0": "Non lu",
+                                "1": "Lu",
+                                "2": "Assigné",
+                                "3": "En cours",
+                                "4": "En attente",
+                                "5": "En attente retour",
+                                "6": "En pause",
+                                "7": "En pause",
+                                "8": "Fermé (Résolu)",
+                                "9": "Abandonné / Annulé"
+                            };
+                            if (ticketStatusMap[stat]) statusLabelText = ticketStatusMap[stat];
+                            if (ticket.status_label) statusLabelText = ticket.status_label;
+                            else if (ticket.statut_label) statusLabelText = ticket.statut_label;
 
                             if (stat === "0") {
                                 statusColor = "#e74c3c"; // Rouge (Brouillon/Non lu)
                             } else if (stat === "1") {
                                 statusColor = "#3498db"; // Bleu (À valider/Nouveau)
-                            } else if (stat === "2" || stat === "3" || stat === "4" || stat === "5") {
-                                statusColor = "#f39c12"; // Orange (En cours)
-                            } else if (stat === "7" || stat === "8") {
+                            } else if (stat === "2" || stat === "3" || stat === "4" || stat === "5" || stat === "6" || stat === "7") {
+                                statusColor = "#f39c12"; // Orange (En cours / Attente / Pause)
+                            } else if (stat === "8") {
                                 statusColor = "#27ae60"; // Vert (Résolu/Fermé)
                             } else if (stat === "9") {
                                 statusColor = "#7f8c8d"; // Gris foncé (Annulé)
                             }
 
                             const ticketRef = ticket.ref || ticket.track_id || `Ticket #${ticket.id}`;
+                            
+                            // Résolution du Tiers manquant via le dictionnaire global
+                            let companyName = ticket.thirdparty_name || ticket.soc_name;
+                            if (!companyName && ticket.fk_soc && thirdpartiesList && thirdpartiesList.length > 0) {
+                                const matchedTiers = thirdpartiesList.find(t => String(t.id) === String(ticket.fk_soc));
+                                if (matchedTiers) companyName = matchedTiers.name || matchedTiers.nom;
+                            }
+                            if (!companyName && ticket.fk_soc) companyName = "Tiers #" + ticket.fk_soc;
 
-                            // Construction du HTML 
-                            const ticketHtml = `
-                            <div class="recent-ticket-item">
-                                <div class="rt-left">
-                                    <a href="${doliBaseUrl}/ticket/card.php?id=${ticket.id}" target="_blank" class="rt-ref" title="Ouvrir le ticket" style="display: block;">${ticketRef}</a>
-                                    <div class="rt-subject" title="${ticket.subject}">${subject}</div>
-                                </div>
-                                <div class="rt-right" style="display: flex; align-items: center; gap: 8px;">
-                                    <div class="rt-status-dot" title="Statut: ${stat}" style="width: 8px; height: 8px; border-radius: 50%; background-color: ${statusColor};"></div>
-                                </div>
-                            </div>
-                        `;
-                            recentTicketsList.insertAdjacentHTML('beforeend', ticketHtml);
+                            // Troncature du nom du tiers pour l'alignement UI
+                            if (companyName && companyName.length > 20) {
+                                companyName = companyName.substring(0, 20) + '...';
+                            }
+
+                            const severity = ticket.severity_label || ticket.severity_code || "Normal";
+                            
+                            let dateFormatted = "";
+                            let elapsedTimeStr = "";
+                            if (ticket.datec) {
+                                const d = new Date(ticket.datec * 1000);
+                                const DD = String(d.getDate()).padStart(2, '0');
+                                const MM = String(d.getMonth() + 1).padStart(2, '0');
+                                const YYYY = d.getFullYear();
+                                dateFormatted = `${DD}/${MM}/${YYYY}`;
+                                
+                                // Calcul du temps écoulé
+                                const diffMs = Date.now() - d.getTime();
+                                if (diffMs > 0) {
+                                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                                    const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                                    let tps = [];
+                                    if (diffDays > 0) tps.push(`${diffDays} j`);
+                                    tps.push(`${String(diffHrs).padStart(2,'0')}:${String(diffMins).padStart(2,'0')}`);
+                                    elapsedTimeStr = `Tps: ${tps.join(' ')}`;
+                                }
+                            } else if (ticket.date_creation) {
+                                const d = new Date(ticket.date_creation * 1000);
+                                if (!isNaN(d)) dateFormatted = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${d.getFullYear()}`;
+                            }
+
+                            const progressPct = ticket.progress || ticket.progression || "0";
+
+                            // ============================================
+                            // Construction sécurisée du DOM (Anti-XSS, sans inline-JS, avec i18n)
+                            // ============================================
+                            const ticketEl = document.createElement('div');
+                            ticketEl.className = 'recent-ticket-item';
+                            ticketEl.style.cssText = "display: block; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 8px; text-decoration: none;";
+
+                            // --- Ligne 1 ---
+                            const row1 = document.createElement('div');
+                            row1.style.cssText = "display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;";
+
+                            const row1Left = document.createElement('div');
+                            row1Left.style.cssText = "display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; font-weight: 500; color: #333;";
+
+                            const refLink = document.createElement('a');
+                            refLink.href = `${doliBaseUrl}/ticket/card.php?id=${ticket.id}`;
+                            refLink.target = "_blank";
+                            refLink.title = chrome.i18n.getMessage('btn_open_ticket') || "Ouvrir le ticket";
+                            refLink.style.cssText = "color: #2c3e50; text-decoration: none;";
+                            refLink.textContent = ticketRef; // textContent sécurisé
+                            row1Left.appendChild(refLink);
+
+                            if (companyName) {
+                                const dot1 = document.createElement('span');
+                                dot1.style.color = "#ccc";
+                                dot1.textContent = "•";
+                                row1Left.appendChild(dot1);
+                                
+                                const compEl = document.createElement('span');
+                                compEl.style.cssText = "display: flex; align-items: center; gap: 4px; color: #2c3e50;";
+                                compEl.title = chrome.i18n.getMessage('label_thirdparty') || "Tiers";
+                                compEl.innerHTML = `<i class="fas fa-building" style="color: #6a7491;"></i> `; // statique sûr
+                                compEl.appendChild(document.createTextNode(companyName)); // texte dynamique sûr
+                                row1Left.appendChild(compEl);
+                            }
+
+                            if (severity) {
+                                const dot2 = document.createElement('span');
+                                dot2.style.color = "#ccc";
+                                dot2.textContent = "•";
+                                row1Left.appendChild(dot2);
+
+                                const sevEl = document.createElement('span');
+                                sevEl.style.cssText = "display: flex; align-items: center; gap: 4px; color: #000;";
+                                sevEl.title = chrome.i18n.getMessage('label_severity') || "Sévérité";
+                                sevEl.innerHTML = `<i class="fas fa-thermometer-half" style="color: #34495e;"></i> `; // statique sûr
+                                sevEl.appendChild(document.createTextNode(severity)); // texte dynamique sûr
+                                row1Left.appendChild(sevEl);
+                            }
+                            
+                            row1.appendChild(row1Left);
+
+                            // --- Avatar & Statut ---
+                            const row1Right = document.createElement('div');
+                            row1Right.style.cssText = "display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding-left: 10px;";
+
+                            if (ticket.user_assign_photo && ticket.user_assign_photo.trim() !== '') {
+                                const imgPhoto = document.createElement('img');
+                                imgPhoto.src = `${doliBaseUrl}/document.php?modulepart=user&file=${encodeURIComponent(ticket.user_assign_photo)}`;
+                                imgPhoto.style.cssText = "width: 24px; height: 24px; border-radius: 50%; object-fit: cover;";
+                                imgPhoto.title = (chrome.i18n.getMessage('label_assigned_to') || "Assigné à:") + " " + initials;
+                                // Remplacement d'erreur via Listener (Manifest V3 CSP compliance au lieu de onerror inline)
+                                imgPhoto.addEventListener('error', () => {
+                                    const fallb = document.createElement('div');
+                                    fallb.style.cssText = "width: 24px; height: 24px; border-radius: 50%; background: #e0e0e0; color: #555; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; overflow: hidden;";
+                                    fallb.title = imgPhoto.title;
+                                    fallb.textContent = initials;
+                                    imgPhoto.replaceWith(fallb);
+                                });
+                                row1Right.appendChild(imgPhoto);
+                            } else {
+                                const fallb = document.createElement('div');
+                                fallb.style.cssText = "width: 24px; height: 24px; border-radius: 50%; background: #e0e0e0; color: #555; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; overflow: hidden;";
+                                fallb.title = (chrome.i18n.getMessage('label_assigned_to') || "Assigné à:") + " " + initials;
+                                fallb.textContent = initials;
+                                row1Right.appendChild(fallb);
+                            }
+
+                            const statusDot = document.createElement('div');
+                            statusDot.className = "rt-status-dot";
+                            statusDot.title = (chrome.i18n.getMessage('label_status') || "Statut:") + " " + statusLabelText;
+                            statusDot.style.cssText = `width: 10px; height: 10px; border-radius: 50%; background-color: ${statusColor}; border: 1px solid #fff; box-shadow: 0 0 0 1px #eee;`;
+                            row1Right.appendChild(statusDot);
+
+                            row1.appendChild(row1Right);
+                            ticketEl.appendChild(row1);
+
+                            // --- Ligne 2 ---
+                            const row2 = document.createElement('div');
+                            row2.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 12px; color: #666;";
+
+                            const dateEl = document.createElement('div');
+                            dateEl.style.cssText = "display: flex; align-items: center; gap: 4px; color: #6a7491;";
+                            dateEl.title = chrome.i18n.getMessage('label_creation_date') || "Date de création";
+                            dateEl.innerHTML = `<i class="far fa-calendar-alt"></i> `;
+                            dateEl.appendChild(document.createTextNode(dateFormatted));
+                            
+                            if (elapsedTimeStr) {
+                                const sep = document.createElement('span');
+                                sep.style.cssText = "color: #ccc; margin: 0 4px;";
+                                sep.textContent = "•";
+                                dateEl.appendChild(sep);
+                                
+                                const elap = document.createElement('span');
+                                elap.style.cssText = "font-style: italic; color: #888;";
+                                elap.textContent = elapsedTimeStr;
+                                dateEl.appendChild(elap);
+                            }
+
+                            row2.appendChild(dateEl);
+
+                            const progEl = document.createElement('div');
+                            progEl.style.cssText = "font-weight: bold; font-size: 14px; color: #000;";
+                            progEl.title = chrome.i18n.getMessage('label_progression') || "Progression";
+                            progEl.textContent = `${progressPct}%`;
+                            row2.appendChild(progEl);
+
+                            ticketEl.appendChild(row2);
+
+                            // --- Ligne 3 ---
+                            const subjectEl = document.createElement('div');
+                            subjectEl.className = "rt-subject";
+                            // Le titre alt sur le subect pourrait contenir du XSS si mis direct, donc on utilise setAttribute
+                            subjectEl.setAttribute('title', ticket.subject || "");
+                            subjectEl.style.cssText = "font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;";
+                            subjectEl.textContent = subject; // textContent prévient du XSS
+
+                            ticketEl.appendChild(subjectEl);
+
+                            // Finalisation
+                            recentTicketsList.appendChild(ticketEl);
                         });
                     } else {
                         recentTicketsList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucun ticket récent trouvé (ou accès API refusé pour cet utilisateur).</div>`;
@@ -745,6 +952,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                 let statusColor = "#95a5a6";
                                 const stat = String(project.statut || project.status || "0");
+                                
+                                let statusLabelText = stat;
+                                const oppStatusMap = {
+                                    "0": "Brouillon",
+                                    "1": "Validé / Ouvert",
+                                    "2": "Clôturé"
+                                };
+                                if (oppStatusMap[stat]) statusLabelText = oppStatusMap[stat];
+                                if (project.status_label) statusLabelText = project.status_label;
+                                else if (project.statut_label) statusLabelText = project.statut_label;
+
                                 if (stat === "0") statusColor = "#3498db"; // Brouillon
                                 else if (stat === "1") statusColor = "#27ae60"; // Validé/Ouvert
                                 else if (stat === "2") statusColor = "#7f8c8d"; // Clôturé
@@ -849,7 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         ${initials !== "?" ? `<span class="rt-sep">&bull;</span><div style="font-size: 9px; background: #e2e8f0; color: #475569; padding: 1px 4px; border-radius: 4px;" title="Créé par">#${initials}</div>` : ''}
                                     </div>
                                     <div class="rt-subject" title="${project.title || ''}" style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
-                                        <div class="rt-status-dot" title="Statut: ${stat}" style="width: 8px; height: 8px; border-radius: 50%; background-color: ${statusColor}; flex-shrink: 0;"></div>
+                                        <div class="rt-status-dot" title="Statut: ${statusLabelText}" style="width: 8px; height: 8px; border-radius: 50%; background-color: ${statusColor}; flex-shrink: 0;"></div>
                                         <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; flex: 1; font-size: 13px; color: #334155; font-weight: 400;">${subject}</span>
                                     </div>
                                     ${contactHtml}
@@ -939,27 +1157,39 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!logoName) throw new Error('No logo found');
                         
                         let filePath = 'logos/' + logoName;
-                        if (logoName === compData.logo_squarred) filePath = 'logos/thumbs/' + logoName;
+                        let isSquarred = (logoName === compData.logo_squarred);
                         
                         let docRes = await fetchDoli(`${p.doliUrl}/documents/download?modulepart=mycompany&original_file=${encodeURIComponent(filePath)}`, { headers });
                         
-                        if (!docRes.ok && filePath.includes('thumbs/')) {
-                            docRes = await fetchDoli(`${p.doliUrl}/documents/download?modulepart=mycompany&original_file=${encodeURIComponent('logos/' + logoName)}`, { headers });
+                        // Si introuvable dans logos/, et que c'est un logo carré, il a peut-être été auto-généré dans thumbs/
+                        if (!docRes.ok && isSquarred) {
+                            filePath = 'logos/thumbs/' + logoName;
+                            docRes = await fetchDoli(`${p.doliUrl}/documents/download?modulepart=mycompany&original_file=${encodeURIComponent(filePath)}`, { headers });
                         }
                         
-                        if (docRes.ok) {
-                            const docData = await docRes.json();
-                            if (docData && docData.content) {
-                                const contentType = docData['content-type'] || 'image/png';
-                                if (navFavicon) {
-                                    navFavicon.src = `data:${contentType};base64,${docData.content}`;
-                                    navFavicon.style.display = 'block';
-                                    profileSwitcher.classList.add('has-favicon');
-                                }
-                                return; // Success, skip fallback
+                        // Si toujours introuvable (ou si ce n'était pas un logo carré mais le principal introuvable)
+                        if (!docRes.ok) {
+                            // On essaie de retomber sur le logo principal si le carré a planté
+                            if (isSquarred && compData.logo && compData.logo !== compData.logo_squarred) {
+                                filePath = 'logos/' + compData.logo;
+                                docRes = await fetchDoli(`${p.doliUrl}/documents/download?modulepart=mycompany&original_file=${encodeURIComponent(filePath)}`, { headers });
+                            }
+                            
+                            if (!docRes.ok) {
+                                throw new DoliError('ReedCRM-2003'); // Erreur "manque logo" générique pour catch par le UI
                             }
                         }
-                        throw new Error('Download logo failed');
+                        
+                        const docData = await docRes.json();
+                        if (docData && docData.content) {
+                            const contentType = docData['content-type'] || 'image/png';
+                            if (navFavicon) {
+                                navFavicon.src = `data:${contentType};base64,${docData.content}`;
+                                navFavicon.style.display = 'block';
+                                profileSwitcher.classList.add('has-favicon');
+                            }
+                            return; // Success
+                        }
                     } catch (err) {
                         try {
                             const domain = new URL(p.doliUrl).origin;
@@ -968,7 +1198,28 @@ document.addEventListener('DOMContentLoaded', () => {
                                 navFavicon.style.display = 'block';
                                 profileSwitcher.classList.add('has-favicon');
                             }
-                        } catch(e) {}
+                        } catch (e) {}
+
+                        // Affichage de l'avertissement de performance si DoliError
+                        if (err instanceof DoliError && err.code === 'ReedCRM-2003') {
+                            const warnBox = document.getElementById('performance-warning');
+                            const warnTxt = document.getElementById('performance-warning-text');
+                            const warnLink = document.getElementById('performance-warning-link');
+                            if (warnBox && warnTxt && warnLink) {
+                                warnTxt.textContent = err.userMessage;
+                                warnLink.textContent = chrome.i18n.getMessage('btn_fix_logo') || "Générer";
+                                
+                                let guiUrl = p.doliUrl;
+                                if (guiUrl.endsWith('/api/index.php')) {
+                                    guiUrl = guiUrl.substring(0, guiUrl.length - '/api/index.php'.length);
+                                } else if (guiUrl.includes('/api/index.php/')) {
+                                    guiUrl = guiUrl.split('/api/index.php/')[0];
+                                }
+                                warnLink.href = `${guiUrl}/admin/company.php`;
+                                
+                                warnBox.classList.remove('hidden');
+                            }
+                        }
                     }
                 })();
             }
@@ -993,8 +1244,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Chargement des utilisateurs en arrière-plan (on garde la promesse)
                 const usersPromise = loadUsers(p.doliUrl, p.doliApiToken, p.doliLogin, p.doliAutoAssign, p.doliEntity);
 
-                // Chargement des Tiers (Clients/Prospects)
-                loadThirdparties(p.doliUrl, p.doliApiToken, p.doliEntity);
+                // Chargement des Tiers (Clients/Prospects) et stockage de la promesse
+                const thirdpartiesPromise = loadThirdparties(p.doliUrl, p.doliApiToken, p.doliEntity);
                 
                 // Ecouteur sur le champ Tiers pour charger les Contacts et Projets
                 const tiersSelect = document.getElementById('ticket-tiers');
@@ -1007,7 +1258,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Fetch les derniers tickets avec la limite choisie par l'utilisateur (défaut: 10)
                 const recentLimit = items.doliRecentCount !== undefined ? parseInt(items.doliRecentCount, 10) || 10 : 10;
-                loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity);
+                loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, usersPromise, thirdpartiesPromise);
                 loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly, usersPromise, p.doliDictMap || "");
 
                 // Optionnel: copier les assignees dans le select opp s'il se charge 
@@ -1319,53 +1570,105 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (contactId && contactId !== '') {
                         try {
-                            const contactRes = await fetchDoli(`${apiUrl}/projects/${projectId}/contacts`, {
-                                method: 'POST',
-                                headers: baseHeaders,
-                                body: JSON.stringify({
-                                    fk_socpeople: parseInt(contactId, 10),
-                                    type_contact: "PROJECTCONTRIBUTOR",
-                                    source: "external"
-                                })
-                            });
-                            // Si PROJECTCONTRIBUTOR échoue, on essaie d'autres codes potentiels "CUSTOMER", "PROJECT_CONTRIBUTOR", "PROJECTCONTACT"
-                            if (!contactRes.ok) {
-                                const errFirst = await contactRes.json().catch(() => null);
-                                const errFirstMsg = errFirst?.error?.message || `HTTP ${contactRes.status}`;
-                                
-                                const contactResFallback = await fetchDoli(`${apiUrl}/projects/${projectId}/contacts`, {
+                            const possibleCodes = [];
+                            if (p && p.doliContactRole && String(p.doliContactRole).trim() !== '') {
+                                possibleCodes.push(String(p.doliContactRole).trim());
+                            }
+                            possibleCodes.push("PROJECTCONTRIBUTOR", "PROJECTEXECUTIVE", "PROJECTCONTACT", "CUSTOMER");
+                            
+                            let linked = false;
+                            let lastErrorMsg = '';
+
+                            for (const code of possibleCodes) {
+                                const contactRes = await fetchDoli(`${apiUrl}/projects/${projectId}/contacts`, {
                                     method: 'POST',
                                     headers: baseHeaders,
                                     body: JSON.stringify({
+                                        contactid: parseInt(contactId, 10),
                                         fk_socpeople: parseInt(contactId, 10),
-                                        type_contact: "PROJECT_CONTRIBUTOR",
+                                        type: code,
+                                        type_contact: code,
                                         source: "external"
                                     })
                                 });
-                                
-                                if (!contactResFallback.ok) {
-                                    const errFall = await contactResFallback.json().catch(() => null);
-                                    
-                                    contactWasAssigned = false;
-                                    contactErrorCode = 'ReedCRM-4001';
-                                    contactErrorDetail = errFall?.error?.message || errFirstMsg || 'Inconnue';
-                                    
-                                    try {
-                                        const versionRes = await fetchDoli(`${apiUrl}/status`, { headers: baseHeaders });
-                                        if (versionRes.ok) {
-                                            const statusData = await versionRes.json();
-                                            window.doliVersionStr = statusData?.dolibarr?.version || statusData?.version || '22.0.x';
-                                        } else {
-                                            window.doliVersionStr = 'HTTP ' + versionRes.status;
-                                        }
-                                    } catch(e) {
-                                        console.warn("Erreur fetch /status:", e);
-                                        window.doliVersionStr = "Illisible";
-                                    }
+
+                                if (contactRes.ok) {
+                                    linked = true;
+                                    break;
+                                } else {
+                                    const errJson = await contactRes.json().catch(() => null);
+                                    lastErrorMsg = errJson?.error?.message || `HTTP ${contactRes.status}`;
                                 }
                             }
-                            
-                            if (contactWasAssigned) {
+
+                            if (!linked) {
+                                // TENTATIVE DE SECOURS VIA L'INTERFACE GRAPHIQUE (Scraping)
+                                // pour contourner un bug natif de Dolibarr v22+ (Route API dupliquée = Erreur 500 fatale)
+                                try {
+                                    let guiUrl = p.doliUrl;
+                                    if (guiUrl.endsWith('/api/index.php')) {
+                                        guiUrl = guiUrl.substring(0, guiUrl.length - '/api/index.php'.length);
+                                    } else if (guiUrl.includes('/api/index.php/')) {
+                                        guiUrl = guiUrl.split('/api/index.php/')[0];
+                                    }
+
+                                    const contactPageUrl = `${guiUrl}/projet/contact.php?id=${projectId}`;
+                                    const pageRes = await fetch(contactPageUrl, { credentials: 'include' });
+                                    const html = await pageRes.text();
+                                    const tokenMatch = html.match(/name="token"\s+value="([^"]+)"/i);
+                                    
+                                    if (tokenMatch && tokenMatch[1]) {
+                                        const csrfToken = tokenMatch[1];
+                                        
+                                        for (const code of possibleCodes) {
+                                            const formData = new URLSearchParams();
+                                            formData.append('token', csrfToken);
+                                            formData.append('action', 'addcontact');
+                                            formData.append('source', 'external');
+                                            formData.append('contactid', contactId);
+                                            formData.append('type', code);
+                                            formData.append('id', projectId);
+
+                                            const postRes = await fetch(contactPageUrl, {
+                                                method: 'POST',
+                                                body: formData,
+                                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                                credentials: 'include'
+                                            });
+
+                                            if (postRes.ok) {
+                                                const postHtml = await postRes.text();
+                                                // Dolibarr affiche un div error si échec dans le GUI
+                                                if (!postHtml.includes('class="error"')) {
+                                                    linked = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (errFallback) {
+                                    console.warn("Échec du contournement GUI :", errFallback);
+                                }
+                            }
+
+                            if (!linked) {
+                                contactWasAssigned = false;
+                                contactErrorCode = 'ReedCRM-4001';
+                                contactErrorDetail = lastErrorMsg;
+                                
+                                try {
+                                    const versionRes = await fetchDoli(`${apiUrl}/status`, { headers: baseHeaders });
+                                    if (versionRes.ok) {
+                                        const statusData = await versionRes.json();
+                                        window.doliVersionStr = statusData?.dolibarr?.version || statusData?.version || '22.0.x';
+                                    } else {
+                                        window.doliVersionStr = 'HTTP ' + versionRes.status;
+                                    }
+                                } catch(e) {
+                                    console.warn("Erreur fetch /status:", e);
+                                    window.doliVersionStr = "Illisible";
+                                }
+                            } else {
                                 btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_118');
                                 await new Promise(r => setTimeout(r, 600)); // Laisser l'utilisateur lire le message
                             }
@@ -1373,6 +1676,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             console.warn("Impossible d'associer le contact à l'opportunité:", e);
                             contactWasAssigned = false;
                             contactErrorCode = 'ReedCRM-4003';
+                            contactErrorDetail = e.message;
                             btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_119');
                             await new Promise(r => setTimeout(r, 600));
                         }
