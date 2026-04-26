@@ -223,9 +223,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // --- Handlers migrés pour conformité CSP ---
         const tabOppList = document.getElementById('tab-opp-list');
-        if (tabOppList) {
-            tabOppList.addEventListener('click', () => alert('Fonctionnalité à venir !'));
-        }
+        const viewOppList = document.getElementById('view-opp-list');
+        
         const oppTelInput = document.getElementById('opp-tel');
         if (oppTelInput) {
             oppTelInput.addEventListener('input', function() {
@@ -246,23 +245,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const projectContainer = document.getElementById('ticket-project-container');
 
+            // Reset UI states
+            tabTicket.classList.remove('active');
+            tabOpportunite.classList.remove('active');
+            if (tabOppList) tabOppList.classList.remove('active');
+            
+            viewTicket.classList.add('hidden');
+            viewOpportunity.classList.add('hidden');
+            if (viewOppList) viewOppList.classList.add('hidden');
+
             if (view === 'opportunite') {
                 tabOpportunite.classList.add('active');
-                tabTicket.classList.remove('active');
                 viewOpportunity.classList.remove('hidden');
-                viewTicket.classList.add('hidden');
                 if (projectContainer) projectContainer.style.display = 'none'; // Pas de projet dans une opportunité
+            } else if (view === 'opp-list') {
+                if (tabOppList) tabOppList.classList.add('active');
+                if (viewOppList) viewOppList.classList.remove('hidden');
+                if (ticketActions) ticketActions.style.display = 'none'; // Masquer top-actions
             } else {
                 tabTicket.classList.add('active');
-                tabOpportunite.classList.remove('active');
                 viewTicket.classList.remove('hidden');
-                viewOpportunity.classList.add('hidden');
                 if (projectContainer) projectContainer.style.display = ''; // On réaffiche pour les tickets
             }
         }
 
         tabTicket.addEventListener('click', () => switchTab('ticket'));
         tabOpportunite.addEventListener('click', () => switchTab('opportunite'));
+        if (tabOppList) {
+            tabOppList.addEventListener('click', () => switchTab('opp-list'));
+        }
 
         // Ouvre la page d'options
         btnOpenOptions.addEventListener('click', () => {
@@ -826,6 +837,145 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Fonction pour charger les dernières opportunités (Projets)
+        
+        function renderOppItemHtml(project, doliBaseUrl, usersList, customOppDict, oppOriginDict, dolibarrNativeInputReasons) {
+            let subject = project.title || project.ref || "Projet sans titre";
+            if (subject.length > 50) subject = subject.substring(0, 50) + '...';
+
+            let statusColor = "#95a5a6";
+            const stat = String(project.statut || project.status || "0");
+            
+            let statusLabelText = stat;
+            const oppStatusMap = {
+                "0": "Brouillon",
+                "1": "Validé / Ouvert",
+                "2": "Clôturé"
+            };
+            if (oppStatusMap[stat]) statusLabelText = oppStatusMap[stat];
+            if (project.status_label) statusLabelText = project.status_label;
+            else if (project.statut_label) statusLabelText = project.statut_label;
+
+            if (stat === "0") statusColor = "#3498db"; // Brouillon
+            else if (stat === "1") statusColor = "#27ae60"; // Validé/Ouvert
+            else if (stat === "2") statusColor = "#7f8c8d"; // Clôturé
+
+            const projectRef = project.ref || `PROJ #${project.id}`;
+            
+            let dateCStr = "";
+            if (project.date_c) {
+                const d = new Date(project.date_c * 1000);
+                dateCStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            }
+            
+            let initials = "?";
+            if (project.user_author_id) {
+                const u = usersList.find(u => u.id == project.user_author_id);
+                if (u) {
+                    const parts = [u.firstname, u.lastname].filter(Boolean);
+                    if (parts.length >= 2) initials = parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase();
+                    else if (parts.length === 1) initials = parts[0].substring(0, 2).toUpperCase();
+                    else if (u.login) initials = u.login.substring(0, 2).toUpperCase();
+                } else {
+                    initials = `U${project.user_author_id}`;
+                }
+            }
+
+            let amountDisplay = project.opp_amount ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(project.opp_amount) : '';
+            let probDisplay = project.opp_percent ? `${Math.round(parseFloat(project.opp_percent))} %` : '';
+
+            const opts = project.array_options || {};
+            const oppNom = opts.options_reedcrm_lastname || '';
+            const oppPrenom = opts.options_reedcrm_firstname || '';
+            const oppTel = opts.options_projectphone || '';
+            const oppEmail = opts.options_reedcrm_email || '';
+            const oppWebsite = opts.options_reedcrm_website || opts.options_website || project.url || '';
+            const oppOriginRaw = opts.options_opporigin || opts.options_origine_opportunite || opts.options_origine || opts.options_origin || opts.options_source || opts.options_provenance || opts.options_prov || opts.options_opp_origin || opts.options_canal || '';
+            
+            let mappedOrigin = oppOriginRaw;
+            if (oppOriginRaw && customOppDict && customOppDict[oppOriginRaw]) {
+                mappedOrigin = customOppDict[oppOriginRaw];
+            } else if (oppOriginRaw && oppOriginDict && oppOriginDict[oppOriginRaw]) {
+                mappedOrigin = oppOriginDict[oppOriginRaw];
+            } else if (oppOriginRaw && dolibarrNativeInputReasons[oppOriginRaw]) {
+                mappedOrigin = dolibarrNativeInputReasons[oppOriginRaw];
+            }
+            
+            const oppOrigin = typeof mappedOrigin === 'string' ? mappedOrigin.charAt(0).toUpperCase() + mappedOrigin.slice(1).replace(/_/g, ' ') : mappedOrigin;
+
+            let line1Html = '';
+            const fullName = `${oppPrenom} ${oppNom}`.trim();
+            if (fullName && oppTel) {
+                line1Html = `<span class="copy-able rt-name" data-copy="${fullName}" title="Double clic pour copier">${fullName}</span><span class="rt-sep">&bull;</span><span class="copy-able rt-tel" data-copy="${oppTel}" title="Double clic pour copier">${oppTel}</span>`;
+            } else if (fullName) {
+                line1Html = `<span class="copy-able rt-name" data-copy="${fullName}" title="Double clic pour copier">${fullName}</span>`;
+            } else if (oppTel) {
+                line1Html = `<span class="copy-able rt-tel" data-copy="${oppTel}" title="Double clic pour copier">${oppTel}</span>`;
+            }
+
+            let line2Html = '';
+            const truncInfo = (s) => (s && s.length > 45) ? s.substring(0, 45) + '...' : s;
+            let displayEmail = truncInfo(oppEmail);
+
+            if (oppEmail && oppWebsite) {
+                let href = oppWebsite.startsWith('http') ? oppWebsite : `https://${oppWebsite}`;
+                let domain = oppWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+                let displayDomain = truncInfo(domain);
+                line2Html = `<span class="rt-email copy-able" data-copy="${oppEmail}" title="Double clic pour copier l'email">${displayEmail}</span><span class="rt-sep">&bull;</span><a href="${href}" target="_blank" class="rt-contact-link rt-website" title="Ouvrir le site internet">${displayDomain}</a>`;
+            } else if (oppEmail) {
+                line2Html = `<span class="rt-email copy-able" data-copy="${oppEmail}" title="Double clic pour copier l'email">${displayEmail}</span>`;
+            } else if (oppWebsite) {
+                let href = oppWebsite.startsWith('http') ? oppWebsite : `https://${oppWebsite}`;
+                let domain = oppWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+                let displayDomain = truncInfo(domain);
+                line2Html = `<a href="${href}" target="_blank" class="rt-contact-link rt-website" title="Ouvrir le site internet">${displayDomain}</a>`;
+            }
+            
+            let contactHtml = '';
+            if (line1Html !== '' || line2Html !== '' || oppOrigin !== '') {
+                contactHtml = `<div class="rt-contact">`;
+                if (line1Html !== '') {
+                    contactHtml += `<div class="rt-contact-line1">${line1Html}</div>`;
+                }
+                if (line2Html !== '') {
+                    contactHtml += `<div class="rt-contact-line2" style="margin-top: 1px;">${line2Html}</div>`;
+                }
+                if (oppOrigin !== '') {
+                    contactHtml += `<div class="rt-contact-line3" style="margin-top: 3px; display: flex; align-items: center; color: #475569; font-size: 11px;">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${oppOrigin}">${oppOrigin}</span>
+                    </div>`;
+                }
+                contactHtml += `</div>`;
+            }
+
+            const searchString = (projectRef + ' ' + subject + ' ' + fullName + ' ' + oppTel + ' ' + oppEmail).toLowerCase().replace(/['"]/g, '');
+
+            return `
+        <div class="recent-ticket-item opp-list-item" style="align-items: flex-start;" data-search="${searchString}">
+            <div class="rt-left">
+                <div class="rt-ref-group" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                    <a href="${doliBaseUrl}/projet/card.php?id=${project.id}" target="_blank" class="rt-ref" title="Ouvrir le projet">${projectRef}</a>
+                    ${dateCStr ? `<span class="rt-sep">&bull;</span><div style="font-size: 10px; color: #888;">${dateCStr}</div>` : ''}
+                    ${initials !== "?" ? `<span class="rt-sep">&bull;</span><div style="font-size: 9px; background: #e2e8f0; color: #475569; padding: 1px 4px; border-radius: 4px;" title="Créé par">#${initials}</div>` : ''}
+                </div>
+                <div class="rt-subject" title="${subject.replace(/"/g, '')}" style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
+                    <div class="rt-status-dot" title="Statut: ${statusLabelText}" style="width: 8px; height: 8px; border-radius: 50%; background-color: ${statusColor}; flex-shrink: 0;"></div>
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; flex: 1; font-size: 13px; color: #334155; font-weight: 400;">${subject}</span>
+                </div>
+                ${contactHtml}
+            </div>
+            <div class="rt-right" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start;">
+                ${(probDisplay || amountDisplay) ? `
+                <div class="rt-stats" style="font-size: 13px; font-weight: 400; display: flex; flex-direction: row; align-items: center; gap: 4px; white-space: nowrap;">
+                    ${probDisplay ? `<span style="color: #1e293b;">${probDisplay}</span>` : ''}
+                    ${(probDisplay && amountDisplay) ? `<span style="color: #1e293b; font-weight: 700; margin: 0 2px;">-</span>` : ''}
+                    ${amountDisplay ? `<span style="color: #0ea5e9;">${amountDisplay}</span>` : ''}
+                </div>
+                ` : ''}
+            </div>
+        </div>`;
+        }
+
         async function loadRecentOpportunities(apiUrl, token, limit = 10, entity, doliOppOnly = true, usersPromise = null, customDictMapStr = "") {
             recentOppContainer.classList.remove('hidden');
             recentOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Chargement des opportunités...</div>`;
@@ -947,141 +1097,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
 
                             sortedProjects.forEach(project => {
-                                let subject = project.title || project.ref || "Projet sans titre";
-                                if (subject.length > 50) subject = subject.substring(0, 50) + '...';
-
-                                let statusColor = "#95a5a6";
-                                const stat = String(project.statut || project.status || "0");
-                                
-                                let statusLabelText = stat;
-                                const oppStatusMap = {
-                                    "0": "Brouillon",
-                                    "1": "Validé / Ouvert",
-                                    "2": "Clôturé"
-                                };
-                                if (oppStatusMap[stat]) statusLabelText = oppStatusMap[stat];
-                                if (project.status_label) statusLabelText = project.status_label;
-                                else if (project.statut_label) statusLabelText = project.statut_label;
-
-                                if (stat === "0") statusColor = "#3498db"; // Brouillon
-                                else if (stat === "1") statusColor = "#27ae60"; // Validé/Ouvert
-                                else if (stat === "2") statusColor = "#7f8c8d"; // Clôturé
-
-                                const projectRef = project.ref || `PROJ #${project.id}`;
-                                
-                                let dateCStr = "";
-                                if (project.date_c) {
-                                    const d = new Date(project.date_c * 1000);
-                                    dateCStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-                                }
-                                
-                                let initials = "?";
-                                if (project.user_author_id) {
-                                    const u = usersList.find(u => u.id == project.user_author_id);
-                                    if (u) {
-                                        const parts = [u.firstname, u.lastname].filter(Boolean);
-                                        if (parts.length >= 2) initials = parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase();
-                                        else if (parts.length === 1) initials = parts[0].substring(0, 2).toUpperCase();
-                                        else if (u.login) initials = u.login.substring(0, 2).toUpperCase();
-                                    } else {
-                                        initials = `U${project.user_author_id}`;
-                                    }
-                                }
-
-                                let amountDisplay = project.opp_amount ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(project.opp_amount) : '';
-                                let probDisplay = project.opp_percent ? `${Math.round(parseFloat(project.opp_percent))} %` : '';
-
-                                const opts = project.array_options || {};
-                                const oppNom = opts.options_reedcrm_lastname || '';
-                                const oppPrenom = opts.options_reedcrm_firstname || '';
-                                const oppTel = opts.options_projectphone || '';
-                                const oppEmail = opts.options_reedcrm_email || '';
-                                const oppWebsite = opts.options_reedcrm_website || opts.options_website || project.url || '';
-                                const oppOriginRaw = opts.options_opporigin || opts.options_origine_opportunite || opts.options_origine || opts.options_origin || opts.options_source || opts.options_provenance || opts.options_prov || opts.options_opp_origin || opts.options_canal || '';
-                                
-                                // On essaie de traduire la valeur brute via les dictionnaires (Perso > API > Natif)
-                                let mappedOrigin = oppOriginRaw;
-                                if (oppOriginRaw && customOppDict && customOppDict[oppOriginRaw]) {
-                                    mappedOrigin = customOppDict[oppOriginRaw];
-                                } else if (oppOriginRaw && oppOriginDict && oppOriginDict[oppOriginRaw]) {
-                                    mappedOrigin = oppOriginDict[oppOriginRaw];
-                                } else if (oppOriginRaw && dolibarrNativeInputReasons[oppOriginRaw]) {
-                                    mappedOrigin = dolibarrNativeInputReasons[oppOriginRaw]; // Fallback to native DB rows
-                                }
-                                
-                                // Dolibarr often returns the raw key of a select list, we'll try to display it cleanly if no map found.
-                                const oppOrigin = typeof mappedOrigin === 'string' ? mappedOrigin.charAt(0).toUpperCase() + mappedOrigin.slice(1).replace(/_/g, ' ') : mappedOrigin;
-
-                                let line1Html = '';
-                                const fullName = `${oppPrenom} ${oppNom}`.trim();
-                                if (fullName && oppTel) {
-                                    line1Html = `<span class="copy-able rt-name" data-copy="${fullName}" title="Double clic pour copier">${fullName}</span><span class="rt-sep">&bull;</span><span class="copy-able rt-tel" data-copy="${oppTel}" title="Double clic pour copier">${oppTel}</span>`;
-                                } else if (fullName) {
-                                    line1Html = `<span class="copy-able rt-name" data-copy="${fullName}" title="Double clic pour copier">${fullName}</span>`;
-                                } else if (oppTel) {
-                                    line1Html = `<span class="copy-able rt-tel" data-copy="${oppTel}" title="Double clic pour copier">${oppTel}</span>`;
-                                }
-
-                                let line2Html = '';
-                                const truncInfo = (s) => (s && s.length > 45) ? s.substring(0, 45) + '...' : s;
-                                let displayEmail = truncInfo(oppEmail);
-
-                                if (oppEmail && oppWebsite) {
-                                    let href = oppWebsite.startsWith('http') ? oppWebsite : `https://${oppWebsite}`;
-                                    let domain = oppWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-                                    let displayDomain = truncInfo(domain);
-                                    line2Html = `<span class="rt-email copy-able" data-copy="${oppEmail}" title="Double clic pour copier l'email">${displayEmail}</span><span class="rt-sep">&bull;</span><a href="${href}" target="_blank" class="rt-contact-link rt-website" title="Ouvrir le site internet">${displayDomain}</a>`;
-                                } else if (oppEmail) {
-                                    line2Html = `<span class="rt-email copy-able" data-copy="${oppEmail}" title="Double clic pour copier l'email">${displayEmail}</span>`;
-                                } else if (oppWebsite) {
-                                    let href = oppWebsite.startsWith('http') ? oppWebsite : `https://${oppWebsite}`;
-                                    let domain = oppWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-                                    let displayDomain = truncInfo(domain);
-                                    line2Html = `<a href="${href}" target="_blank" class="rt-contact-link rt-website" title="Ouvrir le site internet">${displayDomain}</a>`;
-                                }
-                                
-                                let contactHtml = '';
-                                if (line1Html !== '' || line2Html !== '' || oppOrigin !== '') {
-                                    contactHtml = `<div class="rt-contact">`;
-                                    if (line1Html !== '') {
-                                        contactHtml += `<div class="rt-contact-line1">${line1Html}</div>`;
-                                    }
-                                    if (line2Html !== '') {
-                                        contactHtml += `<div class="rt-contact-line2" style="margin-top: 1px;">${line2Html}</div>`;
-                                    }
-                                    if (oppOrigin !== '') {
-                                        contactHtml += `<div class="rt-contact-line3" style="margin-top: 3px; display: flex; align-items: center; color: #475569; font-size: 11px;">
-                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                                            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${oppOrigin}">${oppOrigin}</span>
-                                        </div>`;
-                                    }
-                                    contactHtml += `</div>`;
-                                }
-
-                                const html = `
-                            <div class="recent-ticket-item" style="align-items: flex-start;">
-                                <div class="rt-left">
-                                    <div class="rt-ref-group" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
-                                        <a href="${doliBaseUrl}/projet/card.php?id=${project.id}" target="_blank" class="rt-ref" title="Ouvrir le projet">${projectRef}</a>
-                                        ${dateCStr ? `<span class="rt-sep">&bull;</span><div style="font-size: 10px; color: #888;">${dateCStr}</div>` : ''}
-                                        ${initials !== "?" ? `<span class="rt-sep">&bull;</span><div style="font-size: 9px; background: #e2e8f0; color: #475569; padding: 1px 4px; border-radius: 4px;" title="Créé par">#${initials}</div>` : ''}
-                                    </div>
-                                    <div class="rt-subject" title="${project.title || ''}" style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
-                                        <div class="rt-status-dot" title="Statut: ${statusLabelText}" style="width: 8px; height: 8px; border-radius: 50%; background-color: ${statusColor}; flex-shrink: 0;"></div>
-                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; flex: 1; font-size: 13px; color: #334155; font-weight: 400;">${subject}</span>
-                                    </div>
-                                    ${contactHtml}
-                                </div>
-                                <div class="rt-right" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start;">
-                                    ${(probDisplay || amountDisplay) ? `
-                                    <div class="rt-stats" style="font-size: 13px; font-weight: 400; display: flex; flex-direction: row; align-items: center; gap: 4px; white-space: nowrap;">
-                                        ${probDisplay ? `<span style="color: #1e293b;">${probDisplay}</span>` : ''}
-                                        ${(probDisplay && amountDisplay) ? `<span style="color: #1e293b; font-weight: 700; margin: 0 2px;">-</span>` : ''}
-                                        ${amountDisplay ? `<span style="color: #0ea5e9;">${amountDisplay}</span>` : ''}
-                                    </div>
-                                    ` : ''}
-                                </div>
-                            </div>`;
+                                const html = renderOppItemHtml(project, doliBaseUrl, usersList, customOppDict, oppOriginDict, dolibarrNativeInputReasons);
                                 recentOppList.insertAdjacentHTML('beforeend', html);
 
                             });
@@ -1105,8 +1121,157 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        async function loadAllOpportunities(apiUrl, token, limit, listCount, entity, doliOppOnly) {
+            const allOppList = document.getElementById('all-opp-list');
+            if (!allOppList) return;
+
+            try {
+                const headers = {
+                    'DOLAPIKEY': token,
+                    'Accept': 'application/json'
+                };
+                if (entity && String(entity).trim() !== '') {
+                    headers['DOLAPIENTITY'] = String(entity).trim();
+                }
+
+                // Fetch max 200 for local filtering, but we'll only display listCount initially
+                const response = await fetchDoli(`${apiUrl}/projects?sortfield=t.rowid&sortorder=DESC&limit=200`, {
+                    method: 'GET',
+                    headers: headers
+                });
+
+                if (response.ok) {
+                    const projects = await response.json();
+                    
+                    if (Array.isArray(projects) && projects.length > 0) {
+                        let oppProjects = projects;
+                        
+                        if (doliOppOnly) {
+                            try {
+                                const activeProfile = getActiveProfile();
+                                const doliVersion = activeProfile && activeProfile.doliVersion ? activeProfile.doliVersion : "20.0";
+                                const isOldDoli = parseFloat(doliVersion) < 20;
+
+                                oppProjects = projects.filter(p => {
+                                    if (isOldDoli && p.usage_bill_time === "1" && p.usage_opportunity !== "1") {
+                                        return false; 
+                                    }
+                                    return p.usage_opportunity == 1 || p.usage_opportunity === "1";
+                                });
+                            } catch(e) {
+                                oppProjects = projects.filter(p => p.usage_opportunity == 1 || p.usage_opportunity === "1");
+                            }
+                        }
+
+                        if (oppProjects.length > 0) {
+                            allOppList.innerHTML = '';
+                            const sortedProjects = oppProjects.sort((a, b) => b.date_c - a.date_c);
+                            
+                            // Get users
+                            let usersList = [];
+                            try {
+                                const uRes = await fetchDoli(`${apiUrl}/users?limit=500`, { method: 'GET', headers: headers });
+                                if (uRes.ok) usersList = await uRes.json();
+                            } catch(e) {}
+                            
+                            // Dictionary maps (native)
+                            const dolibarrNativeInputReasons = {
+                                "1": "Campagne d'emailing",
+                                "2": "Campagne Fax",
+                                "3": "Campagne Publipostage",
+                                "4": "Campagne Téléphonique",
+                                "5": "Contact commercial",
+                                "6": "Contact entrant",
+                                "7": "Employé",
+                                "8": "Internet",
+                                "9": "Partenaire",
+                                "10": "Contact en boutique",
+                                "11": "Parrainage",
+                                "12": "Bouche à oreille"
+                            };
+
+                            let customOppDict = {};
+                            let oppOriginDict = {};
+                            
+                            // Get dictionaries
+                            try {
+                                const activeProfile = getActiveProfile();
+                                if (activeProfile && activeProfile.doliDictMap) {
+                                    activeProfile.doliDictMap.split(/\r?\n/).forEach(line => {
+                                        const parts = line.split(':');
+                                        if (parts.length >= 2) customOppDict[parts[0].trim()] = parts.slice(1).join(':').trim();
+                                    });
+                                }
+
+                                const efRes = await fetchDoli(`${apiUrl}/setup/extrafields`, { method: 'GET', headers: headers });
+                                if (efRes.ok) {
+                                    const efJson = await efRes.json();
+                                    let oField = null;
+                                    if (Array.isArray(efJson)) {
+                                        oField = efJson.find(f => f.name === 'opporigin' || f.name === 'origine_opportunite' || f.name === 'origine');
+                                    } else {
+                                        const pFields = efJson.project || efJson.projet || efJson;
+                                        oField = pFields.options_opporigin || pFields.opporigin || pFields.origine_opportunite || pFields.options_origine_opportunite;
+                                    }
+
+                                    if (oField && oField.param) {
+                                        if (typeof oField.param === 'string') {
+                                            oField.param.split(/\r?\n/).forEach(line => {
+                                                const parts = line.split(',');
+                                                if (parts.length >= 2) oppOriginDict[parts[0].trim()] = parts.slice(1).join(',').trim();
+                                            });
+                                        } else if (typeof oField.param === 'object') {
+                                            const paramsToMerge = oField.param.options || oField.param;
+                                            Object.keys(paramsToMerge).forEach(k => {
+                                                oppOriginDict[k.toString()] = paramsToMerge[k];
+                                            });
+                                        }
+                                    }
+                                }
+                            } catch(e) {}
+
+                            // Extract the domain
+                            let doliBaseUrl = apiUrl.replace('/api/index.php', '').replace('/api', '');
+
+                            let renderedCount = 0;
+                            sortedProjects.forEach((project, index) => {
+                                const html = renderOppItemHtml(project, doliBaseUrl, usersList, customOppDict, oppOriginDict, dolibarrNativeInputReasons);
+                                
+                                // Create logic wrapper to handle initial display vs hidden
+                                const parser = new DOMParser();
+                                const doc = parser.parseFromString(html, 'text/html');
+                                const itemNode = doc.body.firstElementChild; // FIX: Use firstElementChild to avoid text nodes
+                                
+                                if (itemNode) {
+                                    if (index >= listCount) {
+                                        itemNode.style.display = 'none';
+                                        itemNode.classList.add('initially-hidden');
+                                    } else {
+                                        itemNode.classList.add('initially-visible');
+                                    }
+                                    
+                                    allOppList.appendChild(itemNode);
+                                    renderedCount++;
+                                }
+                            });
+
+                        } else {
+                            allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunité trouvée.</div>`;
+                        }
+                    } else {
+                        allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunité trouvée.</div>`;
+                    }
+                } else {
+                    allOppList.innerHTML = `<div style="text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;">Erreur API (${response.status})</div>`;
+                }
+            } catch (error) {
+                allOppList.innerHTML = `<div style="text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;">Erreur JS: ${error.message}</div>`;
+            }
+        }
+
+
         // Vérifie si l'API est configurée et gère le multi-profils
-        chrome.storage.sync.get(['doliProfiles', 'doliActiveProfileId', 'doliDefaultView', 'doliRecentCount'], (items) => {
+        chrome.storage.sync.get(['doliProfiles', 'doliActiveProfileId', 'doliDefaultView', 'doliRecentCount', 'doliListCount'], (items) => {
             const profiles = items.doliProfiles || [];
             const activeId = items.doliActiveProfileId;
             let p = profiles.find(prof => prof.id === activeId);
@@ -1258,8 +1423,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Fetch les derniers tickets avec la limite choisie par l'utilisateur (défaut: 10)
                 const recentLimit = items.doliRecentCount !== undefined ? parseInt(items.doliRecentCount, 10) || 10 : 10;
+                const listCount = items.doliListCount !== undefined ? parseInt(items.doliListCount, 10) || 15 : 15;
                 loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, usersPromise, thirdpartiesPromise);
                 loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly, usersPromise, p.doliDictMap || "");
+                loadAllOpportunities(p.doliUrl, p.doliApiToken, 200, listCount, p.doliEntity, oppOnly);
 
                 // Optionnel: copier les assignees dans le select opp s'il se charge 
                 const setupOppAssignees = () => {
@@ -1294,6 +1461,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 chrome.storage.local.get([...prefillKeys, draftOppKey, draftTicketKey, draftSharedKey], async (localItems) => {
                     
+                    // Activation de l'onglet par défaut IMMEDIATEMENT pour ne pas avoir un écran vide
+                    if (localItems.doliActiveTab) {
+                        activeTab = localItems.doliActiveTab;
+                    }
+                    switchTab(activeTab);
+
                     // 1. Restauration des drafts (brouillons) spécifiques au profil
                     if (localItems[draftTicketKey]) {
                         const dt = localItems[draftTicketKey];
@@ -1335,11 +1508,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const doliProject = localItems.doliPrefillTicketProject || (localItems[draftSharedKey] ? localItems[draftSharedKey].project : '');
 
                     // 2. Écrasement éventuel par les PREFILLS (Mail / Screenshot)
-                    if (localItems.doliActiveTab) {
-                        activeTab = localItems.doliActiveTab;
-                    }
                     if (activeTab === 'opportunite') {
-                        switchTab('opportunite');
                         if (localItems.doliPrefillSubject) document.getElementById('opp-subject').value = localItems.doliPrefillSubject;
                         if (localItems.doliPrefillMessage) document.getElementById('opp-message').value = localItems.doliPrefillMessage;
                         if (localItems.doliPrefillAssignee) {
@@ -1357,8 +1526,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (probaVal) probaVal.textContent = chrome.i18n.getMessage('popup_js_114');
                         }
                         if (localItems.doliPrefillOppMontant) document.getElementById('opp-montant').value = localItems.doliPrefillOppMontant;
-                    } else {
-                        switchTab('ticket');
+                    } else if (activeTab === 'ticket') {
                         if (localItems.doliPrefillSubject) document.getElementById('ticket-subject').value = localItems.doliPrefillSubject;
                         if (localItems.doliPrefillMessage) document.getElementById('ticket-message').value = localItems.doliPrefillMessage;
                         if (localItems.doliPrefillAssignee) {
@@ -2322,6 +2490,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('opp-subject').focus();
                 const pId = document.getElementById('doli-active-profile').value;
                 if (pId) chrome.storage.local.remove([`draftOpp_${pId}`, `draftShared_${pId}`]);
+            });
+        }
+
+        // Recherche dans les opportunités
+        const oppSearchInput = document.getElementById('opp-search-input');
+        if (oppSearchInput) {
+            let debounceTimer;
+            oppSearchInput.addEventListener('input', (e) => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    const query = e.target.value.toLowerCase().trim();
+                    const items = document.querySelectorAll('.opp-list-item');
+                    let visibleCount = 0;
+                    
+                    if (query.length < 3 && query.length > 0) {
+                        return; // Attente d'au moins 3 caractères
+                    }
+
+                    items.forEach(item => {
+                        if (query === '') {
+                            // Reset
+                            if (item.classList.contains('initially-hidden')) {
+                                item.style.display = 'none';
+                            } else {
+                                item.style.display = 'flex';
+                            }
+                        } else {
+                            const searchStr = item.getAttribute('data-search') || '';
+                            const searchTokens = query.split(' ').filter(t => t.length > 0);
+                            
+                            // Vérifie si TOUS les tokens sont prsents dans l'élément (recherche multi-mots)
+                            const isMatch = searchTokens.every(token => searchStr.includes(token));
+                            
+                            if (isMatch) {
+                                item.style.display = 'flex';
+                                visibleCount++;
+                            } else {
+                                item.style.display = 'none';
+                            }
+                        }
+                    });
+                }, 300);
             });
         }
 

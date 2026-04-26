@@ -341,6 +341,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (items.doliRecentCount) {
             document.getElementById('doli-recent-count').value = items.doliRecentCount;
         }
+        if (items.doliListCount) {
+            document.getElementById('doli-list-count').value = items.doliListCount;
+        }
     });
 
     // --- ÉCOUTEURS D'ÉVÉNEMENTS PROFILS ---
@@ -623,6 +626,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     const oppOnlyVal = document.getElementById('doli-opp-only') ? document.getElementById('doli-opp-only').checked : true;
     const blurVal = document.getElementById('doli-blur').value;
     const recentCountVal = parseInt(document.getElementById('doli-recent-count').value, 10) || 10;
+    const listCountVal = parseInt(document.getElementById('doli-list-count').value, 10) || 15;
     const entityVal = document.getElementById('doli-entity').value.trim();
     
     // Champs tickets
@@ -681,7 +685,8 @@ document.getElementById('save-btn').addEventListener('click', async () => {
         'doliImageFormat': formatVal,
         'doliBlurIntensity': blurVal,
         'doliDefaultView': defaultViewVal,
-        'doliRecentCount': recentCountVal
+        'doliRecentCount': recentCountVal,
+        'doliListCount': listCountVal
     }, () => {
         statusDiv.style.color = "#27ae60";
         statusDiv.textContent = chrome.i18n.getMessage('opt_js_145');
