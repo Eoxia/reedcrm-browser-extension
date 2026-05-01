@@ -864,3 +864,50 @@ a.rt-ref:hover {
     align-items: center;
     justify-content: center;
 }
+
+/* Spinner de chargement */
+.loader-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(52, 152, 219, 0.3);
+    border-radius: 50%;
+    border-top-color: #3498db;
+    animation: spin 1s ease-in-out infinite;
+    vertical-align: middle;
+}
+.loader-spinner.small {
+    width: 12px;
+    height: 12px;
+    border-width: 2px;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.loader-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 20px 0;
+    color: #999;
+    font-size: 11px;
+}
+
+/* Segmented Control for Filters */
+.opp-quick-filter {
+    color: #4b5563;
+}
+.opp-quick-filter.active {
+    background-color: #ffffff;
+    color: #1e293b;
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.opp-quick-filter:hover:not(.active) {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+.opp-quick-filter .filter-icon { color: #94a3b8; transition: color 0.2s; }
+.opp-quick-filter.active .filter-icon { color: #5c6e82; }

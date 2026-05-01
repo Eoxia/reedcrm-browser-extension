@@ -258,14 +258,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 tabOpportunite.classList.add('active');
                 viewOpportunity.classList.remove('hidden');
                 if (projectContainer) projectContainer.style.display = 'none'; // Pas de projet dans une opportunité
+                const mainHeader = document.getElementById('main-header-container');
+                if(mainHeader) mainHeader.style.display = '';
             } else if (view === 'opp-list') {
                 if (tabOppList) tabOppList.classList.add('active');
                 if (viewOppList) viewOppList.classList.remove('hidden');
                 if (ticketActions) ticketActions.style.display = 'none'; // Masquer top-actions
+                const mainHeader = document.getElementById('main-header-container');
+                if(mainHeader) mainHeader.style.display = 'none';
             } else {
                 tabTicket.classList.add('active');
                 viewTicket.classList.remove('hidden');
                 if (projectContainer) projectContainer.style.display = ''; // On réaffiche pour les tickets
+                const mainHeader = document.getElementById('main-header-container');
+                if(mainHeader) mainHeader.style.display = '';
             }
         }
 
@@ -526,7 +532,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fonction pour charger les derniers tickets
         async function loadRecentTickets(apiUrl, token, limit = 10, entity, usersPromise, thirdpartiesPromise) {
             recentTicketsContainer.classList.remove('hidden');
-            recentTicketsList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Chargement des tickets...</div>`;
+            recentTicketsList.innerHTML = `
+                <div class="loader-container">
+                    <div class="loader-spinner"></div>
+                    <div>${chrome.i18n.getMessage("popup_32") || "Chargement des tickets..."}</div>
+                </div>
+            `;
 
             let usersList = [];
             if (usersPromise) {
@@ -951,7 +962,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const searchString = (projectRef + ' ' + subject + ' ' + fullName + ' ' + oppTel + ' ' + oppEmail).toLowerCase().replace(/['"]/g, '');
 
             return `
-        <div class="recent-ticket-item opp-list-item" style="align-items: flex-start;" data-search="${searchString}">
+        <div class="recent-ticket-item opp-list-item" style="align-items: flex-start;" data-search="${searchString}" data-date="${project.date_c || 0}" data-stat="${stat}">
             <div class="rt-left">
                 <div class="rt-ref-group" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
                     <a href="${doliBaseUrl}/projet/card.php?id=${project.id}" target="_blank" class="rt-ref" title="Ouvrir le projet">${projectRef}</a>
@@ -978,7 +989,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function loadRecentOpportunities(apiUrl, token, limit = 10, entity, doliOppOnly = true, usersPromise = null, customDictMapStr = "") {
             recentOppContainer.classList.remove('hidden');
-            recentOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Chargement des opportunités...</div>`;
+            recentOppList.innerHTML = `
+                <div class="loader-container">
+                    <div class="loader-spinner"></div>
+                    <div>${chrome.i18n.getMessage("popup_20")}</div>
+                </div>
+            `;
 
             try {
                 const doliBaseUrl = apiUrl.replace(/\/api\/index\.php\/?$/, '');
@@ -1124,6 +1140,13 @@ document.addEventListener('DOMContentLoaded', () => {
         async function loadAllOpportunities(apiUrl, token, limit, listCount, entity, doliOppOnly) {
             const allOppList = document.getElementById('all-opp-list');
             if (!allOppList) return;
+            
+            allOppList.innerHTML = `
+                <div class="loader-container">
+                    <div class="loader-spinner"></div>
+                    <div>${chrome.i18n.getMessage("popup_20")}</div>
+                </div>
+            `;
 
             try {
                 const headers = {
@@ -1134,8 +1157,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers['DOLAPIENTITY'] = String(entity).trim();
                 }
 
-                // Fetch max 200 for local filtering, but we'll only display listCount initially
-                const response = await fetchDoli(`${apiUrl}/projects?sortfield=t.rowid&sortorder=DESC&limit=200`, {
+                // Fetch locally with high limit for JS filtering
+                const response = await fetchDoli(`${apiUrl}/projects?sortfield=t.rowid&sortorder=DESC&limit=${limit}`, {
                     method: 'GET',
                     headers: headers
                 });
@@ -1233,8 +1256,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Extract the domain
                             let doliBaseUrl = apiUrl.replace('/api/index.php', '').replace('/api', '');
 
+                            let openCount = 0;
                             let renderedCount = 0;
                             sortedProjects.forEach((project, index) => {
+                                if (String(project.statut || project.status || "0") === "1") openCount++;
                                 const html = renderOppItemHtml(project, doliBaseUrl, usersList, customOppDict, oppOriginDict, dolibarrNativeInputReasons);
                                 
                                 // Create logic wrapper to handle initial display vs hidden
@@ -1254,12 +1279,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                     renderedCount++;
                                 }
                             });
+                            
+                            const countEl = document.getElementById('opp-count-total');
+                            if (countEl) countEl.textContent = openCount;
 
                         } else {
-                            allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunité trouvée.</div>`;
+                            allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">${chrome.i18n.getMessage('popup_js_110')}</div>`;
+                            const countEl = document.getElementById('opp-count-total');
+                            if (countEl) countEl.textContent = "0";
                         }
                     } else {
-                        allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunité trouvée.</div>`;
+                        allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">${chrome.i18n.getMessage('popup_js_110')}</div>`;
                     }
                 } else {
                     allOppList.innerHTML = `<div style="text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;">Erreur API (${response.status})</div>`;
@@ -1271,7 +1301,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         // Vérifie si l'API est configurée et gère le multi-profils
-        chrome.storage.sync.get(['doliProfiles', 'doliActiveProfileId', 'doliDefaultView', 'doliRecentCount', 'doliListCount'], (items) => {
+        chrome.storage.sync.get(['doliProfiles', 'doliActiveProfileId', 'doliDefaultView', 'doliRecentCount', 'doliListCount', 'doliApiLimit'], (items) => {
             const profiles = items.doliProfiles || [];
             const activeId = items.doliActiveProfileId;
             let p = profiles.find(prof => prof.id === activeId);
@@ -1424,9 +1454,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Fetch les derniers tickets avec la limite choisie par l'utilisateur (défaut: 10)
                 const recentLimit = items.doliRecentCount !== undefined ? parseInt(items.doliRecentCount, 10) || 10 : 10;
                 const listCount = items.doliListCount !== undefined ? parseInt(items.doliListCount, 10) || 15 : 15;
+                const apiLimit = items.doliApiLimit !== undefined ? parseInt(items.doliApiLimit, 10) || 5000 : 5000;
                 loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, usersPromise, thirdpartiesPromise);
                 loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly, usersPromise, p.doliDictMap || "");
-                loadAllOpportunities(p.doliUrl, p.doliApiToken, 200, listCount, p.doliEntity, oppOnly);
+                loadAllOpportunities(p.doliUrl, p.doliApiToken, apiLimit, listCount, p.doliEntity, oppOnly);
 
                 // Optionnel: copier les assignees dans le select opp s'il se charge 
                 const setupOppAssignees = () => {
@@ -2495,45 +2526,103 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Recherche dans les opportunités
         const oppSearchInput = document.getElementById('opp-search-input');
-        if (oppSearchInput) {
-            let debounceTimer;
-            oppSearchInput.addEventListener('input', (e) => {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                    const query = e.target.value.toLowerCase().trim();
-                    const items = document.querySelectorAll('.opp-list-item');
-                    let visibleCount = 0;
-                    
-                    if (query.length < 3 && query.length > 0) {
-                        return; // Attente d'au moins 3 caractères
-                    }
+        let currentOppDateFilter = null;
+        
+        function applyOppFilters() {
+            const query = (oppSearchInput ? oppSearchInput.value : '').toLowerCase().trim();
+            const items = document.querySelectorAll('.opp-list-item');
+            
+            if (query.length > 0 && query.length < 3) {
+                return; // Attente d'au moins 3 caractères
+            }
 
+            const now = Date.now() / 1000;
+            const ONE_DAY = 24 * 3600;
+            const ONE_WEEK = 7 * ONE_DAY;
+            const ONE_MONTH = 30 * ONE_DAY;
+
+            let visibleCount = 0;
+
+            items.forEach(item => {
+                let matchSearch = true;
+                if (query !== '') {
+                    const searchStr = item.getAttribute('data-search') || '';
+                    const searchTokens = query.split(' ').filter(t => t.length > 0);
+                    matchSearch = searchTokens.every(token => searchStr.includes(token));
+                }
+
+                let matchDate = true;
+                if (currentOppDateFilter) {
+                    const itemDate = parseFloat(item.getAttribute('data-date')) || 0;
+                    if (currentOppDateFilter === 'yesterday') {
+                        // Moins de 48h (approximation de "hier")
+                        matchDate = (now - itemDate) <= (2 * ONE_DAY); 
+                    } else if (currentOppDateFilter === 'week') {
+                        matchDate = (now - itemDate) <= ONE_WEEK;
+                    } else if (currentOppDateFilter === 'month') {
+                        matchDate = (now - itemDate) <= ONE_MONTH;
+                    }
+                }
+
+                if (matchSearch && matchDate) {
+                    item.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+
+            const clearLink = document.getElementById('opp-filter-clear');
+            const clearSep = document.getElementById('opp-filter-clear-sep');
+            if (currentOppDateFilter) {
+                if (clearLink) clearLink.style.display = 'inline';
+                if (clearSep) clearSep.style.display = 'inline';
+            } else {
+                if (clearLink) clearLink.style.display = 'none';
+                if (clearSep) clearSep.style.display = 'none';
+                
+                if (query === '') {
                     items.forEach(item => {
-                        if (query === '') {
-                            // Reset
-                            if (item.classList.contains('initially-hidden')) {
-                                item.style.display = 'none';
-                            } else {
-                                item.style.display = 'flex';
-                            }
-                        } else {
-                            const searchStr = item.getAttribute('data-search') || '';
-                            const searchTokens = query.split(' ').filter(t => t.length > 0);
-                            
-                            // Vérifie si TOUS les tokens sont prsents dans l'élément (recherche multi-mots)
-                            const isMatch = searchTokens.every(token => searchStr.includes(token));
-                            
-                            if (isMatch) {
-                                item.style.display = 'flex';
-                                visibleCount++;
-                            } else {
-                                item.style.display = 'none';
-                            }
+                        if (item.classList.contains('initially-hidden')) {
+                            item.style.display = 'none';
                         }
                     });
+                }
+            }
+        }
+
+        if (oppSearchInput) {
+            let debounceTimer;
+            oppSearchInput.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    applyOppFilters();
                 }, 300);
             });
         }
+
+        const quickFilters = document.querySelectorAll('.opp-quick-filter');
+        quickFilters.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const filter = e.currentTarget.getAttribute('data-filter');
+                if (filter === 'all') {
+                    currentOppDateFilter = null;
+                } else {
+                    currentOppDateFilter = filter;
+                }
+                
+                quickFilters.forEach(b => b.style.fontWeight = 'normal');
+                if (filter !== 'all') {
+                    e.currentTarget.style.fontWeight = 'bold';
+                    // S'assurer que le bouton clear est normal
+                    const clearBtn = document.getElementById('opp-filter-clear');
+                    if(clearBtn) clearBtn.style.fontWeight = 'normal';
+                }
+
+                applyOppFilters();
+            });
+        });
 
     } catch (fatalError) {
         document.body.innerHTML = `<div style="padding: 20px; color: red; font-family: sans-serif;">
