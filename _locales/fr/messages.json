@@ -628,5 +628,26 @@
     },
     "btn_fix_logo": {
         "message": "Cliquez ici pour l'ajouter"
+    },
+    "popup_quick_opp_count": {
+        "message": " : Opp ouvertes"
+    },
+    "popup_quick_month": {
+        "message": "<span style='color: #3498db;'>M</span> - 1"
+    },
+    "popup_quick_week": {
+        "message": "<span style='color: #3498db;'>S</span> - 1"
+    },
+    "popup_quick_yesterday": {
+        "message": "<span style='color: #3498db;'>J</span> - 1"
+    },
+    "popup_quick_all": {
+        "message": "Tout afficher"
+    },
+    "opt_list_count": {
+        "message": "Nombre d'opportunités listées (Consultation)"
+    },
+    "opt_api_limit": {
+        "message": "Limite de projets à récupérer via l'API (Défaut: 5000)"
     }
 }
