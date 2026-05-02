@@ -2734,6 +2734,22 @@ document.addEventListener('click', async (e) => {
                 }
             }
             
+            if (fieldName === 'options_reedcrm_email' && newValue !== '') {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(newValue)) {
+                    showErrorInline(chrome.i18n.getMessage('popup_js_err_email') || "Email invalide");
+                    return;
+                }
+            }
+            
+            if (fieldName === 'options_reedcrm_website' && newValue !== '') {
+                const websiteRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
+                if (!websiteRegex.test(newValue)) {
+                    showErrorInline(chrome.i18n.getMessage('popup_title_43') || "Exemple de domaine valide: monsite.com");
+                    return;
+                }
+            }
+            
             if (newValue === currentValue) {
                 editable.innerHTML = originalHtml;
                 editable.className = originalClass;
