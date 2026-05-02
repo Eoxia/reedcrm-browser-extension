@@ -913,42 +913,45 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const oppOrigin = typeof mappedOrigin === 'string' ? mappedOrigin.charAt(0).toUpperCase() + mappedOrigin.slice(1).replace(/_/g, ' ') : mappedOrigin;
 
-            let line1Html = '';
-            const fullName = `${oppPrenom} ${oppNom}`.trim();
-            if (fullName && oppTel) {
-                line1Html = `<span class="copy-able rt-name" data-copy="${fullName}" title="Double clic pour copier">${fullName}</span><span class="rt-sep">&bull;</span><span class="copy-able rt-tel" data-copy="${oppTel}" title="Double clic pour copier">${oppTel}</span>`;
-            } else if (fullName) {
-                line1Html = `<span class="copy-able rt-name" data-copy="${fullName}" title="Double clic pour copier">${fullName}</span>`;
-            } else if (oppTel) {
-                line1Html = `<span class="copy-able rt-tel" data-copy="${oppTel}" title="Double clic pour copier">${oppTel}</span>`;
-            }
+            
+            const prenomVal = oppPrenom || "";
+            const nomVal = oppNom || "";
+            const telVal = oppTel || "";
+            const emailVal = oppEmail || "";
+            const websiteVal = oppWebsite || "";
 
-            let line2Html = '';
-            const truncInfo = (s) => (s && s.length > 45) ? s.substring(0, 45) + '...' : s;
-            let displayEmail = truncInfo(oppEmail);
+            let line1Html = `<div style="display: flex; align-items: center; gap: 4px;">` +
+                            `<span class="inline-editable ${!prenomVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_firstname" data-pid="${project.id}" data-val="${prenomVal}" title="Cliquez pour modifier">${prenomVal || 'Prénom'}</span> ` +
+                            `<span class="inline-editable ${!nomVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_lastname" data-pid="${project.id}" data-val="${nomVal}" title="Cliquez pour modifier">${nomVal || 'Nom'}</span>` +
+                            `</div>` +
+                            `<span class="rt-sep">&bull;</span>` +
+                            `<div style="display: flex; align-items: center; gap: 4px;">` +
+                            `<span class="inline-editable ${!telVal ? 'placeholder-text' : ''}" data-field="options_projectphone" data-pid="${project.id}" data-val="${telVal}" title="Cliquez pour modifier">${telVal || '0102030405'}</span>` +
+                            `<svg class="copy-icon" data-copy-target="tel" data-copy="${telVal}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Copier le numéro"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>` +
+                            `</div>`;
 
-            if (oppEmail && oppWebsite) {
-                let href = oppWebsite.startsWith('http') ? oppWebsite : `https://${oppWebsite}`;
-                let domain = oppWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-                let displayDomain = truncInfo(domain);
-                line2Html = `<span class="rt-email copy-able" data-copy="${oppEmail}" title="Double clic pour copier l'email">${displayEmail}</span><span class="rt-sep">&bull;</span><a href="${href}" target="_blank" class="rt-contact-link rt-website" title="Ouvrir le site internet">${displayDomain}</a>`;
-            } else if (oppEmail) {
-                line2Html = `<span class="rt-email copy-able" data-copy="${oppEmail}" title="Double clic pour copier l'email">${displayEmail}</span>`;
-            } else if (oppWebsite) {
-                let href = oppWebsite.startsWith('http') ? oppWebsite : `https://${oppWebsite}`;
-                let domain = oppWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-                let displayDomain = truncInfo(domain);
-                line2Html = `<a href="${href}" target="_blank" class="rt-contact-link rt-website" title="Ouvrir le site internet">${displayDomain}</a>`;
-            }
+            let displayEmail = emailVal.length > 45 ? emailVal.substring(0, 45) + '...' : emailVal;
+            let line2Html = `<div style="display: flex; align-items: center; gap: 4px;">` +
+                            `<span class="inline-editable ${!emailVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_email" data-pid="${project.id}" data-val="${emailVal}" title="Cliquez pour modifier">${displayEmail || 'nomail@nomail.com'}</span>` +
+                            `<svg class="copy-icon" data-copy-target="email" data-copy="${emailVal}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Copier l'email"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>` +
+                            `</div>`;
+            
+            let line3Html = `<div class="rt-contact-line-web" style="display: flex; align-items: center; gap: 4px;">` +
+                            `<span class="inline-editable ${!websiteVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_website" data-pid="${project.id}" data-val="${websiteVal}" title="Cliquez pour modifier">${websiteVal || 'https://www.website.com'}</span>` +
+                            (websiteVal ? ` <a href="${websiteVal.startsWith('http') ? websiteVal : 'https://' + websiteVal}" target="_blank" class="rt-contact-link"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>` : '') +
+                            `</div>`;
             
             let contactHtml = '';
-            if (line1Html !== '' || line2Html !== '' || oppOrigin !== '') {
+            if (line1Html !== '' || line2Html !== '' || line3Html !== '' || oppOrigin !== '') {
                 contactHtml = `<div class="rt-contact">`;
                 if (line1Html !== '') {
-                    contactHtml += `<div class="rt-contact-line1">${line1Html}</div>`;
+                    contactHtml += `<div class="rt-contact-line1 rt-contact-line">${line1Html}</div>`;
                 }
                 if (line2Html !== '') {
-                    contactHtml += `<div class="rt-contact-line2" style="margin-top: 1px;">${line2Html}</div>`;
+                    contactHtml += `<div class="rt-contact-line2 rt-contact-line" style="margin-top: 1px;">${line2Html}</div>`;
+                }
+                if (line3Html !== '') {
+                    contactHtml += `<div class="rt-contact-line-web rt-contact-line" style="margin-top: 1px;">${line3Html}</div>`;
                 }
                 if (oppOrigin !== '') {
                     contactHtml += `<div class="rt-contact-line3" style="margin-top: 3px; display: flex; align-items: center; color: #475569; font-size: 11px;">
@@ -959,10 +962,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 contactHtml += `</div>`;
             }
 
+            const fullName = `${prenomVal} ${nomVal}`.trim();
             const searchString = (projectRef + ' ' + subject + ' ' + fullName + ' ' + oppTel + ' ' + oppEmail).toLowerCase().replace(/['"]/g, '');
 
             return `
-        <div class="recent-ticket-item opp-list-item" style="align-items: flex-start;" data-search="${searchString}" data-date="${project.date_c || 0}" data-stat="${stat}">
+        <div id="opp-list-item-${project.id}" class="recent-ticket-item opp-list-item" style="align-items: flex-start;" data-search="${searchString}" data-date="${project.date_c || 0}" data-stat="${stat}">
             <div class="rt-left">
                 <div class="rt-ref-group" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
                     <a href="${doliBaseUrl}/projet/card.php?id=${project.id}" target="_blank" class="rt-ref" title="Ouvrir le projet">${projectRef}</a>
@@ -976,13 +980,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${contactHtml}
             </div>
             <div class="rt-right" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start;">
-                ${(probDisplay || amountDisplay) ? `
-                <div class="rt-stats" style="font-size: 13px; font-weight: 400; display: flex; flex-direction: row; align-items: center; gap: 4px; white-space: nowrap;">
-                    ${probDisplay ? `<span style="color: #1e293b;">${probDisplay}</span>` : ''}
-                    ${(probDisplay && amountDisplay) ? `<span style="color: #1e293b; font-weight: 700; margin: 0 2px;">-</span>` : ''}
-                    ${amountDisplay ? `<span style="color: #0ea5e9;">${amountDisplay}</span>` : ''}
+                <div class="rt-stats" style="font-size: 13px; font-weight: 400; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap;">
+                    <span class="inline-editable ${!project.opp_percent ? 'placeholder-text' : ''}" data-field="opp_percent" data-pid="${project.id}" data-val="${project.opp_percent || ''}" title="Cliquez pour modifier le pourcentage" style="color: #1e293b;">${probDisplay || '0 %'}</span>
+                    <span class="inline-editable ${!project.opp_amount ? 'placeholder-text' : ''}" data-field="opp_amount" data-pid="${project.id}" data-val="${project.opp_amount || ''}" title="Cliquez pour modifier le montant" style="color: #1e293b;">${amountDisplay || '0 €'}</span>
                 </div>
-                ` : ''}
             </div>
         </div>`;
         }
@@ -1137,16 +1138,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        async function loadAllOpportunities(apiUrl, token, limit, listCount, entity, doliOppOnly) {
+        async function loadAllOpportunities(apiUrl, token, limit, listCount, entity, doliOppOnly, isBackground = false) {
             const allOppList = document.getElementById('all-opp-list');
             if (!allOppList) return;
             
-            allOppList.innerHTML = `
-                <div class="loader-container">
-                    <div class="loader-spinner"></div>
-                    <div>${chrome.i18n.getMessage("popup_20")}</div>
-                </div>
-            `;
+            if (!isBackground) {
+                allOppList.innerHTML = `
+                    <div class="loader-container">
+                        <div class="loader-spinner"></div>
+                        <div>${chrome.i18n.getMessage("popup_20")}</div>
+                    </div>
+                `;
+            }
 
             try {
                 const headers = {
@@ -1187,7 +1190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         if (oppProjects.length > 0) {
-                            allOppList.innerHTML = '';
+                            if (!isBackground) allOppList.innerHTML = '';
                             const sortedProjects = oppProjects.sort((a, b) => b.date_c - a.date_c);
                             
                             // Get users
@@ -1257,9 +1260,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             let doliBaseUrl = apiUrl.replace('/api/index.php', '').replace('/api', '');
 
                             let openCount = 0;
-                            let renderedCount = 0;
+                            let renderedCount = document.querySelectorAll('.opp-list-item').length;
                             sortedProjects.forEach((project, index) => {
                                 if (String(project.statut || project.status || "0") === "1") openCount++;
+                                
+                                // Prevent re-rendering if it already exists
+                                if (isBackground && document.getElementById(`opp-list-item-${project.id}`)) {
+                                    return;
+                                }
+
                                 const html = renderOppItemHtml(project, doliBaseUrl, usersList, customOppDict, oppOriginDict, dolibarrNativeInputReasons);
                                 
                                 // Create logic wrapper to handle initial display vs hidden
@@ -1279,9 +1288,18 @@ document.addEventListener('DOMContentLoaded', () => {
                                     renderedCount++;
                                 }
                             });
+                            if (typeof applyOppFilters === 'function') {
+                                applyOppFilters();
+                            }
                             
                             const countEl = document.getElementById('opp-count-total');
-                            if (countEl) countEl.textContent = openCount;
+                            if (countEl) {
+                                if (isBackground || limit >= 1000) {
+                                    countEl.textContent = openCount;
+                                } else {
+                                    countEl.innerHTML = `<div class="loader-spinner small" style="border-top-color: #c0392b; border-color: rgba(192,57,43,0.3); border-top-color: #c0392b; width: 10px; height: 10px; border-width: 2px;"></div><span style="font-size:10px;">chargement...</span>`;
+                                }
+                            }
 
                         } else {
                             allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">${chrome.i18n.getMessage('popup_js_110')}</div>`;
@@ -1457,7 +1475,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const apiLimit = items.doliApiLimit !== undefined ? parseInt(items.doliApiLimit, 10) || 5000 : 5000;
                 loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, usersPromise, thirdpartiesPromise);
                 loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly, usersPromise, p.doliDictMap || "");
-                loadAllOpportunities(p.doliUrl, p.doliApiToken, apiLimit, listCount, p.doliEntity, oppOnly);
+                
+                // Progressive loading: first 100 fast, then the rest in background
+                const quickLimit = 100;
+                if (apiLimit > quickLimit) {
+                    loadAllOpportunities(p.doliUrl, p.doliApiToken, quickLimit, listCount, p.doliEntity, oppOnly, false).then(() => {
+                        loadAllOpportunities(p.doliUrl, p.doliApiToken, apiLimit, listCount, p.doliEntity, oppOnly, true);
+                    });
+                } else {
+                    loadAllOpportunities(p.doliUrl, p.doliApiToken, apiLimit, listCount, p.doliEntity, oppOnly, false);
+                }
 
                 // Optionnel: copier les assignees dans le select opp s'il se charge 
                 const setupOppAssignees = () => {
@@ -2526,7 +2553,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Recherche dans les opportunités
         const oppSearchInput = document.getElementById('opp-search-input');
-        let currentOppDateFilter = null;
+        let currentOppDateFilter = 'month';
         
         function applyOppFilters() {
             const query = (oppSearchInput ? oppSearchInput.value : '').toLowerCase().trim();
@@ -2572,22 +2599,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            const clearLink = document.getElementById('opp-filter-clear');
-            const clearSep = document.getElementById('opp-filter-clear-sep');
-            if (currentOppDateFilter) {
-                if (clearLink) clearLink.style.display = 'inline';
-                if (clearSep) clearSep.style.display = 'inline';
-            } else {
-                if (clearLink) clearLink.style.display = 'none';
-                if (clearSep) clearSep.style.display = 'none';
-                
-                if (query === '') {
-                    items.forEach(item => {
+            if (query === '') {
+                items.forEach(item => {
                         if (item.classList.contains('initially-hidden')) {
                             item.style.display = 'none';
                         }
                     });
-                }
             }
         }
 
@@ -2603,6 +2620,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const quickFilters = document.querySelectorAll('.opp-quick-filter');
         quickFilters.forEach(btn => {
+            if (btn.getAttribute('data-filter') === 'month') {
+                btn.classList.add('active');
+            }
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const filter = e.currentTarget.getAttribute('data-filter');
@@ -2612,13 +2632,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentOppDateFilter = filter;
                 }
                 
-                quickFilters.forEach(b => b.style.fontWeight = 'normal');
-                if (filter !== 'all') {
-                    e.currentTarget.style.fontWeight = 'bold';
-                    // S'assurer que le bouton clear est normal
-                    const clearBtn = document.getElementById('opp-filter-clear');
-                    if(clearBtn) clearBtn.style.fontWeight = 'normal';
-                }
+                quickFilters.forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
 
                 applyOppFilters();
             });
@@ -2650,5 +2665,278 @@ document.addEventListener('dblclick', (e) => {
             });
             window.getSelection().removeAllRanges();
         }
+    }
+});
+
+
+document.addEventListener('click', async (e) => {
+    const copyIcon = e.target.closest('.copy-icon');
+    if (copyIcon) {
+        e.preventDefault();
+        e.stopPropagation();
+        const text = copyIcon.getAttribute('data-copy');
+        if (text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                const origColor = copyIcon.style.color;
+                copyIcon.style.color = '#10b981'; // Green
+                setTimeout(() => { copyIcon.style.color = origColor; }, 1000);
+            } catch (err) {}
+        }
+        return;
+    }
+
+    const editable = e.target.closest('.inline-editable');
+    if (editable) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (editable.querySelector('input')) return;
+        
+        const currentValue = editable.getAttribute('data-val') || '';
+        const projectId = editable.getAttribute('data-pid');
+        const fieldName = editable.getAttribute('data-field');
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'inline-edit-input';
+        input.value = currentValue;
+        
+        const originalHtml = editable.innerHTML;
+        const originalClass = editable.className;
+        
+        editable.innerHTML = '';
+        editable.appendChild(input);
+        input.focus();
+        input.select();
+        
+        let isSaving = false;
+        
+        const saveEdit = async () => {
+            if (isSaving) return;
+            isSaving = true;
+            
+            let newValue = input.value.trim();
+            
+            const showErrorInline = (msg) => {
+                editable.style.transition = 'color 0.3s ease';
+                editable.style.color = '#ef4444'; // Rouge vif
+                editable.innerHTML = msg;
+                setTimeout(() => {
+                    editable.style.color = '';
+                    editable.style.transition = '';
+                    editable.innerHTML = originalHtml;
+                    editable.className = originalClass;
+                    // On ne remet pas isSaving à false car on a restauré l'état initial (plus d'input)
+                }, 3000);
+            };
+
+            if (fieldName === 'options_projectphone' && newValue !== '') {
+                if (/[a-zA-Z]/.test(newValue)) {
+                    showErrorInline(chrome.i18n.getMessage('popup_title_42') || "Veuillez saisir un numéro valide");
+                    return;
+                }
+                
+                // Suppression de tout ce qui n'est pas chiffre ou '+'
+                newValue = newValue.replace(/[^\d+]/g, '');
+                
+                if (newValue.length > 0 && (newValue.length < 9 || newValue.length > 15)) {
+                    showErrorInline(chrome.i18n.getMessage('popup_title_42') || "Veuillez saisir un numéro valide");
+                    return;
+                }
+                
+                // Formatage français basique (0X XX XX XX XX) si 10 chiffres commençant par 0
+                if (/^0[1-9]\d{8}$/.test(newValue)) {
+                    newValue = newValue.replace(/(\d{2})(?=\d)/g, '$1 ');
+                }
+            }
+            
+            if (fieldName === 'options_reedcrm_email' && newValue !== '') {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(newValue)) {
+                    showErrorInline(chrome.i18n.getMessage('popup_js_err_email') || "Email invalide");
+                    return;
+                }
+            }
+            
+            if (fieldName === 'options_reedcrm_website' && newValue !== '') {
+                const websiteRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
+                if (!websiteRegex.test(newValue)) {
+                    showErrorInline(chrome.i18n.getMessage('popup_title_43') || "Exemple de domaine valide: monsite.com");
+                    return;
+                }
+                if (!newValue.startsWith('http://') && !newValue.startsWith('https://')) {
+                    newValue = 'https://' + newValue;
+                }
+            }
+            
+            if (fieldName === 'opp_percent' && newValue !== '') {
+                if (/[^\d.,]/.test(newValue)) {
+                    showErrorInline(chrome.i18n.getMessage('popup_js_err_percent') || "Le pourcentage doit être entre 0 et 100");
+                    return;
+                }
+                newValue = newValue.replace(',', '.');
+                const percentVal = parseFloat(newValue);
+                if (isNaN(percentVal) || percentVal < 0 || percentVal > 100) {
+                    showErrorInline(chrome.i18n.getMessage('popup_js_err_percent') || "Le pourcentage doit être entre 0 et 100");
+                    return;
+                }
+                newValue = percentVal.toString();
+            }
+            
+            if (fieldName === 'opp_amount' && newValue !== '') {
+                if (/[^\d.,\s]/.test(newValue)) {
+                    showErrorInline(chrome.i18n.getMessage('popup_js_err_amount') || "Montant invalide (chiffres uniquement)");
+                    return;
+                }
+                newValue = newValue.replace(/\s/g, '').replace(',', '.');
+                const amountVal = parseFloat(newValue);
+                if (isNaN(amountVal) || amountVal < 0) {
+                    showErrorInline(chrome.i18n.getMessage('popup_js_err_amount') || "Montant invalide (chiffres uniquement)");
+                    return;
+                }
+                newValue = amountVal.toString();
+            }
+            
+            if (newValue === currentValue) {
+                editable.innerHTML = originalHtml;
+                editable.className = originalClass;
+                return;
+            }
+            
+            input.disabled = true;
+            input.style.opacity = '0.5';
+            
+            try {
+                const profiles = await new Promise(resolve => chrome.storage.sync.get('doliProfiles', data => resolve(data.doliProfiles || [])));
+                let activeProfileId = null;
+                await new Promise(resolve => chrome.storage.sync.get('doliActiveProfileId', data => { activeProfileId = data.doliActiveProfileId; resolve(); }));
+                
+                const profile = activeProfileId ? profiles.find(p => p.id === activeProfileId) : profiles[0];
+                if (!profile) throw new Error("No profile found");
+                
+                const apiUrl = profile.doliUrl;
+                const token = profile.doliApiToken;
+                
+                let payload = {};
+                if (fieldName.startsWith('options_')) {
+                    payload = {
+                        array_options: {
+                            [fieldName]: newValue
+                        }
+                    };
+                } else {
+                    payload = {
+                        [fieldName]: newValue
+                    };
+                }
+                
+                const res = await fetchDoli(`${apiUrl}/projects/${projectId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'DOLAPIKEY': token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    editable.setAttribute('data-val', newValue);
+                    let displayValue = newValue;
+                    if (!newValue) {
+                        editable.classList.add('placeholder-text');
+                        if (fieldName === 'options_reedcrm_firstname') displayValue = 'Prénom';
+                        else if (fieldName === 'options_reedcrm_lastname') displayValue = 'Nom';
+                        else if (fieldName === 'options_projectphone') displayValue = '0102030405';
+                        else if (fieldName === 'options_reedcrm_email') displayValue = 'nomail@nomail.com';
+                        else if (fieldName === 'options_reedcrm_website') displayValue = 'https://www.website.com';
+                        else if (fieldName === 'opp_percent') displayValue = '0 %';
+                        else if (fieldName === 'opp_amount') displayValue = '0 €';
+                    } else {
+                        editable.classList.remove('placeholder-text');
+                        if (fieldName === 'opp_percent') {
+                            displayValue = `${Math.round(parseFloat(newValue))} %`;
+                        } else if (fieldName === 'opp_amount') {
+                            displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(parseFloat(newValue));
+                        } else if (fieldName === 'options_reedcrm_website') {
+                            displayValue = newValue;
+                        }
+                    }
+                    editable.innerHTML = displayValue;
+                    
+                    const contactLine = editable.closest('.rt-contact-line');
+                    if (contactLine) {
+                        let targetBtn = null;
+                        if (fieldName === 'options_projectphone') targetBtn = contactLine.querySelector('[data-copy-target="tel"]');
+                        if (fieldName === 'options_reedcrm_email') targetBtn = contactLine.querySelector('[data-copy-target="email"]');
+                        if (targetBtn) targetBtn.setAttribute('data-copy', newValue);
+                        
+                        if (fieldName === 'options_reedcrm_website') {
+                            const linkEl = contactLine.querySelector('.rt-contact-link');
+                            if (newValue) {
+                                const href = newValue.startsWith('http') ? newValue : 'https://' + newValue;
+                                if (linkEl) {
+                                    linkEl.href = href;
+                                } else {
+                                    const newLink = document.createElement('a');
+                                    newLink.href = href;
+                                    newLink.target = "_blank";
+                                    newLink.className = "rt-contact-link";
+                                    newLink.style.marginLeft = "2px";
+                                    newLink.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
+                                    editable.parentNode.insertBefore(newLink, editable.nextSibling);
+                                }
+                            } else {
+                                if (linkEl) linkEl.remove();
+                            }
+                        }
+                    }
+                    
+                    // Animation : passage au vert puis retour à la normale
+                    editable.style.transition = 'color 0.5s ease-out';
+                    editable.style.color = '#10b981';
+                    setTimeout(() => {
+                        editable.style.color = '';
+                        setTimeout(() => {
+                            editable.style.transition = '';
+                        }, 500);
+                    }, 1000);
+                } else {
+                    let errStr = "API error";
+                    try {
+                        const errJson = await res.json();
+                        errStr = errJson.error ? (errJson.error.message || JSON.stringify(errJson.error)) : JSON.stringify(errJson);
+                    } catch(e) {
+                        errStr = e.message || "API error";
+                    }
+                    throw new Error(errStr);
+                }
+            } catch (err) {
+                console.error(err);
+                alert(chrome.i18n.getMessage('popup_js_err_save') + err.message);
+                editable.innerHTML = originalHtml;
+                editable.className = originalClass;
+            }
+        };
+        
+        input.addEventListener('blur', saveEdit);
+        input.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Enter') {
+                saveEdit();
+            } else if (evt.key === 'Tab') {
+                evt.preventDefault();
+                saveEdit().then(() => {
+                    const allEditables = Array.from(document.querySelectorAll('.inline-editable'));
+                    const currentIndex = allEditables.indexOf(editable);
+                    if (currentIndex > -1 && currentIndex < allEditables.length - 1) {
+                        allEditables[currentIndex + 1].click();
+                    }
+                });
+            } else if (evt.key === 'Escape') {
+                isSaving = true;
+                editable.innerHTML = originalHtml;
+                editable.className = originalClass;
+            }
+        });
     }
 });
