@@ -147,6 +147,10 @@
         "message": "Créer une opportunité",
         "description": "Extracted string popup_title_37"
     },
+    "popup_js_err_save": {
+        "message": "Impossible d'enregistrer la modification : ",
+        "description": "Error message when inline edit fails"
+    },
     "popup_title_38": {
         "message": "Page des opportunités à venir",
         "description": "Extracted string popup_title_38"

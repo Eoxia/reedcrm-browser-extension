@@ -2762,12 +2762,14 @@ document.addEventListener('click', async (e) => {
                     try {
                         const errJson = await res.json();
                         errStr = errJson.error ? (errJson.error.message || JSON.stringify(errJson.error)) : JSON.stringify(errJson);
-                    } catch(e) {}
+                    } catch(e) {
+                        errStr = e.message || "API error";
+                    }
                     throw new Error(errStr);
                 }
             } catch (err) {
                 console.error(err);
-                alert("Impossible d'enregistrer la modification : " + err.message);
+                alert(chrome.i18n.getMessage('popup_js_err_save') + err.message);
                 editable.innerHTML = originalHtml;
                 editable.className = originalClass;
             }
