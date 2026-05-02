@@ -39,6 +39,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     data = await apiService.get(doliUrl, apiKey, endpoint);
                 } else if (method === 'POST') {
                     data = await apiService.post(doliUrl, apiKey, endpoint, body);
+                } else if (method === 'PUT') {
+                    data = await apiService.put(doliUrl, apiKey, endpoint, body);
                 } else if (method === 'UPLOAD') {
                     // Les formData bruts ne passent pas direct dans les messages. On le recrée.
                     // NOTE: FormData serialization strategy might be needed if uploading binary.

@@ -913,42 +913,39 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const oppOrigin = typeof mappedOrigin === 'string' ? mappedOrigin.charAt(0).toUpperCase() + mappedOrigin.slice(1).replace(/_/g, ' ') : mappedOrigin;
 
-            let line1Html = '';
-            const fullName = `${oppPrenom} ${oppNom}`.trim();
-            if (fullName && oppTel) {
-                line1Html = `<span class="copy-able rt-name" data-copy="${fullName}" title="Double clic pour copier">${fullName}</span><span class="rt-sep">&bull;</span><span class="copy-able rt-tel" data-copy="${oppTel}" title="Double clic pour copier">${oppTel}</span>`;
-            } else if (fullName) {
-                line1Html = `<span class="copy-able rt-name" data-copy="${fullName}" title="Double clic pour copier">${fullName}</span>`;
-            } else if (oppTel) {
-                line1Html = `<span class="copy-able rt-tel" data-copy="${oppTel}" title="Double clic pour copier">${oppTel}</span>`;
-            }
+            
+            const prenomVal = oppPrenom || "";
+            const nomVal = oppNom || "";
+            const telVal = oppTel || "";
+            const emailVal = oppEmail || "";
+            const websiteVal = oppWebsite || "";
 
-            let line2Html = '';
-            const truncInfo = (s) => (s && s.length > 45) ? s.substring(0, 45) + '...' : s;
-            let displayEmail = truncInfo(oppEmail);
+            let line1Html = `<span class="inline-editable ${!prenomVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_firstname" data-pid="${project.id}" data-val="${prenomVal}" title="Cliquez pour modifier">${prenomVal || 'Prénom'}</span> ` +
+                            `<span class="inline-editable ${!nomVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_lastname" data-pid="${project.id}" data-val="${nomVal}" title="Cliquez pour modifier">${nomVal || 'Nom'}</span>` +
+                            `<span class="rt-sep">&bull;</span>` +
+                            `<span class="inline-editable ${!telVal ? 'placeholder-text' : ''}" data-field="options_projectphone" data-pid="${project.id}" data-val="${telVal}" title="Cliquez pour modifier">${telVal || '0102030405'}</span>` +
+                            `<svg class="copy-icon" data-copy-target="tel" data-copy="${telVal}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Copier le numéro"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
 
-            if (oppEmail && oppWebsite) {
-                let href = oppWebsite.startsWith('http') ? oppWebsite : `https://${oppWebsite}`;
-                let domain = oppWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-                let displayDomain = truncInfo(domain);
-                line2Html = `<span class="rt-email copy-able" data-copy="${oppEmail}" title="Double clic pour copier l'email">${displayEmail}</span><span class="rt-sep">&bull;</span><a href="${href}" target="_blank" class="rt-contact-link rt-website" title="Ouvrir le site internet">${displayDomain}</a>`;
-            } else if (oppEmail) {
-                line2Html = `<span class="rt-email copy-able" data-copy="${oppEmail}" title="Double clic pour copier l'email">${displayEmail}</span>`;
-            } else if (oppWebsite) {
-                let href = oppWebsite.startsWith('http') ? oppWebsite : `https://${oppWebsite}`;
-                let domain = oppWebsite.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-                let displayDomain = truncInfo(domain);
-                line2Html = `<a href="${href}" target="_blank" class="rt-contact-link rt-website" title="Ouvrir le site internet">${displayDomain}</a>`;
+            let displayEmail = emailVal.length > 45 ? emailVal.substring(0, 45) + '...' : emailVal;
+            let displayDomain = websiteVal.length > 45 ? websiteVal.substring(0, 45) + '...' : websiteVal;
+            if (displayDomain) {
+                displayDomain = displayDomain.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
             }
+            
+            let line2Html = `<span class="inline-editable ${!emailVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_email" data-pid="${project.id}" data-val="${emailVal}" title="Cliquez pour modifier">${displayEmail || 'nomail@nomail.com'}</span>` +
+                            `<svg class="copy-icon" data-copy-target="email" data-copy="${emailVal}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Copier l'email"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>` +
+                            `<span class="rt-sep">&bull;</span>` +
+                            `<span class="inline-editable ${!websiteVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_website" data-pid="${project.id}" data-val="${websiteVal}" title="Cliquez pour modifier">${displayDomain || 'website.com'}</span>` +
+                            (websiteVal ? ` <a href="${websiteVal.startsWith('http') ? websiteVal : 'https://' + websiteVal}" target="_blank" class="rt-contact-link" style="margin-left: 2px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>` : '');
             
             let contactHtml = '';
             if (line1Html !== '' || line2Html !== '' || oppOrigin !== '') {
                 contactHtml = `<div class="rt-contact">`;
                 if (line1Html !== '') {
-                    contactHtml += `<div class="rt-contact-line1">${line1Html}</div>`;
+                    contactHtml += `<div class="rt-contact-line1 rt-contact-line">${line1Html}</div>`;
                 }
                 if (line2Html !== '') {
-                    contactHtml += `<div class="rt-contact-line2" style="margin-top: 1px;">${line2Html}</div>`;
+                    contactHtml += `<div class="rt-contact-line2 rt-contact-line" style="margin-top: 1px;">${line2Html}</div>`;
                 }
                 if (oppOrigin !== '') {
                     contactHtml += `<div class="rt-contact-line3" style="margin-top: 3px; display: flex; align-items: center; color: #475569; font-size: 11px;">
@@ -959,6 +956,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 contactHtml += `</div>`;
             }
 
+            const fullName = `${prenomVal} ${nomVal}`.trim();
             const searchString = (projectRef + ' ' + subject + ' ' + fullName + ' ' + oppTel + ' ' + oppEmail).toLowerCase().replace(/['"]/g, '');
 
             return `
@@ -2650,5 +2648,143 @@ document.addEventListener('dblclick', (e) => {
             });
             window.getSelection().removeAllRanges();
         }
+    }
+});
+
+
+document.addEventListener('click', async (e) => {
+    const copyIcon = e.target.closest('.copy-icon');
+    if (copyIcon) {
+        e.preventDefault();
+        e.stopPropagation();
+        const text = copyIcon.getAttribute('data-copy');
+        if (text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                const origColor = copyIcon.style.color;
+                copyIcon.style.color = '#10b981'; // Green
+                setTimeout(() => { copyIcon.style.color = origColor; }, 1000);
+            } catch (err) {}
+        }
+        return;
+    }
+
+    const editable = e.target.closest('.inline-editable');
+    if (editable) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (editable.querySelector('input')) return;
+        
+        const currentValue = editable.getAttribute('data-val') || '';
+        const projectId = editable.getAttribute('data-pid');
+        const fieldName = editable.getAttribute('data-field');
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'inline-edit-input';
+        input.value = currentValue;
+        
+        const originalHtml = editable.innerHTML;
+        const originalClass = editable.className;
+        
+        editable.innerHTML = '';
+        editable.appendChild(input);
+        input.focus();
+        input.select();
+        
+        let isSaving = false;
+        
+        const saveEdit = async () => {
+            if (isSaving) return;
+            isSaving = true;
+            
+            const newValue = input.value.trim();
+            if (newValue === currentValue) {
+                editable.innerHTML = originalHtml;
+                editable.className = originalClass;
+                return;
+            }
+            
+            input.disabled = true;
+            input.style.opacity = '0.5';
+            
+            try {
+                const profiles = await new Promise(resolve => chrome.storage.sync.get('doliProfiles', data => resolve(data.doliProfiles || [])));
+                let activeProfileId = null;
+                await new Promise(resolve => chrome.storage.sync.get('doliActiveProfileId', data => { activeProfileId = data.doliActiveProfileId; resolve(); }));
+                
+                const profile = activeProfileId ? profiles.find(p => p.id === activeProfileId) : profiles[0];
+                if (!profile) throw new Error("No profile found");
+                
+                const apiUrl = profile.doliUrl;
+                const token = profile.doliApiToken;
+                
+                const payload = {
+                    array_options: {
+                        [fieldName]: newValue
+                    }
+                };
+                
+                const res = await fetchDoli(`${apiUrl}/api/index.php/projects/${projectId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'DOLAPIKEY': token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    editable.setAttribute('data-val', newValue);
+                    let displayValue = newValue;
+                    if (!newValue) {
+                        editable.classList.add('placeholder-text');
+                        if (fieldName === 'options_reedcrm_firstname') displayValue = 'Prénom';
+                        else if (fieldName === 'options_reedcrm_lastname') displayValue = 'Nom';
+                        else if (fieldName === 'options_projectphone') displayValue = '0102030405';
+                        else if (fieldName === 'options_reedcrm_email') displayValue = 'nomail@nomail.com';
+                        else if (fieldName === 'options_reedcrm_website') displayValue = 'nomail.com';
+                    } else {
+                        editable.classList.remove('placeholder-text');
+                    }
+                    editable.innerHTML = displayValue;
+                    
+                    const contactLine = editable.closest('.rt-contact-line');
+                    if (contactLine) {
+                        let targetBtn = null;
+                        if (fieldName === 'options_projectphone') targetBtn = contactLine.querySelector('[data-copy-target="tel"]');
+                        if (fieldName === 'options_reedcrm_email') targetBtn = contactLine.querySelector('[data-copy-target="email"]');
+                        if (targetBtn) targetBtn.setAttribute('data-copy', newValue);
+                    }
+                } else {
+                    throw new Error("API error");
+                }
+            } catch (err) {
+                console.error(err);
+                editable.innerHTML = originalHtml;
+                editable.className = originalClass;
+            }
+        };
+        
+        input.addEventListener('blur', saveEdit);
+        input.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Enter') {
+                saveEdit();
+            } else if (evt.key === 'Tab') {
+                evt.preventDefault();
+                saveEdit().then(() => {
+                    const allEditables = Array.from(document.querySelectorAll('.inline-editable'));
+                    const currentIndex = allEditables.indexOf(editable);
+                    if (currentIndex > -1 && currentIndex < allEditables.length - 1) {
+                        allEditables[currentIndex + 1].click();
+                    }
+                });
+            } else if (evt.key === 'Escape') {
+                isSaving = true;
+                editable.innerHTML = originalHtml;
+                editable.className = originalClass;
+            }
+        });
     }
 });

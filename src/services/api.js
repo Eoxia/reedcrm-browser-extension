@@ -103,6 +103,24 @@ export const apiService = {
     },
 
     /**
+     * @param {string} doliUrl 
+     * @param {string} apiKey 
+     * @param {string} endpoint 
+     * @param {object} payload 
+     */
+    put: async (doliUrl, apiKey, endpoint, payload) => {
+        return await apiCall(`${doliUrl}/api/index.php${endpoint}`, {
+            method: 'PUT',
+            headers: {
+                'DOLAPIKEY': apiKey,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+    },
+
+    /**
      * Utilitaire pour le téléversement de documents
      */
     upload: async (doliUrl, apiKey, endpoint, formData) => {
