@@ -2593,17 +2593,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            const clearLink = document.getElementById('opp-filter-clear');
-            const clearSep = document.getElementById('opp-filter-clear-sep');
-            if (currentOppDateFilter) {
-                if (clearLink) clearLink.style.display = 'inline';
-                if (clearSep) clearSep.style.display = 'inline';
-            } else {
-                if (clearLink) clearLink.style.display = 'none';
-                if (clearSep) clearSep.style.display = 'none';
-                
-                if (query === '') {
-                    items.forEach(item => {
+            if (query === '') {
+                items.forEach(item => {
                         if (item.classList.contains('initially-hidden')) {
                             item.style.display = 'none';
                         }
@@ -2625,7 +2616,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const quickFilters = document.querySelectorAll('.opp-quick-filter');
         quickFilters.forEach(btn => {
             if (btn.getAttribute('data-filter') === 'month') {
-                btn.style.fontWeight = 'bold';
+                btn.classList.add('active');
             }
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -2636,13 +2627,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentOppDateFilter = filter;
                 }
                 
-                quickFilters.forEach(b => b.style.fontWeight = 'normal');
-                if (filter !== 'all') {
-                    e.currentTarget.style.fontWeight = 'bold';
-                    // S'assurer que le bouton clear est normal
-                    const clearBtn = document.getElementById('opp-filter-clear');
-                    if(clearBtn) clearBtn.style.fontWeight = 'normal';
-                }
+                quickFilters.forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
 
                 applyOppFilters();
             });
