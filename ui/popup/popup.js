@@ -2726,7 +2726,7 @@ document.addEventListener('click', async (e) => {
                     }
                 };
                 
-                const res = await fetchDoli(`${apiUrl}/api/index.php/projects/${projectId}`, {
+                const res = await fetchDoli(`${apiUrl}/projects/${projectId}`, {
                     method: 'PUT',
                     headers: {
                         'DOLAPIKEY': token,
