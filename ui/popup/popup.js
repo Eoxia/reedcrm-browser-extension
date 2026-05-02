@@ -2700,9 +2700,24 @@ document.addEventListener('click', async (e) => {
             isSaving = true;
             
             let newValue = input.value.trim();
-            if (fieldName === 'options_projectphone') {
+            if (fieldName === 'options_projectphone' && newValue !== '') {
+                if (/[a-zA-Z]/.test(newValue)) {
+                    alert(chrome.i18n.getMessage('popup_title_42') || "Veuillez saisir un numéro valide");
+                    editable.innerHTML = originalHtml;
+                    editable.className = originalClass;
+                    return;
+                }
+                
                 // Suppression de tout ce qui n'est pas chiffre ou '+'
                 newValue = newValue.replace(/[^\d+]/g, '');
+                
+                if (newValue.length > 0 && (newValue.length < 9 || newValue.length > 15)) {
+                    alert(chrome.i18n.getMessage('popup_title_42') || "Veuillez saisir un numéro valide");
+                    editable.innerHTML = originalHtml;
+                    editable.className = originalClass;
+                    return;
+                }
+                
                 // Formatage français basique (0X XX XX XX XX) si 10 chiffres commençant par 0
                 if (/^0[1-9]\d{8}$/.test(newValue)) {
                     newValue = newValue.replace(/(\d{2})(?=\d)/g, '$1 ');
