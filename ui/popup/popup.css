@@ -945,7 +945,8 @@ a.rt-ref:hover {
     padding: 0 2px;
 }
 .rt-contact-line-web .inline-edit-input {
-    max-width: 250px;
+    width: 250px;
+    max-width: 100%;
 }
 .inline-edit-input:focus {
     border-color: #3498db;
