@@ -974,13 +974,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${contactHtml}
             </div>
             <div class="rt-right" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start;">
-                ${(probDisplay || amountDisplay) ? `
-                <div class="rt-stats" style="font-size: 13px; font-weight: 400; display: flex; flex-direction: row; align-items: center; gap: 4px; white-space: nowrap;">
-                    ${probDisplay ? `<span style="color: #1e293b;">${probDisplay}</span>` : ''}
-                    ${(probDisplay && amountDisplay) ? `<span style="color: #1e293b; font-weight: 700; margin: 0 2px;">-</span>` : ''}
-                    ${amountDisplay ? `<span style="color: #0ea5e9;">${amountDisplay}</span>` : ''}
+                <div class="rt-stats" style="font-size: 13px; font-weight: 400; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap;">
+                    <span class="inline-editable ${!project.opp_percent ? 'placeholder-text' : ''}" data-field="opp_percent" data-pid="${project.id}" data-val="${project.opp_percent || ''}" title="Cliquez pour modifier le pourcentage" style="color: #1e293b;">${probDisplay || '0 %'}</span>
+                    <span class="inline-editable ${!project.opp_amount ? 'placeholder-text' : ''}" data-field="opp_amount" data-pid="${project.id}" data-val="${project.opp_amount || ''}" title="Cliquez pour modifier le montant" style="color: #1e293b;">${amountDisplay || '0 €'}</span>
                 </div>
-                ` : ''}
             </div>
         </div>`;
         }
@@ -2750,6 +2747,10 @@ document.addEventListener('click', async (e) => {
                 }
             }
             
+            if (fieldName === 'opp_percent' || fieldName === 'opp_amount') {
+                newValue = newValue.replace(/[^\d.,]/g, '').replace(',', '.');
+            }
+            
             if (newValue === currentValue) {
                 editable.innerHTML = originalHtml;
                 editable.className = originalClass;
@@ -2770,11 +2771,18 @@ document.addEventListener('click', async (e) => {
                 const apiUrl = profile.doliUrl;
                 const token = profile.doliApiToken;
                 
-                const payload = {
-                    array_options: {
+                let payload = {};
+                if (fieldName.startsWith('options_')) {
+                    payload = {
+                        array_options: {
+                            [fieldName]: newValue
+                        }
+                    };
+                } else {
+                    payload = {
                         [fieldName]: newValue
-                    }
-                };
+                    };
+                }
                 
                 const res = await fetchDoli(`${apiUrl}/projects/${projectId}`, {
                     method: 'PUT',
@@ -2795,8 +2803,15 @@ document.addEventListener('click', async (e) => {
                         else if (fieldName === 'options_projectphone') displayValue = '0102030405';
                         else if (fieldName === 'options_reedcrm_email') displayValue = 'nomail@nomail.com';
                         else if (fieldName === 'options_reedcrm_website') displayValue = 'nomail.com';
+                        else if (fieldName === 'opp_percent') displayValue = '0 %';
+                        else if (fieldName === 'opp_amount') displayValue = '0 €';
                     } else {
                         editable.classList.remove('placeholder-text');
+                        if (fieldName === 'opp_percent') {
+                            displayValue = `${Math.round(parseFloat(newValue))} %`;
+                        } else if (fieldName === 'opp_amount') {
+                            displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(parseFloat(newValue));
+                        }
                     }
                     editable.innerHTML = displayValue;
                     
