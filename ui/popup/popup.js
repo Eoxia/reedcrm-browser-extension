@@ -2835,6 +2835,8 @@ document.addEventListener('click', async (e) => {
                             displayValue = `${Math.round(parseFloat(newValue))} %`;
                         } else if (fieldName === 'opp_amount') {
                             displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(parseFloat(newValue));
+                        } else if (fieldName === 'options_reedcrm_website') {
+                            displayValue = newValue.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
                         }
                     }
                     editable.innerHTML = displayValue;
@@ -2845,6 +2847,26 @@ document.addEventListener('click', async (e) => {
                         if (fieldName === 'options_projectphone') targetBtn = contactLine.querySelector('[data-copy-target="tel"]');
                         if (fieldName === 'options_reedcrm_email') targetBtn = contactLine.querySelector('[data-copy-target="email"]');
                         if (targetBtn) targetBtn.setAttribute('data-copy', newValue);
+                        
+                        if (fieldName === 'options_reedcrm_website') {
+                            const linkEl = contactLine.querySelector('.rt-contact-link');
+                            if (newValue) {
+                                const href = newValue.startsWith('http') ? newValue : 'https://' + newValue;
+                                if (linkEl) {
+                                    linkEl.href = href;
+                                } else {
+                                    const newLink = document.createElement('a');
+                                    newLink.href = href;
+                                    newLink.target = "_blank";
+                                    newLink.className = "rt-contact-link";
+                                    newLink.style.marginLeft = "2px";
+                                    newLink.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
+                                    editable.parentNode.insertBefore(newLink, editable.nextSibling);
+                                }
+                            } else {
+                                if (linkEl) linkEl.remove();
+                            }
+                        }
                     }
                     
                     // Animation : passage au vert puis retour à la normale
