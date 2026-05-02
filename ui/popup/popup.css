@@ -962,5 +962,5 @@ a.rt-ref:hover {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 4px 8px;
 }

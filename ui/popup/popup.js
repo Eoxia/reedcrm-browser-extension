@@ -920,11 +920,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const emailVal = oppEmail || "";
             const websiteVal = oppWebsite || "";
 
-            let line1Html = `<span class="inline-editable ${!prenomVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_firstname" data-pid="${project.id}" data-val="${prenomVal}" title="Cliquez pour modifier">${prenomVal || 'Prénom'}</span> ` +
+            let line1Html = `<div style="display: flex; align-items: center; gap: 4px;">` +
+                            `<span class="inline-editable ${!prenomVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_firstname" data-pid="${project.id}" data-val="${prenomVal}" title="Cliquez pour modifier">${prenomVal || 'Prénom'}</span> ` +
                             `<span class="inline-editable ${!nomVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_lastname" data-pid="${project.id}" data-val="${nomVal}" title="Cliquez pour modifier">${nomVal || 'Nom'}</span>` +
+                            `</div>` +
                             `<span class="rt-sep">&bull;</span>` +
+                            `<div style="display: flex; align-items: center; gap: 4px;">` +
                             `<span class="inline-editable ${!telVal ? 'placeholder-text' : ''}" data-field="options_projectphone" data-pid="${project.id}" data-val="${telVal}" title="Cliquez pour modifier">${telVal || '0102030405'}</span>` +
-                            `<svg class="copy-icon" data-copy-target="tel" data-copy="${telVal}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Copier le numéro"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+                            `<svg class="copy-icon" data-copy-target="tel" data-copy="${telVal}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Copier le numéro"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>` +
+                            `</div>`;
 
             let displayEmail = emailVal.length > 45 ? emailVal.substring(0, 45) + '...' : emailVal;
             let displayDomain = websiteVal.length > 45 ? websiteVal.substring(0, 45) + '...' : websiteVal;
@@ -932,11 +936,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayDomain = displayDomain.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
             }
             
-            let line2Html = `<span class="inline-editable ${!emailVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_email" data-pid="${project.id}" data-val="${emailVal}" title="Cliquez pour modifier">${displayEmail || 'nomail@nomail.com'}</span>` +
+            let line2Html = `<div style="display: flex; align-items: center; gap: 4px;">` +
+                            `<span class="inline-editable ${!emailVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_email" data-pid="${project.id}" data-val="${emailVal}" title="Cliquez pour modifier">${displayEmail || 'nomail@nomail.com'}</span>` +
                             `<svg class="copy-icon" data-copy-target="email" data-copy="${emailVal}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Copier l'email"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>` +
+                            `</div>` +
                             `<span class="rt-sep">&bull;</span>` +
+                            `<div style="display: flex; align-items: center; gap: 4px;">` +
                             `<span class="inline-editable ${!websiteVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_website" data-pid="${project.id}" data-val="${websiteVal}" title="Cliquez pour modifier">${displayDomain || 'website.com'}</span>` +
-                            (websiteVal ? ` <a href="${websiteVal.startsWith('http') ? websiteVal : 'https://' + websiteVal}" target="_blank" class="rt-contact-link" style="margin-left: 2px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>` : '');
+                            (websiteVal ? ` <a href="${websiteVal.startsWith('http') ? websiteVal : 'https://' + websiteVal}" target="_blank" class="rt-contact-link"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>` : '') +
+                            `</div>`;
             
             let contactHtml = '';
             if (line1Html !== '' || line2Html !== '' || oppOrigin !== '') {
