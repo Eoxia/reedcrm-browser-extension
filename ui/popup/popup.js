@@ -2700,11 +2700,23 @@ document.addEventListener('click', async (e) => {
             isSaving = true;
             
             let newValue = input.value.trim();
-            if (fieldName === 'options_projectphone' && newValue !== '') {
-                if (/[a-zA-Z]/.test(newValue)) {
-                    alert(chrome.i18n.getMessage('popup_title_42') || "Veuillez saisir un numéro valide");
+            
+            const showErrorInline = (msg) => {
+                editable.style.transition = 'color 0.3s ease';
+                editable.style.color = '#ef4444'; // Rouge vif
+                editable.innerHTML = msg;
+                setTimeout(() => {
+                    editable.style.color = '';
+                    editable.style.transition = '';
                     editable.innerHTML = originalHtml;
                     editable.className = originalClass;
+                    // On ne remet pas isSaving à false car on a restauré l'état initial (plus d'input)
+                }, 3000);
+            };
+
+            if (fieldName === 'options_projectphone' && newValue !== '') {
+                if (/[a-zA-Z]/.test(newValue)) {
+                    showErrorInline(chrome.i18n.getMessage('popup_title_42') || "Veuillez saisir un numéro valide");
                     return;
                 }
                 
@@ -2712,9 +2724,7 @@ document.addEventListener('click', async (e) => {
                 newValue = newValue.replace(/[^\d+]/g, '');
                 
                 if (newValue.length > 0 && (newValue.length < 9 || newValue.length > 15)) {
-                    alert(chrome.i18n.getMessage('popup_title_42') || "Veuillez saisir un numéro valide");
-                    editable.innerHTML = originalHtml;
-                    editable.className = originalClass;
+                    showErrorInline(chrome.i18n.getMessage('popup_title_42') || "Veuillez saisir un numéro valide");
                     return;
                 }
                 
