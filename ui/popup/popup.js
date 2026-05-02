@@ -931,29 +931,27 @@ document.addEventListener('DOMContentLoaded', () => {
                             `</div>`;
 
             let displayEmail = emailVal.length > 45 ? emailVal.substring(0, 45) + '...' : emailVal;
-            let displayDomain = websiteVal.length > 45 ? websiteVal.substring(0, 45) + '...' : websiteVal;
-            if (displayDomain) {
-                displayDomain = displayDomain.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
-            }
-            
             let line2Html = `<div style="display: flex; align-items: center; gap: 4px;">` +
                             `<span class="inline-editable ${!emailVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_email" data-pid="${project.id}" data-val="${emailVal}" title="Cliquez pour modifier">${displayEmail || 'nomail@nomail.com'}</span>` +
                             `<svg class="copy-icon" data-copy-target="email" data-copy="${emailVal}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Copier l'email"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>` +
-                            `</div>` +
-                            `<span class="rt-sep">&bull;</span>` +
-                            `<div style="display: flex; align-items: center; gap: 4px;">` +
-                            `<span class="inline-editable ${!websiteVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_website" data-pid="${project.id}" data-val="${websiteVal}" title="Cliquez pour modifier">${displayDomain || 'website.com'}</span>` +
+                            `</div>`;
+            
+            let line3Html = `<div style="display: flex; align-items: center; gap: 4px;">` +
+                            `<span class="inline-editable ${!websiteVal ? 'placeholder-text' : ''}" data-field="options_reedcrm_website" data-pid="${project.id}" data-val="${websiteVal}" title="Cliquez pour modifier">${websiteVal || 'https://www.website.com'}</span>` +
                             (websiteVal ? ` <a href="${websiteVal.startsWith('http') ? websiteVal : 'https://' + websiteVal}" target="_blank" class="rt-contact-link"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>` : '') +
                             `</div>`;
             
             let contactHtml = '';
-            if (line1Html !== '' || line2Html !== '' || oppOrigin !== '') {
+            if (line1Html !== '' || line2Html !== '' || line3Html !== '' || oppOrigin !== '') {
                 contactHtml = `<div class="rt-contact">`;
                 if (line1Html !== '') {
                     contactHtml += `<div class="rt-contact-line1 rt-contact-line">${line1Html}</div>`;
                 }
                 if (line2Html !== '') {
                     contactHtml += `<div class="rt-contact-line2 rt-contact-line" style="margin-top: 1px;">${line2Html}</div>`;
+                }
+                if (line3Html !== '') {
+                    contactHtml += `<div class="rt-contact-line-web rt-contact-line" style="margin-top: 1px;">${line3Html}</div>`;
                 }
                 if (oppOrigin !== '') {
                     contactHtml += `<div class="rt-contact-line3" style="margin-top: 3px; display: flex; align-items: center; color: #475569; font-size: 11px;">
@@ -2753,6 +2751,9 @@ document.addEventListener('click', async (e) => {
                     showErrorInline(chrome.i18n.getMessage('popup_title_43') || "Exemple de domaine valide: monsite.com");
                     return;
                 }
+                if (!newValue.startsWith('http://') && !newValue.startsWith('https://')) {
+                    newValue = 'https://' + newValue;
+                }
             }
             
             if (fieldName === 'opp_percent' && newValue !== '') {
@@ -2834,7 +2835,7 @@ document.addEventListener('click', async (e) => {
                         else if (fieldName === 'options_reedcrm_lastname') displayValue = 'Nom';
                         else if (fieldName === 'options_projectphone') displayValue = '0102030405';
                         else if (fieldName === 'options_reedcrm_email') displayValue = 'nomail@nomail.com';
-                        else if (fieldName === 'options_reedcrm_website') displayValue = 'nomail.com';
+                        else if (fieldName === 'options_reedcrm_website') displayValue = 'https://www.website.com';
                         else if (fieldName === 'opp_percent') displayValue = '0 %';
                         else if (fieldName === 'opp_amount') displayValue = '0 €';
                     } else {
@@ -2844,7 +2845,7 @@ document.addEventListener('click', async (e) => {
                         } else if (fieldName === 'opp_amount') {
                             displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(parseFloat(newValue));
                         } else if (fieldName === 'options_reedcrm_website') {
-                            displayValue = newValue.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+                            displayValue = newValue;
                         }
                     }
                     editable.innerHTML = displayValue;
