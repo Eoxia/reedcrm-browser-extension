@@ -1138,16 +1138,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        async function loadAllOpportunities(apiUrl, token, limit, listCount, entity, doliOppOnly) {
+        async function loadAllOpportunities(apiUrl, token, limit, listCount, entity, doliOppOnly, isBackground = false) {
             const allOppList = document.getElementById('all-opp-list');
             if (!allOppList) return;
             
-            allOppList.innerHTML = `
-                <div class="loader-container">
-                    <div class="loader-spinner"></div>
-                    <div>${chrome.i18n.getMessage("popup_20")}</div>
-                </div>
-            `;
+            if (!isBackground) {
+                allOppList.innerHTML = `
+                    <div class="loader-container">
+                        <div class="loader-spinner"></div>
+                        <div>${chrome.i18n.getMessage("popup_20")}</div>
+                    </div>
+                `;
+            }
 
             try {
                 const headers = {
@@ -1280,9 +1282,18 @@ document.addEventListener('DOMContentLoaded', () => {
                                     renderedCount++;
                                 }
                             });
+                            if (typeof applyOppFilters === 'function') {
+                                applyOppFilters();
+                            }
                             
                             const countEl = document.getElementById('opp-count-total');
-                            if (countEl) countEl.textContent = openCount;
+                            if (countEl) {
+                                if (isBackground || limit >= 1000) {
+                                    countEl.textContent = openCount;
+                                } else {
+                                    countEl.innerHTML = `<div class="loader-spinner small" style="border-top-color: #c0392b; border-color: rgba(192,57,43,0.3); border-top-color: #c0392b; width: 10px; height: 10px; border-width: 2px;"></div><span style="font-size:10px;">chargement...</span>`;
+                                }
+                            }
 
                         } else {
                             allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">${chrome.i18n.getMessage('popup_js_110')}</div>`;
@@ -1458,7 +1469,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const apiLimit = items.doliApiLimit !== undefined ? parseInt(items.doliApiLimit, 10) || 5000 : 5000;
                 loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, usersPromise, thirdpartiesPromise);
                 loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly, usersPromise, p.doliDictMap || "");
-                loadAllOpportunities(p.doliUrl, p.doliApiToken, apiLimit, listCount, p.doliEntity, oppOnly);
+                
+                // Progressive loading: first 100 fast, then the rest in background
+                const quickLimit = 100;
+                if (apiLimit > quickLimit) {
+                    loadAllOpportunities(p.doliUrl, p.doliApiToken, quickLimit, listCount, p.doliEntity, oppOnly, false).then(() => {
+                        loadAllOpportunities(p.doliUrl, p.doliApiToken, apiLimit, listCount, p.doliEntity, oppOnly, true);
+                    });
+                } else {
+                    loadAllOpportunities(p.doliUrl, p.doliApiToken, apiLimit, listCount, p.doliEntity, oppOnly, false);
+                }
 
                 // Optionnel: copier les assignees dans le select opp s'il se charge 
                 const setupOppAssignees = () => {
@@ -2527,7 +2547,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Recherche dans les opportunités
         const oppSearchInput = document.getElementById('opp-search-input');
-        let currentOppDateFilter = null;
+        let currentOppDateFilter = 'month';
         
         function applyOppFilters() {
             const query = (oppSearchInput ? oppSearchInput.value : '').toLowerCase().trim();
@@ -2604,6 +2624,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const quickFilters = document.querySelectorAll('.opp-quick-filter');
         quickFilters.forEach(btn => {
+            if (btn.getAttribute('data-filter') === 'month') {
+                btn.style.fontWeight = 'bold';
+            }
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const filter = e.currentTarget.getAttribute('data-filter');
