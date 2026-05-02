@@ -2758,10 +2758,16 @@ document.addEventListener('click', async (e) => {
                         if (targetBtn) targetBtn.setAttribute('data-copy', newValue);
                     }
                 } else {
-                    throw new Error("API error");
+                    let errStr = "API error";
+                    try {
+                        const errJson = await res.json();
+                        errStr = errJson.error ? (errJson.error.message || JSON.stringify(errJson.error)) : JSON.stringify(errJson);
+                    } catch(e) {}
+                    throw new Error(errStr);
                 }
             } catch (err) {
                 console.error(err);
+                alert("Impossible d'enregistrer la modification : " + err.message);
                 editable.innerHTML = originalHtml;
                 editable.className = originalClass;
             }

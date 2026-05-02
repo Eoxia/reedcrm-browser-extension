@@ -911,3 +911,50 @@ a.rt-ref:hover {
 
 .opp-quick-filter .filter-icon { color: #94a3b8; transition: color 0.2s; }
 .opp-quick-filter.active .filter-icon { color: #5c6e82; }
+
+/* Inline Editing */
+.inline-editable {
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-bottom-color 0.2s;
+}
+.inline-editable:hover {
+    border-bottom-color: #94a3b8;
+}
+.inline-editable.placeholder-text {
+    color: #94a3b8;
+    font-style: italic;
+}
+.inline-edit-input {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    padding: 0 4px;
+    margin: -1px -5px;
+    outline: none;
+    width: 100%;
+    max-width: 150px;
+}
+.inline-edit-input:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 1px #3498db;
+}
+.copy-icon {
+    cursor: pointer;
+    color: #94a3b8;
+    margin-left: 4px;
+    vertical-align: middle;
+    transition: color 0.2s;
+}
+.copy-icon:hover {
+    color: #3498db;
+}
+.rt-contact-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
