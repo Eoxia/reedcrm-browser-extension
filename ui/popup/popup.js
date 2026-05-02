@@ -966,7 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const searchString = (projectRef + ' ' + subject + ' ' + fullName + ' ' + oppTel + ' ' + oppEmail).toLowerCase().replace(/['"]/g, '');
 
             return `
-        <div class="recent-ticket-item opp-list-item" style="align-items: flex-start;" data-search="${searchString}" data-date="${project.date_c || 0}" data-stat="${stat}">
+        <div id="opp-list-item-${project.id}" class="recent-ticket-item opp-list-item" style="align-items: flex-start;" data-search="${searchString}" data-date="${project.date_c || 0}" data-stat="${stat}">
             <div class="rt-left">
                 <div class="rt-ref-group" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
                     <a href="${doliBaseUrl}/projet/card.php?id=${project.id}" target="_blank" class="rt-ref" title="Ouvrir le projet">${projectRef}</a>
@@ -1190,7 +1190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         if (oppProjects.length > 0) {
-                            allOppList.innerHTML = '';
+                            if (!isBackground) allOppList.innerHTML = '';
                             const sortedProjects = oppProjects.sort((a, b) => b.date_c - a.date_c);
                             
                             // Get users
@@ -1260,9 +1260,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             let doliBaseUrl = apiUrl.replace('/api/index.php', '').replace('/api', '');
 
                             let openCount = 0;
-                            let renderedCount = 0;
+                            let renderedCount = document.querySelectorAll('.opp-list-item').length;
                             sortedProjects.forEach((project, index) => {
                                 if (String(project.statut || project.status || "0") === "1") openCount++;
+                                
+                                // Prevent re-rendering if it already exists
+                                if (isBackground && document.getElementById(`opp-list-item-${project.id}`)) {
+                                    return;
+                                }
+
                                 const html = renderOppItemHtml(project, doliBaseUrl, usersList, customOppDict, oppOriginDict, dolibarrNativeInputReasons);
                                 
                                 // Create logic wrapper to handle initial display vs hidden
