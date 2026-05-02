@@ -2699,7 +2699,16 @@ document.addEventListener('click', async (e) => {
             if (isSaving) return;
             isSaving = true;
             
-            const newValue = input.value.trim();
+            let newValue = input.value.trim();
+            if (fieldName === 'options_projectphone') {
+                // Suppression de tout ce qui n'est pas chiffre ou '+'
+                newValue = newValue.replace(/[^\d+]/g, '');
+                // Formatage français basique (0X XX XX XX XX) si 10 chiffres commençant par 0
+                if (/^0[1-9]\d{8}$/.test(newValue)) {
+                    newValue = newValue.replace(/(\d{2})(?=\d)/g, '$1 ');
+                }
+            }
+            
             if (newValue === currentValue) {
                 editable.innerHTML = originalHtml;
                 editable.className = originalClass;
@@ -2757,6 +2766,16 @@ document.addEventListener('click', async (e) => {
                         if (fieldName === 'options_reedcrm_email') targetBtn = contactLine.querySelector('[data-copy-target="email"]');
                         if (targetBtn) targetBtn.setAttribute('data-copy', newValue);
                     }
+                    
+                    // Animation : passage au vert puis retour à la normale
+                    editable.style.transition = 'color 0.5s ease-out';
+                    editable.style.color = '#10b981';
+                    setTimeout(() => {
+                        editable.style.color = '';
+                        setTimeout(() => {
+                            editable.style.transition = '';
+                        }, 500);
+                    }, 1000);
                 } else {
                     let errStr = "API error";
                     try {
