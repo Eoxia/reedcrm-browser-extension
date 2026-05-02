@@ -947,6 +947,7 @@ a.rt-ref:hover {
 .rt-contact-line-web .inline-edit-input {
     width: 250px;
     max-width: 100%;
+    margin: 0;
 }
 .inline-edit-input:focus {
     border-color: #3498db;
