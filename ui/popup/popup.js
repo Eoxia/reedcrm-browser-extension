@@ -2747,8 +2747,32 @@ document.addEventListener('click', async (e) => {
                 }
             }
             
-            if (fieldName === 'opp_percent' || fieldName === 'opp_amount') {
-                newValue = newValue.replace(/[^\d.,]/g, '').replace(',', '.');
+            if (fieldName === 'opp_percent' && newValue !== '') {
+                if (/[^\d.,]/.test(newValue)) {
+                    showErrorInline(chrome.i18n.getMessage('popup_js_err_percent') || "Le pourcentage doit être entre 0 et 100");
+                    return;
+                }
+                newValue = newValue.replace(',', '.');
+                const percentVal = parseFloat(newValue);
+                if (isNaN(percentVal) || percentVal < 0 || percentVal > 100) {
+                    showErrorInline(chrome.i18n.getMessage('popup_js_err_percent') || "Le pourcentage doit être entre 0 et 100");
+                    return;
+                }
+                newValue = percentVal.toString();
+            }
+            
+            if (fieldName === 'opp_amount' && newValue !== '') {
+                if (/[^\d.,\s]/.test(newValue)) {
+                    showErrorInline(chrome.i18n.getMessage('popup_js_err_amount') || "Montant invalide (chiffres uniquement)");
+                    return;
+                }
+                newValue = newValue.replace(/\s/g, '').replace(',', '.');
+                const amountVal = parseFloat(newValue);
+                if (isNaN(amountVal) || amountVal < 0) {
+                    showErrorInline(chrome.i18n.getMessage('popup_js_err_amount') || "Montant invalide (chiffres uniquement)");
+                    return;
+                }
+                newValue = amountVal.toString();
             }
             
             if (newValue === currentValue) {

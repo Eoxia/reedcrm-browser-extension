@@ -147,6 +147,14 @@
         "message": "Créer une opportunité",
         "description": "Extracted string popup_title_37"
     },
+    "popup_js_err_percent": {
+        "message": "Le pourcentage doit être entre 0 et 100",
+        "description": "Error message when probability is not 0-100"
+    },
+    "popup_js_err_amount": {
+        "message": "Montant invalide (chiffres uniquement)",
+        "description": "Error message when amount is not a valid number"
+    },
     "popup_js_err_email": {
         "message": "Veuillez saisir un email valide",
         "description": "Error message when email is invalid"
