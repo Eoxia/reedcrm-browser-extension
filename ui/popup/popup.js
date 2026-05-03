@@ -1964,7 +1964,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                         if (!docResponse.ok) {
                                             const docError = await docResponse.json().catch(() => null);
-                                            let errorMsg = docError?.error?.message || ERROR_DICTIONARY['ReedCRM-4002'].userMessage;
+                                            let errorMsg = docError?.error?.message || ErrorManager.getMessage('ReedCRM-4002');
                                             throw new Error(`Opportunité créée, mais erreur PJ: ${errorMsg}`);
                                         }
                                         resolve();
@@ -1986,7 +1986,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     let contactErrorHtml = '';
                     if (contactId && contactId !== '' && !contactWasAssigned) {
-                        let errorMsg = ERROR_DICTIONARY[contactErrorCode]?.userMessage || "Erreur inconnue";
+                        let errorMsg = ErrorManager.getMessage(contactErrorCode) || "Erreur inconnue";
                         
                         // Injection dynamique de la version
                         if (window.doliVersionStr && contactErrorCode === 'ReedCRM-4001') {
@@ -2188,7 +2188,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                     if (!docResponse.ok) {
                                         const docError = await docResponse.json().catch(() => null);
-                                        let errorMsg = ERROR_DICTIONARY['ReedCRM-4004'].userMessage;
+                                        let errorMsg = ErrorManager.getMessage('ReedCRM-4004');
                                         if (docError && docError.error && docError.error.message) {
                                             errorMsg = docError.error.message;
                                             if (errorMsg.includes("Modulepart ticket not implemented yet")) {
