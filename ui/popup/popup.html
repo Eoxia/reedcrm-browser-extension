@@ -106,13 +106,10 @@
                 <div class="attachment-col left-col">
                     <label for="ticket-file"><span data-i18n="popup_15"></span></label>
                     <div class="file-paste-zone" id="paste-zone">
-                        <input type="file" id="ticket-file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx">
+                        <input type="file" id="ticket-file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple>
                         <div class="paste-hint"><span data-i18n="popup_16"></span></div>
                         
-                        <div id="preview-container" class="hidden">
-                            <img id="image-preview" src="" alt="Aperçu">
-                            <button type="button" id="btn-remove-image">✖</button>
-                        </div>
+                        <div id="preview-container" class="preview-gallery hidden"></div>
                     </div>
                 </div>
                 <div class="attachment-col center-col">
@@ -217,13 +214,10 @@
                 <div class="attachment-col left-col">
                     <label for="opp-file"><span data-i18n="popup_29"></span></label>
                     <div class="file-paste-zone" id="opp-paste-zone">
-                        <input type="file" id="opp-file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx">
+                        <input type="file" id="opp-file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple>
                         <div class="paste-hint"><span data-i18n="popup_30"></span></div>
                         
-                        <div id="opp-preview-container" class="hidden">
-                            <img id="opp-image-preview" src="" alt="Aperçu">
-                            <button type="button" id="opp-btn-remove-image">✖</button>
-                        </div>
+                        <div id="opp-preview-container" class="preview-gallery hidden"></div>
                     </div>
                 </div>
                 <div class="attachment-col center-col">

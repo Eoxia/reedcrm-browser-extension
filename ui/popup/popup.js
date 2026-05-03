@@ -1936,47 +1936,45 @@ document.addEventListener('DOMContentLoaded', () => {
                     // L'API projets est complexe. Par défaut on laisse vide ou on tenter d'utiliser fk_user_creat / affectation tierce.
 
                     // Pièce jointe
-                    let fileToSend = oppPastedFile;
-                    if (!fileToSend && fileInput.files.length > 0) {
-                        fileToSend = fileInput.files[0];
-                    }
-
-                    if (fileToSend && projectId) {
+                    if (oppFilesList.length > 0 && projectId) {
                         btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_120');
 
-                        const reader = new FileReader();
-                        reader.readAsDataURL(fileToSend);
+                        for (let fileObj of oppFilesList) {
+                            const fileToSend = fileObj.file;
+                            const reader = new FileReader();
+                            reader.readAsDataURL(fileToSend);
 
-                        await new Promise((resolve, reject) => {
-                            reader.onload = async () => {
-                                try {
-                                    const base64Content = reader.result.split(',')[1];
-                                    const documentData = {
-                                        filecontent: base64Content,
-                                        filename: fileToSend.name,
-                                        fileencoding: "base64",
-                                        modulepart: "project",
-                                        ref: projectRef
-                                    };
+                            await new Promise((resolve, reject) => {
+                                reader.onload = async () => {
+                                    try {
+                                        const base64Content = reader.result.split(',')[1];
+                                        const documentData = {
+                                            filecontent: base64Content,
+                                            filename: fileToSend.name,
+                                            fileencoding: "base64",
+                                            modulepart: "project",
+                                            ref: projectRef
+                                        };
 
-                                    const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
-                                        method: 'POST',
-                                        headers: baseHeaders,
-                                        body: JSON.stringify(documentData)
-                                    });
+                                        const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
+                                            method: 'POST',
+                                            headers: baseHeaders,
+                                            body: JSON.stringify(documentData)
+                                        });
 
-                                    if (!docResponse.ok) {
-                                        const docError = await docResponse.json().catch(() => null);
-                                        let errorMsg = docError?.error?.message || ERROR_DICTIONARY['ReedCRM-4002'].userMessage;
-                                        throw new Error(`Opportunité créée, mais erreur PJ: ${errorMsg}`);
+                                        if (!docResponse.ok) {
+                                            const docError = await docResponse.json().catch(() => null);
+                                            let errorMsg = docError?.error?.message || ERROR_DICTIONARY['ReedCRM-4002'].userMessage;
+                                            throw new Error(`Opportunité créée, mais erreur PJ: ${errorMsg}`);
+                                        }
+                                        resolve();
+                                    } catch (err) {
+                                        reject(err);
                                     }
-                                    resolve();
-                                } catch (err) {
-                                    reject(err);
-                                }
-                            };
-                            reader.onerror = () => reject(new Error("Erreur lecture fichier."));
-                        });
+                                };
+                                reader.onerror = () => reject(new Error("Erreur lecture fichier."));
+                            });
+                        }
                     }
 
                     const baseUrl = apiUrl.replace(/\/api\/index\.php\/?$/, '').replace(/\/htdocs\/api\/index\.php\/?$/, '/htdocs');
@@ -2016,7 +2014,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
                     oppForm.reset();
-                    if (typeof removeOppPastedImage === 'function') removeOppPastedImage();
+                    oppFilesList = []; renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
                     
                     // Nettoyage des brouillons après création réussie
                     const prId = p ? (p.id || 'default') : 'default';
@@ -2148,11 +2146,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 2. Gestion de la pièce jointe (si présente)
                 let ticketRef = ticketId ? ticketId.toString() : '';
 
-                if (fileToSend && ticketId) {
+                if (ticketFilesList.length > 0 && ticketId) {
                     btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_124');
 
                     // --- Récupération de la référence textuelle (ex: TCK2402-0001) ---
-                    // Pour l'affichage final, on récupère la Ref textuelle.
                     const getTicketRes = await fetchDoli(`${apiUrl}/tickets/${ticketId}`, {
                         headers: baseHeaders
                     });
@@ -2164,51 +2161,50 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
 
-                    // --- Lecture du fichier en base64 ---
-                    const reader = new FileReader();
-                    reader.readAsDataURL(fileToSend);
+                    for (let fileObj of ticketFilesList) {
+                        const fileToSend = fileObj.file;
+                        // --- Lecture du fichier en base64 ---
+                        const reader = new FileReader();
+                        reader.readAsDataURL(fileToSend);
 
-                    await new Promise((resolve, reject) => {
-                        reader.onload = async () => {
-                            try {
-                                // Data URL format: "data:image/png;base64,iVBORw0KGgo..."
-                                const base64Content = reader.result.split(',')[1];
+                        await new Promise((resolve, reject) => {
+                            reader.onload = async () => {
+                                try {
+                                    const base64Content = reader.result.split(',')[1];
 
-                                // IMPORTANT : Pour le module 'ticket', l'API Dolibarr (selon le fichier api_documents.class.php)
-                                // attend l'ID numérique ($object->fetchDoli((int) $ref)) dans le champ 'ref' et non la ref texte.
-                                const documentData = {
-                                    filecontent: base64Content,
-                                    filename: fileToSend.name,
-                                    fileencoding: "base64",
-                                    modulepart: "ticket",
-                                    ref: ticketId.toString() // Le PHP modifié attend l'ID numérique ($fetchbyid = true)
-                                };
+                                    const documentData = {
+                                        filecontent: base64Content,
+                                        filename: fileToSend.name,
+                                        fileencoding: "base64",
+                                        modulepart: "ticket",
+                                        ref: ticketId.toString()
+                                    };
 
-                                const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
-                                    method: 'POST',
-                                    headers: baseHeaders,
-                                    body: JSON.stringify(documentData)
-                                });
+                                    const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
+                                        method: 'POST',
+                                        headers: baseHeaders,
+                                        body: JSON.stringify(documentData)
+                                    });
 
-                                if (!docResponse.ok) {
-                                    const docError = await docResponse.json().catch(() => null);
-                                    let errorMsg = ERROR_DICTIONARY['ReedCRM-4004'].userMessage;
-                                    if (docError && docError.error && docError.error.message) {
-                                        errorMsg = docError.error.message;
-                                        // Capture ciblée pour l'erreur Dolibarr d'upload ticket si jamais
-                                        if (errorMsg.includes("Modulepart ticket not implemented yet")) {
-                                            errorMsg = "Votre version de Dolibarr ne supporte pas encore l'envoi de fichiers vers les tickets via son API REST.";
+                                    if (!docResponse.ok) {
+                                        const docError = await docResponse.json().catch(() => null);
+                                        let errorMsg = ERROR_DICTIONARY['ReedCRM-4004'].userMessage;
+                                        if (docError && docError.error && docError.error.message) {
+                                            errorMsg = docError.error.message;
+                                            if (errorMsg.includes("Modulepart ticket not implemented yet")) {
+                                                errorMsg = "Votre version de Dolibarr ne supporte pas encore l'envoi de fichiers vers les tickets via son API REST.";
+                                            }
                                         }
+                                        throw new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur PJ: ${errorMsg}`);
                                     }
-                                    throw new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur PJ: ${errorMsg}`);
+                                    resolve();
+                                } catch (err) {
+                                    reject(err);
                                 }
-                                resolve();
-                            } catch (err) {
-                                reject(err);
-                            }
-                        };
-                        reader.onerror = () => reject(new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur de lecture du fichier`));
-                    });
+                            };
+                            reader.onerror = () => reject(new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur de lecture du fichier`));
+                        });
+                    }
                 } else if (ticketId) {
                     // Si pas de fichier, on récupère quand même la ref pour l'affichage
                     const getTicketRes = await fetchDoli(`${apiUrl}/tickets/${ticketId}`, {
@@ -2217,7 +2213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (getTicketRes.ok) {
                         const ticketDetails = await getTicketRes.json();
                         if (ticketDetails && ticketDetails.ref) {
-                            ticketRef = ticketDetails.ref; // On écrase avec la ref texte si dispo
+                            ticketRef = ticketDetails.ref;
                         }
                     }
                 }
@@ -2237,7 +2233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
                 ticketForm.reset();
-                if (typeof removePastedImage === 'function') removePastedImage();
+                ticketFilesList = []; renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
                 
                 // Nettoyage des brouillons après création réussie
                 const prfId = p ? (p.id || 'default') : 'default';
@@ -2273,27 +2269,62 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // --- Gestion du collage d'image (Presse-papier) ---
-        let pastedFile = null;
-        const previewContainer = document.getElementById('preview-container');
-        const imagePreview = document.getElementById('image-preview');
-        const btnRemoveImage = document.getElementById('btn-remove-image');
-        const fileInput = document.getElementById('ticket-file');
+        let ticketFilesList = [];
+        let oppFilesList = [];
 
-        let oppPastedFile = null;
-        const oppPreviewContainer = document.getElementById('opp-preview-container');
-        const oppImagePreview = document.getElementById('opp-image-preview');
-        const oppBtnRemoveImage = document.getElementById('opp-btn-remove-image');
+        function renderThumbnails(filesArray, containerId, inputId) {
+            const container = document.getElementById(containerId);
+            const input = document.getElementById(inputId);
+            
+            if (filesArray.length === 0) {
+                container.classList.add('hidden');
+                container.innerHTML = '';
+                if (input) input.value = '';
+                return;
+            }
+            
+            container.classList.remove('hidden');
+            container.innerHTML = '';
+            
+            filesArray.forEach((fileObj, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'preview-item';
+                
+                if (fileObj.file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.className = 'preview-thumb';
+                    img.src = fileObj.previewUrl;
+                    itemDiv.appendChild(img);
+                } else {
+                    const iconDiv = document.createElement('div');
+                    iconDiv.className = 'preview-file-icon';
+                    let ext = fileObj.file.name.split('.').pop().substring(0, 4);
+                    iconDiv.textContent = ext;
+                    itemDiv.appendChild(iconDiv);
+                }
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn-remove-item';
+                removeBtn.textContent = '✖';
+                removeBtn.onclick = () => {
+                    filesArray.splice(index, 1);
+                    renderThumbnails(filesArray, containerId, inputId);
+                };
+                itemDiv.appendChild(removeBtn);
+                
+                container.appendChild(itemDiv);
+            });
+        }
+
+        const fileInput = document.getElementById('ticket-file');
         const oppFileInput = document.getElementById('opp-file');
 
-        // Écoute l'événement 'paste' n'importe où sur la fenêtre du popup
         document.addEventListener('paste', (e) => {
-            // Ignorer si c'est collé dans un champ texte (pour ne pas bloquer le texte)
             if (e.target.tagName === 'INPUT' && e.target.type === 'text' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
 
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-
             for (let index in items) {
                 const item = items[index];
                 if (item.kind === 'file') {
@@ -2301,48 +2332,40 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (blob && blob.type.startsWith('image/')) {
                         const date = new Date().toISOString().replace(/T/, '_').replace(/:/g, '-').split('.')[0];
                         const newFile = new File([blob], `Capture_${date}.png`, { type: blob.type });
+                        const fileObj = { file: newFile, previewUrl: URL.createObjectURL(blob) };
 
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                            if (tabOpportunite.classList.contains('active')) {
-                                oppPastedFile = newFile;
-                                oppImagePreview.src = event.target.result;
-                                oppPreviewContainer.classList.remove('hidden');
-                                if (oppFileInput) oppFileInput.value = '';
-                            } else {
-                                pastedFile = newFile;
-                                imagePreview.src = event.target.result;
-                                previewContainer.classList.remove('hidden');
-                                if (fileInput) fileInput.value = '';
-                            }
-                        };
-                        reader.readAsDataURL(blob);
-
+                        if (tabOpportunite.classList.contains('active')) {
+                            oppFilesList.push(fileObj);
+                            renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
+                        } else {
+                            ticketFilesList.push(fileObj);
+                            renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
+                        }
                         e.preventDefault();
-                        break;
                     }
                 }
             }
         });
 
-        // Suppression de l'image collée
-        window.removePastedImage = function () {
-            pastedFile = null;
-            imagePreview.src = '';
-            if (previewContainer) previewContainer.classList.add('hidden');
-        }
-        window.removeOppPastedImage = function () {
-            oppPastedFile = null;
-            oppImagePreview.src = '';
-            if (oppPreviewContainer) oppPreviewContainer.classList.add('hidden');
+        if (fileInput) {
+            fileInput.addEventListener('change', () => {
+                Array.from(fileInput.files).forEach(f => {
+                    const previewUrl = f.type.startsWith('image/') ? URL.createObjectURL(f) : '';
+                    ticketFilesList.push({ file: f, previewUrl });
+                });
+                renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
+            });
         }
 
-        if (btnRemoveImage) btnRemoveImage.addEventListener('click', () => removePastedImage());
-        if (oppBtnRemoveImage) oppBtnRemoveImage.addEventListener('click', () => removeOppPastedImage());
-
-        // Si on choisit un fichier via le bouton classique, on supprime l'image collée
-        if (fileInput) fileInput.addEventListener('change', () => { if (fileInput.files.length > 0) removePastedImage(); });
-        if (oppFileInput) oppFileInput.addEventListener('change', () => { if (oppFileInput.files.length > 0) removeOppPastedImage(); });
+        if (oppFileInput) {
+            oppFileInput.addEventListener('change', () => {
+                Array.from(oppFileInput.files).forEach(f => {
+                    const previewUrl = f.type.startsWith('image/') ? URL.createObjectURL(f) : '';
+                    oppFilesList.push({ file: f, previewUrl });
+                });
+                renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
+            });
+        }
 
         // --- Gestion du bouton "Capturer l'écran" ---
         const btnCaptureScreen = document.getElementById('btn-capture-screen');
@@ -2514,17 +2537,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         const extension = dataUrl.startsWith('data:image/jpeg') ? 'jpg' : 'png';
                         const mimeType = dataUrl.startsWith('data:image/jpeg') ? 'image/jpeg' : 'image/png';
                         const newFile = new File([blob], `Annotation_${date}.${extension}`, { type: mimeType });
+                        const fileObj = { file: newFile, previewUrl: URL.createObjectURL(blob) };
 
                         if (activeTabScreenshot === 'opportunite') {
-                            oppPastedFile = newFile;
-                            oppImagePreview.src = dataUrl;
-                            if (oppPreviewContainer) oppPreviewContainer.classList.remove('hidden');
-                            if (oppFileInput) oppFileInput.value = '';
+                            oppFilesList.push(fileObj);
+                            renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
                         } else {
-                            pastedFile = newFile;
-                            imagePreview.src = dataUrl;
-                            if (previewContainer) previewContainer.classList.remove('hidden');
-                            if (fileInput) fileInput.value = '';
+                            ticketFilesList.push(fileObj);
+                            renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
                         }
                     });
             }
