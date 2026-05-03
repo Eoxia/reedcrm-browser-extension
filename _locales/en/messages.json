@@ -132,7 +132,7 @@
         "description": "Extracted string popup_33"
     },
     "popup_34": {
-        "message": "Créer l'opportunité",
+        "message": "Opportunity",
         "description": "Extracted string popup_34"
     },
     "popup_35": {
@@ -644,5 +644,40 @@
     },
     "btn_fix_logo": {
         "message": "Click here to add it"
+    },
+    "error_5001": {
+        "message": "The capture request timed out. Please try again."
+    },
+    "error_5002": {
+        "message": "Cannot capture this special page (Chrome blocks extensions). Please navigate to a standard website."
+    },
+    "error_5003": {
+        "message": "Please refresh the target page (F5) and try the capture again."
+    },
+    "error_5099": {
+        "message": "Unexpected error during capture: $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "popup_upload_title": {
+        "message": "Browse"
+    },
+    "popup_upload_subtitle": {
+        "message": "drag your files"
+    },
+    "popup_upload_hint": {
+        "message": "copy-paste (Ctrl+V)"
+    },
+    "popup_capture": {
+        "message": "Capture"
+    },
+    "popup_create_ticket": {
+        "message": "Ticket"
+    },
+    "popup_create_opp": {
+        "message": "opportunity"
     }
 }

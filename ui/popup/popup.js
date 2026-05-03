@@ -1443,12 +1443,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupWarning.classList.add('hidden');
                 ticketForm.classList.remove('hidden');
                 btnSubmit.disabled = false;
-                btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_111');
+                btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_111');
 
                 if (oppForm) {
                     oppForm.classList.remove('hidden');
                     btnSubmitOpp.disabled = false;
-                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_34');
+                    btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_34');
                 }
 
                 const oppOnly = p.doliOppOnly !== false; // true par défaut
@@ -1717,7 +1717,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 btnSubmitOpp.disabled = true;
                 btnSubmitOpp.classList.add('btn-loading');
-                btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_116');
+                btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_116');
                 oppStatusMessage.textContent = '';
                 oppStatusMessage.style.color = '#333';
 
@@ -1784,7 +1784,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const projResponseId = await response.json();
                     
-                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_117');
+                    btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_117');
                     
                     // Some Dolibarr versions/endpoints return an array [144] or a single int 144
                     const projectId = Array.isArray(projResponseId) ? projResponseId[0] : projResponseId;
@@ -1895,7 +1895,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     window.doliVersionStr = "Illisible";
                                 }
                             } else {
-                                btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_118');
+                                btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_118');
                                 await new Promise(r => setTimeout(r, 600)); // Laisser l'utilisateur lire le message
                             }
                         } catch(e) {
@@ -1903,7 +1903,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             contactWasAssigned = false;
                             contactErrorCode = 'ReedCRM-4003';
                             contactErrorDetail = e.message;
-                            btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_119');
+                            btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_119');
                             await new Promise(r => setTimeout(r, 600));
                         }
                     }
@@ -1936,47 +1936,45 @@ document.addEventListener('DOMContentLoaded', () => {
                     // L'API projets est complexe. Par défaut on laisse vide ou on tenter d'utiliser fk_user_creat / affectation tierce.
 
                     // Pièce jointe
-                    let fileToSend = oppPastedFile;
-                    if (!fileToSend && fileInput.files.length > 0) {
-                        fileToSend = fileInput.files[0];
-                    }
+                    if (oppFilesList.length > 0 && projectId) {
+                        btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_120');
 
-                    if (fileToSend && projectId) {
-                        btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_120');
+                        for (let fileObj of oppFilesList) {
+                            const fileToSend = fileObj.file;
+                            const reader = new FileReader();
+                            reader.readAsDataURL(fileToSend);
 
-                        const reader = new FileReader();
-                        reader.readAsDataURL(fileToSend);
+                            await new Promise((resolve, reject) => {
+                                reader.onload = async () => {
+                                    try {
+                                        const base64Content = reader.result.split(',')[1];
+                                        const documentData = {
+                                            filecontent: base64Content,
+                                            filename: fileToSend.name,
+                                            fileencoding: "base64",
+                                            modulepart: "project",
+                                            ref: projectRef
+                                        };
 
-                        await new Promise((resolve, reject) => {
-                            reader.onload = async () => {
-                                try {
-                                    const base64Content = reader.result.split(',')[1];
-                                    const documentData = {
-                                        filecontent: base64Content,
-                                        filename: fileToSend.name,
-                                        fileencoding: "base64",
-                                        modulepart: "project",
-                                        ref: projectRef
-                                    };
+                                        const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
+                                            method: 'POST',
+                                            headers: baseHeaders,
+                                            body: JSON.stringify(documentData)
+                                        });
 
-                                    const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
-                                        method: 'POST',
-                                        headers: baseHeaders,
-                                        body: JSON.stringify(documentData)
-                                    });
-
-                                    if (!docResponse.ok) {
-                                        const docError = await docResponse.json().catch(() => null);
-                                        let errorMsg = docError?.error?.message || ERROR_DICTIONARY['ReedCRM-4002'].userMessage;
-                                        throw new Error(`Opportunité créée, mais erreur PJ: ${errorMsg}`);
+                                        if (!docResponse.ok) {
+                                            const docError = await docResponse.json().catch(() => null);
+                                            let errorMsg = docError?.error?.message || ErrorManager.getMessage('ReedCRM-4002');
+                                            throw new Error(`Opportunité créée, mais erreur PJ: ${errorMsg}`);
+                                        }
+                                        resolve();
+                                    } catch (err) {
+                                        reject(err);
                                     }
-                                    resolve();
-                                } catch (err) {
-                                    reject(err);
-                                }
-                            };
-                            reader.onerror = () => reject(new Error("Erreur lecture fichier."));
-                        });
+                                };
+                                reader.onerror = () => reject(new Error("Erreur lecture fichier."));
+                            });
+                        }
                     }
 
                     const baseUrl = apiUrl.replace(/\/api\/index\.php\/?$/, '').replace(/\/htdocs\/api\/index\.php\/?$/, '/htdocs');
@@ -1984,11 +1982,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     btnSubmitOpp.disabled = false;
                     btnSubmitOpp.classList.remove('btn-loading');
-                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_121');
+                    btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_121');
                     
                     let contactErrorHtml = '';
                     if (contactId && contactId !== '' && !contactWasAssigned) {
-                        let errorMsg = ERROR_DICTIONARY[contactErrorCode]?.userMessage || "Erreur inconnue";
+                        let errorMsg = ErrorManager.getMessage(contactErrorCode) || "Erreur inconnue";
                         
                         // Injection dynamique de la version
                         if (window.doliVersionStr && contactErrorCode === 'ReedCRM-4001') {
@@ -2016,7 +2014,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
                     oppForm.reset();
-                    if (typeof removeOppPastedImage === 'function') removeOppPastedImage();
+                    oppFilesList = []; renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
                     
                     // Nettoyage des brouillons après création réussie
                     const prId = p ? (p.id || 'default') : 'default';
@@ -2027,7 +2025,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (error) {
                     btnSubmitOpp.classList.remove('btn-loading');
                     // We reset the text so error doesn't overwrite the button completely wrongly
-                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_122');
+                    btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_122');
                     btnSubmitOpp.disabled = false;
                     
                     showDoliError(error, oppStatusMessage);
@@ -2055,7 +2053,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             btnSubmit.disabled = true;
             btnSubmit.classList.add('btn-loading');
-            btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_123');
+            btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_123');
             statusMessage.textContent = '';
             statusMessage.style.color = '#333';
 
@@ -2148,11 +2146,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 2. Gestion de la pièce jointe (si présente)
                 let ticketRef = ticketId ? ticketId.toString() : '';
 
-                if (fileToSend && ticketId) {
-                    btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_124');
+                if (ticketFilesList.length > 0 && ticketId) {
+                    btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_124');
 
                     // --- Récupération de la référence textuelle (ex: TCK2402-0001) ---
-                    // Pour l'affichage final, on récupère la Ref textuelle.
                     const getTicketRes = await fetchDoli(`${apiUrl}/tickets/${ticketId}`, {
                         headers: baseHeaders
                     });
@@ -2164,51 +2161,50 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
 
-                    // --- Lecture du fichier en base64 ---
-                    const reader = new FileReader();
-                    reader.readAsDataURL(fileToSend);
+                    for (let fileObj of ticketFilesList) {
+                        const fileToSend = fileObj.file;
+                        // --- Lecture du fichier en base64 ---
+                        const reader = new FileReader();
+                        reader.readAsDataURL(fileToSend);
 
-                    await new Promise((resolve, reject) => {
-                        reader.onload = async () => {
-                            try {
-                                // Data URL format: "data:image/png;base64,iVBORw0KGgo..."
-                                const base64Content = reader.result.split(',')[1];
+                        await new Promise((resolve, reject) => {
+                            reader.onload = async () => {
+                                try {
+                                    const base64Content = reader.result.split(',')[1];
 
-                                // IMPORTANT : Pour le module 'ticket', l'API Dolibarr (selon le fichier api_documents.class.php)
-                                // attend l'ID numérique ($object->fetchDoli((int) $ref)) dans le champ 'ref' et non la ref texte.
-                                const documentData = {
-                                    filecontent: base64Content,
-                                    filename: fileToSend.name,
-                                    fileencoding: "base64",
-                                    modulepart: "ticket",
-                                    ref: ticketId.toString() // Le PHP modifié attend l'ID numérique ($fetchbyid = true)
-                                };
+                                    const documentData = {
+                                        filecontent: base64Content,
+                                        filename: fileToSend.name,
+                                        fileencoding: "base64",
+                                        modulepart: "ticket",
+                                        ref: ticketId.toString()
+                                    };
 
-                                const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
-                                    method: 'POST',
-                                    headers: baseHeaders,
-                                    body: JSON.stringify(documentData)
-                                });
+                                    const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
+                                        method: 'POST',
+                                        headers: baseHeaders,
+                                        body: JSON.stringify(documentData)
+                                    });
 
-                                if (!docResponse.ok) {
-                                    const docError = await docResponse.json().catch(() => null);
-                                    let errorMsg = ERROR_DICTIONARY['ReedCRM-4004'].userMessage;
-                                    if (docError && docError.error && docError.error.message) {
-                                        errorMsg = docError.error.message;
-                                        // Capture ciblée pour l'erreur Dolibarr d'upload ticket si jamais
-                                        if (errorMsg.includes("Modulepart ticket not implemented yet")) {
-                                            errorMsg = "Votre version de Dolibarr ne supporte pas encore l'envoi de fichiers vers les tickets via son API REST.";
+                                    if (!docResponse.ok) {
+                                        const docError = await docResponse.json().catch(() => null);
+                                        let errorMsg = ErrorManager.getMessage('ReedCRM-4004');
+                                        if (docError && docError.error && docError.error.message) {
+                                            errorMsg = docError.error.message;
+                                            if (errorMsg.includes("Modulepart ticket not implemented yet")) {
+                                                errorMsg = "Votre version de Dolibarr ne supporte pas encore l'envoi de fichiers vers les tickets via son API REST.";
+                                            }
                                         }
+                                        throw new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur PJ: ${errorMsg}`);
                                     }
-                                    throw new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur PJ: ${errorMsg}`);
+                                    resolve();
+                                } catch (err) {
+                                    reject(err);
                                 }
-                                resolve();
-                            } catch (err) {
-                                reject(err);
-                            }
-                        };
-                        reader.onerror = () => reject(new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur de lecture du fichier`));
-                    });
+                            };
+                            reader.onerror = () => reject(new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur de lecture du fichier`));
+                        });
+                    }
                 } else if (ticketId) {
                     // Si pas de fichier, on récupère quand même la ref pour l'affichage
                     const getTicketRes = await fetchDoli(`${apiUrl}/tickets/${ticketId}`, {
@@ -2217,7 +2213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (getTicketRes.ok) {
                         const ticketDetails = await getTicketRes.json();
                         if (ticketDetails && ticketDetails.ref) {
-                            ticketRef = ticketDetails.ref; // On écrase avec la ref texte si dispo
+                            ticketRef = ticketDetails.ref;
                         }
                     }
                 }
@@ -2230,14 +2226,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Succès final (On injecte du HTML ici pour avoir un lien cliquable)
                 btnSubmit.classList.remove('btn-loading');
-                btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_125');
+                btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_125');
                 statusMessage.innerHTML = `
                     <div style="color:#27ae60; font-size:13px; text-align:left;">
                         Ticket <a href="${ticketLink}" target="_blank" style="text-decoration:none; font-weight:bold; color:#27ae60;" title="Voir le ticket">${displayRef}</a> créé avec succès !
                     </div>
                 `;
                 ticketForm.reset();
-                if (typeof removePastedImage === 'function') removePastedImage();
+                ticketFilesList = []; renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
                 
                 // Nettoyage des brouillons après création réussie
                 const prfId = p ? (p.id || 'default') : 'default';
@@ -2245,7 +2241,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (error) {
                 btnSubmit.classList.remove('btn-loading');
-                btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_126');
+                btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_126');
                 btnSubmit.disabled = false;
 
                 // Si l'erreur signale que le ticket a quand même été créé (ex: échec d'upload)
@@ -2268,32 +2264,95 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     showDoliError(error, statusMessage);
                 }
-                btnSubmit.textContent = chrome.i18n.getMessage('popup_js_127');
+                btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_127');
             }
         });
 
         // --- Gestion du collage d'image (Presse-papier) ---
-        let pastedFile = null;
-        const previewContainer = document.getElementById('preview-container');
-        const imagePreview = document.getElementById('image-preview');
-        const btnRemoveImage = document.getElementById('btn-remove-image');
-        const fileInput = document.getElementById('ticket-file');
+        let ticketFilesList = [];
+        let oppFilesList = [];
 
-        let oppPastedFile = null;
-        const oppPreviewContainer = document.getElementById('opp-preview-container');
-        const oppImagePreview = document.getElementById('opp-image-preview');
-        const oppBtnRemoveImage = document.getElementById('opp-btn-remove-image');
+        function renderThumbnails(filesArray, containerId, inputId) {
+            const container = document.getElementById(containerId);
+            const input = document.getElementById(inputId);
+            
+            if (filesArray.length === 0) {
+                container.classList.add('hidden');
+                container.innerHTML = '';
+                if (input) input.value = '';
+                return;
+            }
+            
+            container.classList.remove('hidden');
+            container.innerHTML = '';
+            container.classList.add('new-layout');
+            
+            filesArray.forEach((fileObj, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'preview-item rich-thumb';
+                
+                let ext = fileObj.file.name.split('.').pop().toLowerCase();
+                let iconSvg = '';
+                let extBadge = ext;
+                let iconClass = '';
+
+                if (fileObj.file.type.startsWith('image/')) {
+                    iconSvg = `<img src="${fileObj.previewUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
+                    iconClass = 'is-image';
+                    if (ext === 'jpeg') extBadge = 'jpg';
+                } else if (ext === 'pdf') {
+                    iconSvg = '<svg viewBox="0 0 512 512" fill="currentColor"><path d="M0 64C0 28.7 28.7 0 64 0L224 0l0 128c0 17.7 14.3 32 32 32l128 0 0 144-208 0c-35.3 0-64 28.7-64 64l0 144-48 0c-35.3 0-64-28.7-64-64L0 64zm384 64l-128 0L256 0 384 128zM176 352l32 0c30.9 0 56 25.1 56 56s-25.1 56-56 56l-16 0 0 32c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-48 0-80c0-8.8 7.2-16 16-16zm32 80c13.3 0 24-10.7 24-24s-10.7-24-24-24l-16 0 0 48 16 0zm96-80l32 0c26.5 0 48 21.5 48 48l0 64c0 26.5-21.5 48-48 48l-32 0c-8.8 0-16-7.2-16-16l0-128c0-8.8 7.2-16 16-16zm32 128c8.8 0 16-7.2 16-16l0-64c0-8.8-7.2-16-16-16l-16 0 0 96 16 0zm80-112c0-8.8 7.2-16 16-16l48 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-32 0 0 32 32 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-32 0 0 48c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-64 0-64z"/></svg>';
+                    iconClass = 'is-pdf';
+                } else if (['doc', 'docx'].includes(ext)) {
+                    iconSvg = '<svg viewBox="0 0 384 512" fill="currentColor"><path d="M64 0C28.7 0 0 28.7 0 64L0 448c0 35.3 28.7 64 64 64l256 0c35.3 0 64-28.7 64-64l0-288-128 0c-17.7 0-32-14.3-32-32L224 0 64 0zM256 0l0 128 128 0L256 0zM111 257.1l26.8 89.2 31.6-90.3c3.4-9.6 12.5-16.1 22.7-16.1s19.3 6.4 22.7 16.1l31.6 90.3L273 257.1c3.8-12.7 17.2-19.9 29.9-16.1s19.9 17.2 16.1 29.9l-48 160c-3 10-12 16.9-22.4 17.1s-19.8-6.2-23.2-16.1L192 336.6l-33.3 95.3c-3.4 9.8-12.8 16.3-23.2 16.1s-19.5-7.1-22.4-17.1l-48-160c-3.8-12.7 3.4-26.1 16.1-29.9s26.1 3.4 29.9 16.1z"/></svg>';
+                    iconClass = 'is-word';
+                } else {
+                    iconSvg = '<svg viewBox="0 0 384 512" fill="currentColor"><path d="M64 0C28.7 0 0 28.7 0 64L0 448c0 35.3 28.7 64 64 64l256 0c35.3 0 64-28.7 64-64l0-288-128 0c-17.7 0-32-14.3-32-32L224 0 64 0zM256 0l0 128 128 0L256 0zM112 256l160 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-160 0c-8.8 0-16-7.2-16-16s7.2-16 16-16zm0 64l160 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-160 0c-8.8 0-16-7.2-16-16s7.2-16 16-16zm0 64l160 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-160 0c-8.8 0-16-7.2-16-16s7.2-16 16-16z"/></svg>';
+                    extBadge = ext.substring(0, 4);
+                }
+
+                // Safe DOM construction to prevent XSS from file names
+                const badgeDiv = document.createElement('div');
+                badgeDiv.className = 'thumb-badge';
+                badgeDiv.textContent = extBadge;
+
+                const iconDiv = document.createElement('div');
+                iconDiv.className = `thumb-icon ${iconClass}`;
+                iconDiv.innerHTML = iconSvg; // Safe: generated internally, not from user input
+
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'thumb-name';
+                nameDiv.title = fileObj.file.name;
+                nameDiv.textContent = fileObj.file.name; // Safe against XSS
+
+                itemDiv.appendChild(badgeDiv);
+                itemDiv.appendChild(iconDiv);
+                itemDiv.appendChild(nameDiv);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn-remove-item rich-close';
+                removeBtn.innerHTML = '<svg viewBox="0 0 512 512" fill="currentColor"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM175 175c9.4-9.4 24.6-9.4 33.9 0l47 47 47-47c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-47 47 47 47c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0l-47-47-47 47c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l47-47-47-47c-9.4-9.4-9.4-24.6 0-33.9z"/></svg>';
+                removeBtn.title = "Supprimer";
+                removeBtn.onclick = (e) => {
+                    e.preventDefault();
+                    filesArray.splice(index, 1);
+                    renderThumbnails(filesArray, containerId, inputId);
+                };
+                itemDiv.appendChild(removeBtn);
+                
+                container.appendChild(itemDiv);
+            });
+        }
+
+        const fileInput = document.getElementById('ticket-file');
         const oppFileInput = document.getElementById('opp-file');
 
-        // Écoute l'événement 'paste' n'importe où sur la fenêtre du popup
         document.addEventListener('paste', (e) => {
-            // Ignorer si c'est collé dans un champ texte (pour ne pas bloquer le texte)
             if (e.target.tagName === 'INPUT' && e.target.type === 'text' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
 
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-
             for (let index in items) {
                 const item = items[index];
                 if (item.kind === 'file') {
@@ -2301,48 +2360,40 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (blob && blob.type.startsWith('image/')) {
                         const date = new Date().toISOString().replace(/T/, '_').replace(/:/g, '-').split('.')[0];
                         const newFile = new File([blob], `Capture_${date}.png`, { type: blob.type });
+                        const fileObj = { file: newFile, previewUrl: URL.createObjectURL(blob) };
 
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                            if (tabOpportunite.classList.contains('active')) {
-                                oppPastedFile = newFile;
-                                oppImagePreview.src = event.target.result;
-                                oppPreviewContainer.classList.remove('hidden');
-                                if (oppFileInput) oppFileInput.value = '';
-                            } else {
-                                pastedFile = newFile;
-                                imagePreview.src = event.target.result;
-                                previewContainer.classList.remove('hidden');
-                                if (fileInput) fileInput.value = '';
-                            }
-                        };
-                        reader.readAsDataURL(blob);
-
+                        if (tabOpportunite.classList.contains('active')) {
+                            oppFilesList.push(fileObj);
+                            renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
+                        } else {
+                            ticketFilesList.push(fileObj);
+                            renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
+                        }
                         e.preventDefault();
-                        break;
                     }
                 }
             }
         });
 
-        // Suppression de l'image collée
-        window.removePastedImage = function () {
-            pastedFile = null;
-            imagePreview.src = '';
-            if (previewContainer) previewContainer.classList.add('hidden');
-        }
-        window.removeOppPastedImage = function () {
-            oppPastedFile = null;
-            oppImagePreview.src = '';
-            if (oppPreviewContainer) oppPreviewContainer.classList.add('hidden');
+        if (fileInput) {
+            fileInput.addEventListener('change', () => {
+                Array.from(fileInput.files).forEach(f => {
+                    const previewUrl = f.type.startsWith('image/') ? URL.createObjectURL(f) : '';
+                    ticketFilesList.push({ file: f, previewUrl });
+                });
+                renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
+            });
         }
 
-        if (btnRemoveImage) btnRemoveImage.addEventListener('click', () => removePastedImage());
-        if (oppBtnRemoveImage) oppBtnRemoveImage.addEventListener('click', () => removeOppPastedImage());
-
-        // Si on choisit un fichier via le bouton classique, on supprime l'image collée
-        if (fileInput) fileInput.addEventListener('change', () => { if (fileInput.files.length > 0) removePastedImage(); });
-        if (oppFileInput) oppFileInput.addEventListener('change', () => { if (oppFileInput.files.length > 0) removeOppPastedImage(); });
+        if (oppFileInput) {
+            oppFileInput.addEventListener('change', () => {
+                Array.from(oppFileInput.files).forEach(f => {
+                    const previewUrl = f.type.startsWith('image/') ? URL.createObjectURL(f) : '';
+                    oppFilesList.push({ file: f, previewUrl });
+                });
+                renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
+            });
+        }
 
         // --- Gestion du bouton "Capturer l'écran" ---
         const btnCaptureScreen = document.getElementById('btn-capture-screen');
@@ -2380,6 +2431,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tiersElem) storageData.doliPrefillTicketTiers = tiersElem.value || '';
                 if (contactElem) storageData.doliPrefillTicketContact = contactElem.value || '';
                 if (projectElem) storageData.doliPrefillTicketProject = projectElem.value || '';
+
+                // Sauvegarde des fichiers en cours
+                const serializeFiles = async (filesArray) => {
+                    return Promise.all(filesArray.map(async fileObj => {
+                        return new Promise(resolve => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve({
+                                name: fileObj.file.name,
+                                type: fileObj.file.type,
+                                data: reader.result
+                            });
+                            reader.readAsDataURL(fileObj.file);
+                        });
+                    }));
+                };
+
+                storageData.doliPendingTicketFiles = await serializeFiles(ticketFilesList);
+                storageData.doliPendingOppFiles = await serializeFiles(oppFilesList);
 
                 chrome.storage.local.set(storageData);
 
@@ -2499,7 +2568,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (oppBtnCaptureScreen) oppBtnCaptureScreen.addEventListener('click', () => triggerCapture(oppBtnCaptureScreen, 'opp-status-message'));
 
         // --- Chargement automatique d'une capture en attente (depuis l'éditeur in-page) ---
-        chrome.storage.local.get(['doliPendingScreenshot', 'doliActiveTab'], (result) => {
+        chrome.storage.local.get(['doliPendingScreenshot', 'doliActiveTab', 'doliPendingTicketFiles', 'doliPendingOppFiles'], (result) => {
+            
+            // Restauration des fichiers précédents
+            const restoreFiles = (serializedArray, targetList, containerId, inputId) => {
+                if (serializedArray && serializedArray.length > 0) {
+                    serializedArray.forEach(f => {
+                        fetch(f.data).then(r => r.blob()).then(blob => {
+                            const newFile = new File([blob], f.name, { type: f.type });
+                            targetList.push({ file: newFile, previewUrl: URL.createObjectURL(blob) });
+                            renderThumbnails(targetList, containerId, inputId);
+                        });
+                    });
+                }
+            };
+
+            restoreFiles(result.doliPendingTicketFiles, ticketFilesList, 'preview-container', 'ticket-file');
+            restoreFiles(result.doliPendingOppFiles, oppFilesList, 'opp-preview-container', 'opp-file');
+            
+            // Nettoyage pour ne pas les garder indéfiniment
+            chrome.storage.local.remove(['doliPendingTicketFiles', 'doliPendingOppFiles']);
+
+
             if (result.doliPendingScreenshot) {
                 const dataUrl = result.doliPendingScreenshot;
                 const activeTabScreenshot = result.doliActiveTab || 'ticket';
@@ -2514,17 +2604,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         const extension = dataUrl.startsWith('data:image/jpeg') ? 'jpg' : 'png';
                         const mimeType = dataUrl.startsWith('data:image/jpeg') ? 'image/jpeg' : 'image/png';
                         const newFile = new File([blob], `Annotation_${date}.${extension}`, { type: mimeType });
+                        const fileObj = { file: newFile, previewUrl: URL.createObjectURL(blob) };
 
                         if (activeTabScreenshot === 'opportunite') {
-                            oppPastedFile = newFile;
-                            oppImagePreview.src = dataUrl;
-                            if (oppPreviewContainer) oppPreviewContainer.classList.remove('hidden');
-                            if (oppFileInput) oppFileInput.value = '';
+                            oppFilesList.push(fileObj);
+                            renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
                         } else {
-                            pastedFile = newFile;
-                            imagePreview.src = dataUrl;
-                            if (previewContainer) previewContainer.classList.remove('hidden');
-                            if (fileInput) fileInput.value = '';
+                            ticketFilesList.push(fileObj);
+                            renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
                         }
                     });
             }
