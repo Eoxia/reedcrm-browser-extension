@@ -312,11 +312,11 @@ button:disabled {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: 10px;
-    border-top: 1px solid #eee;
-    padding-top: 10px;
+    margin-top: 5px;
+    margin-bottom: 5px;
     max-height: 120px;
     overflow-y: auto;
+    width: 100%;
 }
 
 .preview-item {
