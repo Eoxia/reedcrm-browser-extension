@@ -2404,6 +2404,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (contactElem) storageData.doliPrefillTicketContact = contactElem.value || '';
                 if (projectElem) storageData.doliPrefillTicketProject = projectElem.value || '';
 
+                // Sauvegarde des fichiers en cours
+                const serializeFiles = async (filesArray) => {
+                    return Promise.all(filesArray.map(async fileObj => {
+                        return new Promise(resolve => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve({
+                                name: fileObj.file.name,
+                                type: fileObj.file.type,
+                                data: reader.result
+                            });
+                            reader.readAsDataURL(fileObj.file);
+                        });
+                    }));
+                };
+
+                storageData.doliPendingTicketFiles = await serializeFiles(ticketFilesList);
+                storageData.doliPendingOppFiles = await serializeFiles(oppFilesList);
+
                 chrome.storage.local.set(storageData);
 
                 // 1. Déclencher la capture
@@ -2522,7 +2540,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (oppBtnCaptureScreen) oppBtnCaptureScreen.addEventListener('click', () => triggerCapture(oppBtnCaptureScreen, 'opp-status-message'));
 
         // --- Chargement automatique d'une capture en attente (depuis l'éditeur in-page) ---
-        chrome.storage.local.get(['doliPendingScreenshot', 'doliActiveTab'], (result) => {
+        chrome.storage.local.get(['doliPendingScreenshot', 'doliActiveTab', 'doliPendingTicketFiles', 'doliPendingOppFiles'], (result) => {
+            
+            // Restauration des fichiers précédents
+            const restoreFiles = (serializedArray, targetList, containerId, inputId) => {
+                if (serializedArray && serializedArray.length > 0) {
+                    serializedArray.forEach(f => {
+                        fetch(f.data).then(r => r.blob()).then(blob => {
+                            const newFile = new File([blob], f.name, { type: f.type });
+                            targetList.push({ file: newFile, previewUrl: URL.createObjectURL(blob) });
+                            renderThumbnails(targetList, containerId, inputId);
+                        });
+                    });
+                }
+            };
+
+            restoreFiles(result.doliPendingTicketFiles, ticketFilesList, 'preview-container', 'ticket-file');
+            restoreFiles(result.doliPendingOppFiles, oppFilesList, 'opp-preview-container', 'opp-file');
+            
+            // Nettoyage pour ne pas les garder indéfiniment
+            chrome.storage.local.remove(['doliPendingTicketFiles', 'doliPendingOppFiles']);
+
+
             if (result.doliPendingScreenshot) {
                 const dataUrl = result.doliPendingScreenshot;
                 const activeTabScreenshot = result.doliActiveTab || 'ticket';
