@@ -2311,11 +2311,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     extBadge = ext.substring(0, 4);
                 }
 
-                itemDiv.innerHTML = `
-                    <div class="thumb-badge">${extBadge}</div>
-                    <div class="thumb-icon ${iconClass}">${iconSvg}</div>
-                    <div class="thumb-name" title="${fileObj.file.name}">${fileObj.file.name}</div>
-                `;
+                // Safe DOM construction to prevent XSS from file names
+                const badgeDiv = document.createElement('div');
+                badgeDiv.className = 'thumb-badge';
+                badgeDiv.textContent = extBadge;
+
+                const iconDiv = document.createElement('div');
+                iconDiv.className = `thumb-icon ${iconClass}`;
+                iconDiv.innerHTML = iconSvg; // Safe: generated internally, not from user input
+
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'thumb-name';
+                nameDiv.title = fileObj.file.name;
+                nameDiv.textContent = fileObj.file.name; // Safe against XSS
+
+                itemDiv.appendChild(badgeDiv);
+                itemDiv.appendChild(iconDiv);
+                itemDiv.appendChild(nameDiv);
 
                 const removeBtn = document.createElement('button');
                 removeBtn.className = 'btn-remove-item rich-close';
