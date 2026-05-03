@@ -1010,7 +1010,7 @@ a.rt-ref:hover {
     border-radius: 8px;
     display: flex;
     align-items: center;
-    padding: 8px 12px;
+    padding: 10px 15px;
     background-color: #fff;
     transition: background-color 0.2s, border-color 0.2s;
 }
@@ -1022,44 +1022,51 @@ a.rt-ref:hover {
 
 .upload-left {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    justify-content: center;
     flex: 1;
     cursor: pointer;
+    gap: 2px;
+}
+
+.upload-top-row {
+    display: flex;
+    align-items: center;
     gap: 12px;
 }
 
 .icon-cloud {
-    width: 36px;
-    height: 36px;
-    color: #334155;
+    width: 40px;
+    height: 40px;
+    color: #212529; /* Darker, almost black/dark blue as in mockup */
 }
 
-.upload-text {
+.upload-title {
+    font-size: 16px;
+    line-height: 1.2;
     display: flex;
     flex-direction: column;
 }
 
-.upload-title {
-    font-size: 13px;
-    color: #1e293b;
-    line-height: 1.2;
+.upload-title .blue-link {
+    color: #0259a8;
+    text-decoration: underline;
+    font-weight: 600;
 }
 
-.upload-title span:first-child {
-    color: #2563eb;
-    text-decoration: underline;
-    font-weight: 500;
+.upload-title .dark-text {
+    color: #212529;
 }
 
 .upload-hint {
-    font-size: 11px;
-    color: #64748b;
-    margin-top: 2px;
+    font-size: 13px;
+    color: #6c757d;
+    margin-top: 4px;
 }
 
 .upload-separator {
     width: 1px;
-    background-color: #e2e8f0;
+    background-color: #dee2e6;
     margin: 0 15px;
     align-self: stretch;
 }
@@ -1072,17 +1079,17 @@ a.rt-ref:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #334155;
+    color: #212529;
     transition: color 0.2s;
 }
 
 .upload-right:hover {
-    color: #2563eb;
+    color: #0259a8;
 }
 
 .icon-camera {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
 }
 
 .btn-submit-rocket {
@@ -1090,16 +1097,16 @@ a.rt-ref:hover {
     color: white;
     border: none;
     border-radius: 6px;
-    padding: 0 20px;
+    padding: 0 25px;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 15px;
     transition: background-color 0.2s;
-    min-width: 100px;
+    min-width: 120px;
 }
 
 .btn-submit-rocket:hover:not(:disabled) {
@@ -1112,8 +1119,8 @@ a.rt-ref:hover {
 }
 
 .icon-rocket {
-    width: 20px;
-    height: 20px;
+    width: 36px;
+    height: 36px;
     margin-bottom: 4px;
 }
 
@@ -1203,4 +1210,11 @@ a.rt-ref:hover {
 }
 .btn-remove-item.rich-close:hover {
     background-color: #dc2626;
+}
+
+.btn-submit-rocket .btn-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
