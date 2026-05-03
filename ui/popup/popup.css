@@ -1022,44 +1022,32 @@ a.rt-ref:hover {
 
 .upload-left {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
+    align-items: center;
     flex: 1;
     cursor: pointer;
-    gap: 2px;
-}
-
-.upload-top-row {
-    display: flex;
-    align-items: center;
     gap: 12px;
 }
 
 .icon-cloud {
     width: 40px;
     height: 40px;
-    color: #212529; /* Darker, almost black/dark blue as in mockup */
+    color: #212529;
 }
 
-.upload-title {
-    font-size: 16px;
-    line-height: 1.2;
+.upload-text {
     display: flex;
     flex-direction: column;
 }
 
-.upload-title .blue-link {
+.blue-link {
+    font-size: 16px;
     color: #0259a8;
     text-decoration: underline;
     font-weight: 600;
 }
 
-.upload-title .dark-text {
-    color: #212529;
-}
-
 .upload-hint {
-    font-size: 13px;
+    font-size: 12px;
     color: #6c757d;
     margin-top: 4px;
 }

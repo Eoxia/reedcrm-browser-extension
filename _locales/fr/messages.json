@@ -684,13 +684,13 @@
         }
     },
     "popup_upload_title": {
-        "message": "Parcourir ou"
+        "message": "Parcourir"
     },
     "popup_upload_subtitle": {
         "message": "glisser vos fichiers"
     },
     "popup_upload_hint": {
-        "message": "Supporte le copier-coller (Ctrl+V)"
+        "message": "copier- coller (Ctrl+V)"
     },
     "popup_capture": {
         "message": "Capturer"

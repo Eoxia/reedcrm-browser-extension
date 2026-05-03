@@ -1443,12 +1443,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupWarning.classList.add('hidden');
                 ticketForm.classList.remove('hidden');
                 btnSubmit.disabled = false;
-                btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_111');
+                btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_111');
 
                 if (oppForm) {
                     oppForm.classList.remove('hidden');
                     btnSubmitOpp.disabled = false;
-                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_34');
+                    btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_34');
                 }
 
                 const oppOnly = p.doliOppOnly !== false; // true par défaut
@@ -1717,7 +1717,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 btnSubmitOpp.disabled = true;
                 btnSubmitOpp.classList.add('btn-loading');
-                btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_116');
+                btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_116');
                 oppStatusMessage.textContent = '';
                 oppStatusMessage.style.color = '#333';
 
@@ -1784,7 +1784,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const projResponseId = await response.json();
                     
-                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_117');
+                    btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_117');
                     
                     // Some Dolibarr versions/endpoints return an array [144] or a single int 144
                     const projectId = Array.isArray(projResponseId) ? projResponseId[0] : projResponseId;
@@ -1895,7 +1895,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     window.doliVersionStr = "Illisible";
                                 }
                             } else {
-                                btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_118');
+                                btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_118');
                                 await new Promise(r => setTimeout(r, 600)); // Laisser l'utilisateur lire le message
                             }
                         } catch(e) {
@@ -1903,7 +1903,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             contactWasAssigned = false;
                             contactErrorCode = 'ReedCRM-4003';
                             contactErrorDetail = e.message;
-                            btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_119');
+                            btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_119');
                             await new Promise(r => setTimeout(r, 600));
                         }
                     }
@@ -1937,7 +1937,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Pièce jointe
                     if (oppFilesList.length > 0 && projectId) {
-                        btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_120');
+                        btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_120');
 
                         for (let fileObj of oppFilesList) {
                             const fileToSend = fileObj.file;
@@ -1982,7 +1982,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     btnSubmitOpp.disabled = false;
                     btnSubmitOpp.classList.remove('btn-loading');
-                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_121');
+                    btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_121');
                     
                     let contactErrorHtml = '';
                     if (contactId && contactId !== '' && !contactWasAssigned) {
@@ -2025,7 +2025,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (error) {
                     btnSubmitOpp.classList.remove('btn-loading');
                     // We reset the text so error doesn't overwrite the button completely wrongly
-                    btnSubmitOpp.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_122');
+                    btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_122');
                     btnSubmitOpp.disabled = false;
                     
                     showDoliError(error, oppStatusMessage);
@@ -2053,7 +2053,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             btnSubmit.disabled = true;
             btnSubmit.classList.add('btn-loading');
-            btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_123');
+            btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_123');
             statusMessage.textContent = '';
             statusMessage.style.color = '#333';
 
@@ -2147,7 +2147,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let ticketRef = ticketId ? ticketId.toString() : '';
 
                 if (ticketFilesList.length > 0 && ticketId) {
-                    btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_124');
+                    btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_124');
 
                     // --- Récupération de la référence textuelle (ex: TCK2402-0001) ---
                     const getTicketRes = await fetchDoli(`${apiUrl}/tickets/${ticketId}`, {
@@ -2226,7 +2226,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Succès final (On injecte du HTML ici pour avoir un lien cliquable)
                 btnSubmit.classList.remove('btn-loading');
-                btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_125');
+                btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_125');
                 statusMessage.innerHTML = `
                     <div style="color:#27ae60; font-size:13px; text-align:left;">
                         Ticket <a href="${ticketLink}" target="_blank" style="text-decoration:none; font-weight:bold; color:#27ae60;" title="Voir le ticket">${displayRef}</a> créé avec succès !
@@ -2241,7 +2241,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (error) {
                 btnSubmit.classList.remove('btn-loading');
-                btnSubmit.querySelector('.btn-text').textContent = chrome.i18n.getMessage('popup_js_126');
+                btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_126');
                 btnSubmit.disabled = false;
 
                 // Si l'erreur signale que le ticket a quand même été créé (ex: échec d'upload)
@@ -2264,7 +2264,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     showDoliError(error, statusMessage);
                 }
-                btnSubmit.textContent = chrome.i18n.getMessage('popup_js_127');
+                btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_127');
             }
         });
 

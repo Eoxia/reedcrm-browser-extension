@@ -663,13 +663,13 @@
         }
     },
     "popup_upload_title": {
-        "message": "Browse or"
+        "message": "Browse"
     },
     "popup_upload_subtitle": {
         "message": "drag your files"
     },
     "popup_upload_hint": {
-        "message": "Supports copy-paste (Ctrl+V)"
+        "message": "copy-paste (Ctrl+V)"
     },
     "popup_capture": {
         "message": "Capture"
