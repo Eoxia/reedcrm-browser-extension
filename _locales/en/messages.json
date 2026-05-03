@@ -132,7 +132,7 @@
         "description": "Extracted string popup_33"
     },
     "popup_34": {
-        "message": "Créer l'opportunité",
+        "message": "Opportunity",
         "description": "Extracted string popup_34"
     },
     "popup_35": {
@@ -675,7 +675,7 @@
         "message": "Capture"
     },
     "popup_create_ticket": {
-        "message": "Create ticket"
+        "message": "Ticket"
     },
     "popup_create_opp": {
         "message": "opportunity"
