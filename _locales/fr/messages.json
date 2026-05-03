@@ -682,5 +682,23 @@
                 "content": "$1"
             }
         }
+    },
+    "popup_upload_title": {
+        "message": "Parcourir ou"
+    },
+    "popup_upload_subtitle": {
+        "message": "glisser vos fichiers"
+    },
+    "popup_upload_hint": {
+        "message": "Supporte le copier-coller (Ctrl+V)"
+    },
+    "popup_capture": {
+        "message": "Capturer"
+    },
+    "popup_create_ticket": {
+        "message": "Créer le ticket"
+    },
+    "popup_create_opp": {
+        "message": "opportunité"
     }
 }

@@ -995,3 +995,212 @@ a.rt-ref:hover {
     flex-wrap: wrap;
     gap: 4px 8px;
 }
+
+/* --- NEW UPLOAD UI (Refonte) --- */
+.bottom-actions-row.new-layout {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    margin-top: 10px;
+}
+
+.dashed-upload-zone {
+    flex: 1;
+    border: 2px dashed #a5b4fc;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: #fff;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.dashed-upload-zone:hover {
+    background-color: #f8fafc;
+    border-color: #818cf8;
+}
+
+.upload-left {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    cursor: pointer;
+    gap: 12px;
+}
+
+.icon-cloud {
+    width: 36px;
+    height: 36px;
+    color: #334155;
+}
+
+.upload-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.upload-title {
+    font-size: 13px;
+    color: #1e293b;
+    line-height: 1.2;
+}
+
+.upload-title span:first-child {
+    color: #2563eb;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.upload-hint {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.upload-separator {
+    width: 1px;
+    background-color: #e2e8f0;
+    margin: 0 15px;
+    align-self: stretch;
+}
+
+.upload-right {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #334155;
+    transition: color 0.2s;
+}
+
+.upload-right:hover {
+    color: #2563eb;
+}
+
+.icon-camera {
+    width: 32px;
+    height: 32px;
+}
+
+.btn-submit-rocket {
+    background-color: #0259a8;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0 20px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 13px;
+    transition: background-color 0.2s;
+    min-width: 100px;
+}
+
+.btn-submit-rocket:hover:not(:disabled) {
+    background-color: #014787;
+}
+
+.btn-submit-rocket:disabled {
+    background-color: #94a3b8;
+    cursor: not-allowed;
+}
+
+.icon-rocket {
+    width: 20px;
+    height: 20px;
+    margin-bottom: 4px;
+}
+
+/* --- RICH THUMBNAILS --- */
+.preview-gallery.new-layout {
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.preview-item.rich-thumb {
+    width: 80px;
+    height: 90px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background-color: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    padding-top: 15px;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.thumb-badge {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: #e2e8f0;
+    color: #475569;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 2px 4px;
+    border-bottom-right-radius: 4px;
+    text-transform: uppercase;
+}
+
+.thumb-icon {
+    width: 32px;
+    height: 32px;
+    color: #64748b;
+    margin-bottom: 5px;
+    margin-top: 4px;
+}
+
+.thumb-icon.is-image {
+    color: #3b82f6;
+}
+
+.thumb-icon.is-pdf {
+    color: #ef4444;
+}
+
+.thumb-icon.is-word {
+    color: #2563eb;
+}
+
+.thumb-name {
+    font-size: 9px;
+    color: #334155;
+    text-align: center;
+    width: 100%;
+    padding: 3px 4px;
+    background-color: #f1f5f9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-top: 1px solid #e2e8f0;
+    position: absolute;
+    bottom: 0;
+    box-sizing: border-box;
+}
+
+.btn-remove-item.rich-close {
+    width: 16px;
+    height: 16px;
+    background-color: #ef4444;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    top: 4px;
+    right: 4px;
+    padding: 0;
+}
+.btn-remove-item.rich-close:hover {
+    background-color: #dc2626;
+}

@@ -661,5 +661,23 @@
                 "content": "$1"
             }
         }
+    },
+    "popup_upload_title": {
+        "message": "Browse or"
+    },
+    "popup_upload_subtitle": {
+        "message": "drag your files"
+    },
+    "popup_upload_hint": {
+        "message": "Supports copy-paste (Ctrl+V)"
+    },
+    "popup_capture": {
+        "message": "Capture"
+    },
+    "popup_create_ticket": {
+        "message": "Create ticket"
+    },
+    "popup_create_opp": {
+        "message": "opportunity"
     }
 }
