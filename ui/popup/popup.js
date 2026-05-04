@@ -98,6 +98,8 @@ class CustomSelect {
         searchBox.className = 'custom-search-box';
         this.searchInput = document.createElement('input');
         this.searchInput.type = 'text';
+        this.searchInput.id = 'search_' + this.selectElement.id;
+        this.searchInput.name = 'search_' + this.selectElement.id;
         this.searchInput.placeholder = chrome.i18n.getMessage('popup_jsph_134');
         searchBox.appendChild(this.searchInput);
 
@@ -215,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const viewTicket = document.getElementById('view-ticket');
         const viewOpportunity = document.getElementById('view-opportunity');
         const viewTitle = document.getElementById('view-title');
-        const recentTicketsContainer = document.getElementById('recent-tickets-container');
+        const recentTicketsContainer = document.getElementById('all-ticket-container');
         const recentTicketsList = document.getElementById('recent-tickets-list');
 
         const oppForm = document.getElementById('opp-form');
@@ -224,6 +226,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Handlers migrés pour conformité CSP ---
         const tabOppList = document.getElementById('tab-opp-list');
         const viewOppList = document.getElementById('view-opp-list');
+        
+        const tabTicketList = document.getElementById('tab-ticket-list');
+        const viewTicketList = document.getElementById('view-ticket-list');
         
         const oppTelInput = document.getElementById('opp-tel');
         if (oppTelInput) {
@@ -249,10 +254,12 @@ document.addEventListener('DOMContentLoaded', () => {
             tabTicket.classList.remove('active');
             tabOpportunite.classList.remove('active');
             if (tabOppList) tabOppList.classList.remove('active');
+            if (tabTicketList) tabTicketList.classList.remove('active');
             
             viewTicket.classList.add('hidden');
             viewOpportunity.classList.add('hidden');
             if (viewOppList) viewOppList.classList.add('hidden');
+            if (viewTicketList) viewTicketList.classList.add('hidden');
 
             if (view === 'opportunite') {
                 tabOpportunite.classList.add('active');
@@ -263,6 +270,12 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (view === 'opp-list') {
                 if (tabOppList) tabOppList.classList.add('active');
                 if (viewOppList) viewOppList.classList.remove('hidden');
+                if (ticketActions) ticketActions.style.display = 'none'; // Masquer top-actions
+                const mainHeader = document.getElementById('main-header-container');
+                if(mainHeader) mainHeader.style.display = 'none';
+            } else if (view === 'ticket-list') {
+                if (tabTicketList) tabTicketList.classList.add('active');
+                if (viewTicketList) viewTicketList.classList.remove('hidden');
                 if (ticketActions) ticketActions.style.display = 'none'; // Masquer top-actions
                 const mainHeader = document.getElementById('main-header-container');
                 if(mainHeader) mainHeader.style.display = 'none';
@@ -279,6 +292,9 @@ document.addEventListener('DOMContentLoaded', () => {
         tabOpportunite.addEventListener('click', () => switchTab('opportunite'));
         if (tabOppList) {
             tabOppList.addEventListener('click', () => switchTab('opp-list'));
+        }
+        if (tabTicketList) {
+            tabTicketList.addEventListener('click', () => switchTab('ticket-list'));
         }
 
         // Ouvre la page d'options
@@ -348,6 +364,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         if (!window.ticketAssigneeSelect) window.ticketAssigneeSelect = new CustomSelect(assigneeSelect);
                         else window.ticketAssigneeSelect.update();
+                        
+                        window.usersList = activeUsers;
                         
                         return activeUsers;
                     }
@@ -532,12 +550,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fonction pour charger les derniers tickets
         async function loadRecentTickets(apiUrl, token, limit = 10, entity, usersPromise, thirdpartiesPromise) {
             recentTicketsContainer.classList.remove('hidden');
-            recentTicketsList.innerHTML = `
+            const formContainer = document.getElementById('recent-tickets-container-form');
+            const formList = document.getElementById('recent-tickets-list-form');
+            if (formContainer) formContainer.classList.remove('hidden');
+            
+            const loaderHtml = `
                 <div class="loader-container">
                     <div class="loader-spinner"></div>
                     <div>${chrome.i18n.getMessage("popup_32") || "Chargement des tickets..."}</div>
                 </div>
             `;
+            recentTicketsList.innerHTML = loaderHtml;
+            if (formList) formList.innerHTML = loaderHtml;
 
             let usersList = [];
             if (usersPromise) {
@@ -582,6 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (isArr && tickets.length > 0) {
                         recentTicketsList.innerHTML = ''; // Nettoyer
+                        if (formList) formList.innerHTML = ''; // Nettoyer le formulaire
                         const sortedTickets = tickets.sort((a, b) => b.datec - a.datec).slice(0, limit);
 
                         sortedTickets.forEach(ticket => {
@@ -641,6 +666,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (ticketStatusMap[stat]) statusLabelText = ticketStatusMap[stat];
                             if (ticket.status_label) statusLabelText = ticket.status_label;
                             else if (ticket.statut_label) statusLabelText = ticket.statut_label;
+                            
+                            if (statusLabelText.length > 15) statusLabelText = statusLabelText.substring(0, 15) + '..';
 
                             if (stat === "0") {
                                 statusColor = "#e74c3c"; // Rouge (Brouillon/Non lu)
@@ -669,7 +696,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                 companyName = companyName.substring(0, 20) + '...';
                             }
 
-                            const severity = ticket.severity_label || ticket.severity_code || "Normal";
+                            const severityMap = {
+                                "LOW": "Basse",
+                                "NORMAL": "Normale",
+                                "HIGH": "Haute",
+                                "BLOCKING": "Bloquante"
+                            };
+                            let severityCode = String(ticket.severity_code || "").toUpperCase();
+                            let severity = severityMap[severityCode] || ticket.severity_label || ticket.severity_code || "Normal";
+                            if (severity.length > 15) severity = severity.substring(0, 15) + '..';
                             
                             let dateFormatted = "";
                             let elapsedTimeStr = "";
@@ -699,151 +734,84 @@ document.addEventListener('DOMContentLoaded', () => {
                             const progressPct = ticket.progress || ticket.progression || "0";
 
                             // ============================================
-                            // Construction sécurisée du DOM (Anti-XSS, sans inline-JS, avec i18n)
+                            // Construction du DOM (Template Literal avec échappement)
                             // ============================================
-                            const ticketEl = document.createElement('div');
-                            ticketEl.className = 'recent-ticket-item';
-                            ticketEl.style.cssText = "display: block; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 8px; text-decoration: none;";
-
-                            // --- Ligne 1 ---
-                            const row1 = document.createElement('div');
-                            row1.style.cssText = "display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;";
-
-                            const row1Left = document.createElement('div');
-                            row1Left.style.cssText = "display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; font-weight: 500; color: #333;";
-
-                            const refLink = document.createElement('a');
-                            refLink.href = `${doliBaseUrl}/ticket/card.php?id=${ticket.id}`;
-                            refLink.target = "_blank";
-                            refLink.title = chrome.i18n.getMessage('btn_open_ticket') || "Ouvrir le ticket";
-                            refLink.style.cssText = "color: #2c3e50; text-decoration: none;";
-                            refLink.textContent = ticketRef; // textContent sécurisé
-                            row1Left.appendChild(refLink);
-
-                            if (companyName) {
-                                const dot1 = document.createElement('span');
-                                dot1.style.color = "#ccc";
-                                dot1.textContent = "•";
-                                row1Left.appendChild(dot1);
-                                
-                                const compEl = document.createElement('span');
-                                compEl.style.cssText = "display: flex; align-items: center; gap: 4px; color: #2c3e50;";
-                                compEl.title = chrome.i18n.getMessage('label_thirdparty') || "Tiers";
-                                compEl.innerHTML = `<i class="fas fa-building" style="color: #6a7491;"></i> `; // statique sûr
-                                compEl.appendChild(document.createTextNode(companyName)); // texte dynamique sûr
-                                row1Left.appendChild(compEl);
-                            }
-
-                            if (severity) {
-                                const dot2 = document.createElement('span');
-                                dot2.style.color = "#ccc";
-                                dot2.textContent = "•";
-                                row1Left.appendChild(dot2);
-
-                                const sevEl = document.createElement('span');
-                                sevEl.style.cssText = "display: flex; align-items: center; gap: 4px; color: #000;";
-                                sevEl.title = chrome.i18n.getMessage('label_severity') || "Sévérité";
-                                sevEl.innerHTML = `<i class="fas fa-thermometer-half" style="color: #34495e;"></i> `; // statique sûr
-                                sevEl.appendChild(document.createTextNode(severity)); // texte dynamique sûr
-                                row1Left.appendChild(sevEl);
-                            }
+                            let rawMsg = ticket.message || "";
+                            rawMsg = rawMsg.replace(/<br\s*[\/]?>/gi, '\n').replace(/<\/p>/gi, '\n\n');
+                            const safeSubject = (ticket.subject || "Sans titre").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            const safeMessage = rawMsg.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
+                            const safeMessageAttr = safeMessage.replace(/\n/g, '&#10;');
+                            const searchString = (ticketRef + ' ' + safeSubject + ' ' + (companyName || '')).toLowerCase();
                             
-                            row1.appendChild(row1Left);
+                            const assigneeHtml = ticket.user_assign_photo && ticket.user_assign_photo.trim() !== ''
+                                ? `<img src="${doliBaseUrl}/document.php?modulepart=user&file=${encodeURIComponent(ticket.user_assign_photo)}" alt="${initials}" onerror="this.outerHTML='${initials}'">`
+                                : initials;
 
-                            // --- Avatar & Statut ---
-                            const row1Right = document.createElement('div');
-                            row1Right.style.cssText = "display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding-left: 10px;";
+                            const companyHtml = companyName ? `<span class="tc-company" title="Tiers"><i class="fas fa-building" style="color: #6a7491;"></i> ${companyName}</span> <span class="tc-sep">•</span>` : '';
 
-                            if (ticket.user_assign_photo && ticket.user_assign_photo.trim() !== '') {
-                                const imgPhoto = document.createElement('img');
-                                imgPhoto.src = `${doliBaseUrl}/document.php?modulepart=user&file=${encodeURIComponent(ticket.user_assign_photo)}`;
-                                imgPhoto.style.cssText = "width: 24px; height: 24px; border-radius: 50%; object-fit: cover;";
-                                imgPhoto.title = (chrome.i18n.getMessage('label_assigned_to') || "Assigné à:") + " " + initials;
-                                // Remplacement d'erreur via Listener (Manifest V3 CSP compliance au lieu de onerror inline)
-                                imgPhoto.addEventListener('error', () => {
-                                    const fallb = document.createElement('div');
-                                    fallb.style.cssText = "width: 24px; height: 24px; border-radius: 50%; background: #e0e0e0; color: #555; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; overflow: hidden;";
-                                    fallb.title = imgPhoto.title;
-                                    fallb.textContent = initials;
-                                    imgPhoto.replaceWith(fallb);
-                                });
-                                row1Right.appendChild(imgPhoto);
-                            } else {
-                                const fallb = document.createElement('div');
-                                fallb.style.cssText = "width: 24px; height: 24px; border-radius: 50%; background: #e0e0e0; color: #555; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; overflow: hidden;";
-                                fallb.title = (chrome.i18n.getMessage('label_assigned_to') || "Assigné à:") + " " + initials;
-                                fallb.textContent = initials;
-                                row1Right.appendChild(fallb);
-                            }
-
-                            const statusDot = document.createElement('div');
-                            statusDot.className = "rt-status-dot";
-                            statusDot.title = (chrome.i18n.getMessage('label_status') || "Statut:") + " " + statusLabelText;
-                            statusDot.style.cssText = `width: 10px; height: 10px; border-radius: 50%; background-color: ${statusColor}; border: 1px solid #fff; box-shadow: 0 0 0 1px #eee;`;
-                            row1Right.appendChild(statusDot);
-
-                            row1.appendChild(row1Right);
-                            ticketEl.appendChild(row1);
-
-                            // --- Ligne 2 ---
-                            const row2 = document.createElement('div');
-                            row2.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 12px; color: #666;";
-
-                            const dateEl = document.createElement('div');
-                            dateEl.style.cssText = "display: flex; align-items: center; gap: 4px; color: #6a7491;";
-                            dateEl.title = chrome.i18n.getMessage('label_creation_date') || "Date de création";
-                            dateEl.innerHTML = `<i class="far fa-calendar-alt"></i> `;
-                            dateEl.appendChild(document.createTextNode(dateFormatted));
+                            const html = `
+                                <div class="ticket-card-new recent-ticket-item" data-search="${searchString}" data-date="${ticket.datec || 0}" data-stat="${stat}">
+                                    <div class="tc-header">
+                                        <div class="tc-meta">
+                                            <a href="${doliBaseUrl}/ticket/card.php?id=${ticket.id}" target="_blank" class="tc-ref" style="text-decoration: none;">${ticketRef}</a> <span class="tc-sep">•</span> 
+                                            ${companyHtml}
+                                            <span class="tc-date" title="Créé le">${dateFormatted}</span> <span class="tc-sep">•</span> 
+                                            <span class="tc-time" title="Temps écoulé">${elapsedTimeStr || 'Tps: 00:00'}</span> <span class="tc-sep">•</span>
+                                            <span class="inline-editable tc-severity" data-field="severity_code" data-pid="${ticket.id}" data-val="${ticket.severity_code || ''}" title="Sévérité">${severity}</span> <span class="tc-sep">•</span>
+                                            <span class="inline-editable tc-progress" data-field="progress" data-pid="${ticket.id}" data-val="${progressPct}" title="Avancement">${progressPct}%</span>
+                                        </div>
+                                        <div class="tc-assignee inline-editable" data-field="fk_user_assign" data-pid="${ticket.id}" data-val="${ticket.fk_user_assign || ''}" title="Assigné à">
+                                            ${assigneeHtml}
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                                        <div class="tc-title inline-editable" data-field="subject" data-pid="${ticket.id}" data-val="${safeSubject}" title="${safeSubject}" style="flex: 1;">${safeSubject}</div>
+                                        <div class="tc-actions">
+                                            <div class="inline-editable tc-status-btn" data-field="fk_statut" data-pid="${ticket.id}" data-val="${stat}" title="Changer le statut">
+                                                <div class="tc-status-dot" style="background-color: ${statusColor}"></div>
+                                                <span class="tc-status-label" style="text-transform: uppercase;">${statusLabelText}</span>
+                                            </div>
+                                            <a href="${doliBaseUrl}/ticket/messaging.php?id=${ticket.id}" target="_blank" class="tc-chat-link" title="Messages & Evénements">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="tc-body" style="margin-top: 4px;">
+                                        <div class="tc-message-preview inline-editable" data-field="message" data-pid="${ticket.id}" data-val="${safeMessageAttr}" title="${safeMessageAttr}">${safeMessage}</div>
+                                    </div>
+                                </div>
+                            `;
                             
-                            if (elapsedTimeStr) {
-                                const sep = document.createElement('span');
-                                sep.style.cssText = "color: #ccc; margin: 0 4px;";
-                                sep.textContent = "•";
-                                dateEl.appendChild(sep);
-                                
-                                const elap = document.createElement('span');
-                                elap.style.cssText = "font-style: italic; color: #888;";
-                                elap.textContent = elapsedTimeStr;
-                                dateEl.appendChild(elap);
+                            const div = document.createElement('div');
+                            div.innerHTML = html.trim();
+                            recentTicketsList.appendChild(div.firstChild);
+                            
+                            if (formList) {
+                                const formDiv = document.createElement('div');
+                                formDiv.innerHTML = html.trim();
+                                formList.appendChild(formDiv.firstChild);
                             }
-
-                            row2.appendChild(dateEl);
-
-                            const progEl = document.createElement('div');
-                            progEl.style.cssText = "font-weight: bold; font-size: 14px; color: #000;";
-                            progEl.title = chrome.i18n.getMessage('label_progression') || "Progression";
-                            progEl.textContent = `${progressPct}%`;
-                            row2.appendChild(progEl);
-
-                            ticketEl.appendChild(row2);
-
-                            // --- Ligne 3 ---
-                            const subjectEl = document.createElement('div');
-                            subjectEl.className = "rt-subject";
-                            // Le titre alt sur le subect pourrait contenir du XSS si mis direct, donc on utilise setAttribute
-                            subjectEl.setAttribute('title', ticket.subject || "");
-                            subjectEl.style.cssText = "font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;";
-                            subjectEl.textContent = subject; // textContent prévient du XSS
-
-                            ticketEl.appendChild(subjectEl);
-
-                            // Finalisation
-                            recentTicketsList.appendChild(ticketEl);
                         });
                     } else {
-                        recentTicketsList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucun ticket récent trouvé (ou accès API refusé pour cet utilisateur).</div>`;
+                        const noTicketsMsg = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucun ticket récent trouvé (ou accès API refusé pour cet utilisateur).</div>`;
+                        recentTicketsList.innerHTML = noTicketsMsg;
+                        if (formList) formList.innerHTML = noTicketsMsg;
                     }
                 } else {
                     recentTicketsList.innerHTML = '';
+                    if (formList) formList.innerHTML = '';
                     const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
                     d.textContent = `Erreur API (${response.status})`;
                     recentTicketsList.appendChild(d);
+                    if (formList) formList.appendChild(d.cloneNode(true));
                 }
             } catch (error) {
                 recentTicketsList.innerHTML = '';
+                if (formList) formList.innerHTML = '';
                 const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
                 d.textContent = `Erreur JS: ${error.message}`;
                 recentTicketsList.appendChild(d);
+                if (formList) formList.appendChild(d.cloneNode(true));
             }
         }
 
@@ -1260,6 +1228,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             let doliBaseUrl = apiUrl.replace('/api/index.php', '').replace('/api', '');
 
                             let openCount = 0;
+                            let htmlToAppend = "";
                             let renderedCount = document.querySelectorAll('.opp-list-item').length;
                             sortedProjects.forEach((project, index) => {
                                 if (String(project.statut || project.status || "0") === "1") openCount++;
@@ -1271,23 +1240,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                 const html = renderOppItemHtml(project, doliBaseUrl, usersList, customOppDict, oppOriginDict, dolibarrNativeInputReasons);
                                 
-                                // Create logic wrapper to handle initial display vs hidden
-                                const parser = new DOMParser();
-                                const doc = parser.parseFromString(html, 'text/html');
-                                const itemNode = doc.body.firstElementChild; // FIX: Use firstElementChild to avoid text nodes
+                                // Build final HTML string directly to avoid DOMParser overhead
+                                let displayStyle = index >= listCount ? 'display: none;' : '';
+                                let visibilityClass = index >= listCount ? 'initially-hidden' : 'initially-visible';
                                 
-                                if (itemNode) {
-                                    if (index >= listCount) {
-                                        itemNode.style.display = 'none';
-                                        itemNode.classList.add('initially-hidden');
-                                    } else {
-                                        itemNode.classList.add('initially-visible');
-                                    }
-                                    
-                                    allOppList.appendChild(itemNode);
-                                    renderedCount++;
-                                }
+                                // We inject our classes and styles into the first div
+                                const modifiedHtml = html.replace('class="', `class="${visibilityClass} `).replace('style="', `style="${displayStyle} `);
+                                htmlToAppend += modifiedHtml;
+                                renderedCount++;
                             });
+                            
+                            if (htmlToAppend) {
+                                allOppList.insertAdjacentHTML('beforeend', htmlToAppend);
+                            }
+                            
                             if (typeof applyOppFilters === 'function') {
                                 applyOppFilters();
                             }
@@ -1473,7 +1439,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const recentLimit = items.doliRecentCount !== undefined ? parseInt(items.doliRecentCount, 10) || 10 : 10;
                 const listCount = items.doliListCount !== undefined ? parseInt(items.doliListCount, 10) || 15 : 15;
                 const apiLimit = items.doliApiLimit !== undefined ? parseInt(items.doliApiLimit, 10) || 5000 : 5000;
-                loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, usersPromise, thirdpartiesPromise);
+                loadRecentTickets(p.doliUrl, p.doliApiToken, listCount, p.doliEntity, usersPromise, thirdpartiesPromise);
                 loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly, usersPromise, p.doliDictMap || "");
                 
                 // Progressive loading: first 100 fast, then the rest in background
@@ -2252,14 +2218,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     const baseUrl = items.doliUrl ? items.doliUrl.replace(/\/api\/index\.php\/?$/, '').replace(/\/htdocs\/api\/index\.php\/?$/, '/htdocs') : '#';
                     const match = error.message.match(/Ticket créé \((.*?)\)/);
                     const extractedRef = match ? match[1] : '';
-                    let detailsMsg = error.message.split('pièce jointe échouée:');
-                    detailsMsg = detailsMsg.length > 1 ? detailsMsg[1].trim() : 'Erreur inconnue de la PJ';
+                    
+                    let detailsMsg = error.message;
+                    if (detailsMsg.includes('fichier. ')) {
+                        detailsMsg = detailsMsg.split('fichier. ')[1].trim();
+                    } else if (detailsMsg.includes('pièce jointe échouée:')) {
+                        detailsMsg = detailsMsg.split('pièce jointe échouée:')[1].trim();
+                    }
+                    detailsMsg = detailsMsg.replace('PR#37499', '<a href="https://github.com/Dolibarr/dolibarr/pull/37499" target="_blank" style="text-decoration:underline; color:#e74c3c;">PR#37499</a>');
 
                     statusMessage.innerHTML = `
-                        <div style="font-size:13px; text-align:left;">
-                            <span style="color:#e67e22; font-weight:bold;">⚠️ Créé partiellement :</span>
-                            Le <a href="${baseUrl}/ticket/card.php?id=${extractedRef}" target="_blank" style="text-decoration:none; font-weight:bold; color:#e67e22;">Ticket ${extractedRef}</a> a été enregistré, mais la pièce jointe n'a pas pu être envoyée.
-                            <br><small style="color:#e74c3c;"><i>Détail : ${detailsMsg}</i></small>
+                        <div style="font-size:13px; text-align:center; padding: 10px; margin-top: 10px; border: 1px solid #e74c3c; border-radius: 4px; background: #fdfdfd;">
+                            <span style="color:#e67e22; font-weight:bold; font-size:13px;">⚠️ Création partielle du ticket : <a href="${baseUrl}/ticket/card.php?id=${extractedRef}" target="_blank" style="text-decoration:underline; color:#e67e22;">${extractedRef}</a></span><br>
+                            <span style="color:#c0392b; font-weight:bold; font-size:13px; display:inline-block; margin-top:4px;">Attention la pièce n'est pas envoyée</span><br>
+                            <small style="color:#e74c3c; display:inline-block; margin-top:4px;"><i>Détail : ${detailsMsg}</i></small>
                         </div>
                     `;
                 } else {
@@ -2705,6 +2677,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 300);
             });
         }
+        
+        // Recherche dans les tickets
+        const ticketSearchInput = document.getElementById('ticket-search-input');
+        
+        function applyTicketFilters() {
+            const query = (ticketSearchInput ? ticketSearchInput.value : '').toLowerCase().trim();
+            const items = document.querySelectorAll('.recent-ticket-item:not(.opp-list-item)'); // Sélectionne uniquement les tickets
+            
+            items.forEach(item => {
+                let matchSearch = true;
+                if (query !== '') {
+                    const searchStr = item.getAttribute('data-search') || '';
+                    const searchTokens = query.split(' ').filter(t => t.length > 0);
+                    matchSearch = searchTokens.every(token => searchStr.includes(token));
+                }
+
+                if (matchSearch) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        if (ticketSearchInput) {
+            let debounceTimerTkt;
+            ticketSearchInput.addEventListener('input', () => {
+                clearTimeout(debounceTimerTkt);
+                debounceTimerTkt = setTimeout(() => {
+                    applyTicketFilters();
+                }, 300);
+            });
+        }
 
         const quickFilters = document.querySelectorAll('.opp-quick-filter');
         quickFilters.forEach(btn => {
@@ -2776,27 +2781,96 @@ document.addEventListener('click', async (e) => {
 
     const editable = e.target.closest('.inline-editable');
     if (editable) {
+        if (editable.querySelector('input') || editable.querySelector('select') || editable.querySelector('textarea')) return;
+        
         e.preventDefault();
         e.stopPropagation();
-        
-        if (editable.querySelector('input')) return;
         
         const currentValue = editable.getAttribute('data-val') || '';
         const projectId = editable.getAttribute('data-pid');
         const fieldName = editable.getAttribute('data-field');
         
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'inline-edit-input';
-        input.value = currentValue;
+        let input;
+        if (fieldName === 'fk_statut' || fieldName === 'severity_code' || fieldName === 'fk_user_assign') {
+            input = document.createElement('select');
+            input.id = 'inline_edit_' + fieldName + '_' + projectId;
+            input.className = 'inline-edit-input inline-edit-select';
+            
+            if (fieldName === 'fk_statut') {
+                const statuses = {
+                    "0": "Non lu",
+                    "1": "Lu",
+                    "2": "Assigné",
+                    "3": "En cours",
+                    "4": "En attente de retour",
+                    "5": "En attente",
+                    "8": "Fermé (Résolu)",
+                    "9": "Annulé"
+                };
+                for (const [val, label] of Object.entries(statuses)) {
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = label.length > 15 ? label.substring(0, 15) + '..' : label;
+                    if (String(val) === String(currentValue)) opt.selected = true;
+                    input.appendChild(opt);
+                }
+            } else if (fieldName === 'severity_code') {
+                const severities = {
+                    "LOW": "Basse",
+                    "NORMAL": "Normale",
+                    "HIGH": "Haute",
+                    "BLOCKING": "Bloquante"
+                };
+                for (const [val, label] of Object.entries(severities)) {
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = label.length > 15 ? label.substring(0, 15) + '..' : label;
+                    if (String(val) === String(currentValue)) opt.selected = true;
+                    input.appendChild(opt);
+                }
+            } else if (fieldName === 'fk_user_assign') {
+                const optEmpty = document.createElement('option');
+                optEmpty.value = "";
+                optEmpty.textContent = "Non assigné";
+                input.appendChild(optEmpty);
+                if (window.usersList && window.usersList.length > 0) {
+                    window.usersList.forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u.id;
+                        let userLabel = (u.firstname || '') + ' ' + (u.lastname || u.login || '');
+                        opt.textContent = userLabel.length > 15 ? userLabel.substring(0, 15) + '..' : userLabel;
+                        if (String(u.id) === String(currentValue)) opt.selected = true;
+                        input.appendChild(opt);
+                    });
+                }
+            }
+        } else if (fieldName === 'message') {
+            input = document.createElement('textarea');
+            input.id = 'inline_edit_' + fieldName + '_' + projectId;
+            input.name = 'inline_edit_' + fieldName;
+            input.className = 'inline-edit-input';
+            input.value = currentValue;
+            input.style.height = '80px';
+            input.style.resize = 'vertical';
+        } else {
+            input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'inline_edit_' + fieldName + '_' + projectId;
+            input.name = 'inline_edit_' + fieldName;
+            input.className = 'inline-edit-input';
+            input.value = currentValue;
+        }
         
         const originalHtml = editable.innerHTML;
         const originalClass = editable.className;
         
+        editable.classList.add('is-editing');
         editable.innerHTML = '';
         editable.appendChild(input);
         input.focus();
-        input.select();
+        if (input.tagName === 'INPUT') {
+            input.select();
+        }
         
         let isSaving = false;
         
@@ -2815,6 +2889,7 @@ document.addEventListener('click', async (e) => {
                     editable.style.transition = '';
                     editable.innerHTML = originalHtml;
                     editable.className = originalClass;
+                    editable.classList.remove('is-editing');
                     // On ne remet pas isSaving à false car on a restauré l'état initial (plus d'input)
                 }, 3000);
             };
@@ -2858,7 +2933,7 @@ document.addEventListener('click', async (e) => {
                 }
             }
             
-            if (fieldName === 'opp_percent' && newValue !== '') {
+            if ((fieldName === 'opp_percent' || fieldName === 'progress') && newValue !== '') {
                 if (/[^\d.,]/.test(newValue)) {
                     showErrorInline(chrome.i18n.getMessage('popup_js_err_percent') || "Le pourcentage doit être entre 0 et 100");
                     return;
@@ -2889,6 +2964,7 @@ document.addEventListener('click', async (e) => {
             if (newValue === currentValue) {
                 editable.innerHTML = originalHtml;
                 editable.className = originalClass;
+                editable.classList.remove('is-editing');
                 return;
             }
             
@@ -2919,7 +2995,12 @@ document.addEventListener('click', async (e) => {
                     };
                 }
                 
-                const res = await fetchDoli(`${apiUrl}/projects/${projectId}`, {
+                let endpointUrl = `${apiUrl}/projects/${projectId}`;
+                if (['fk_statut', 'severity_code', 'progress', 'fk_user_assign', 'subject', 'message'].includes(fieldName)) {
+                    endpointUrl = `${apiUrl}/tickets/${projectId}`;
+                }
+                
+                const res = await fetchDoli(endpointUrl, {
                     method: 'PUT',
                     headers: {
                         'DOLAPIKEY': token,
@@ -2931,26 +3012,74 @@ document.addEventListener('click', async (e) => {
                 if (res.ok) {
                     editable.setAttribute('data-val', newValue);
                     let displayValue = newValue;
-                    if (!newValue) {
-                        editable.classList.add('placeholder-text');
-                        if (fieldName === 'options_reedcrm_firstname') displayValue = 'Prénom';
-                        else if (fieldName === 'options_reedcrm_lastname') displayValue = 'Nom';
-                        else if (fieldName === 'options_projectphone') displayValue = '0102030405';
-                        else if (fieldName === 'options_reedcrm_email') displayValue = 'nomail@nomail.com';
-                        else if (fieldName === 'options_reedcrm_website') displayValue = 'https://www.website.com';
-                        else if (fieldName === 'opp_percent') displayValue = '0 %';
-                        else if (fieldName === 'opp_amount') displayValue = '0 €';
-                    } else {
-                        editable.classList.remove('placeholder-text');
-                        if (fieldName === 'opp_percent') {
-                            displayValue = `${Math.round(parseFloat(newValue))} %`;
-                        } else if (fieldName === 'opp_amount') {
-                            displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(parseFloat(newValue));
-                        } else if (fieldName === 'options_reedcrm_website') {
-                            displayValue = newValue;
-                        }
+                    if (input.tagName === 'SELECT') {
+                        const selOpt = input.options[input.selectedIndex];
+                        displayValue = selOpt ? selOpt.text : newValue;
                     }
-                    editable.innerHTML = displayValue;
+
+                    if (fieldName === 'fk_statut') {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = originalHtml;
+                        const label = tempDiv.querySelector('.tc-status-label');
+                        if (label) label.textContent = displayValue;
+                        const dot = tempDiv.querySelector('.tc-status-dot');
+                        if (dot) {
+                            let statusColor = "#95a5a6";
+                            const stat = String(newValue);
+                            if (stat === "0") statusColor = "#e74c3c";
+                            else if (stat === "1") statusColor = "#3498db";
+                            else if (["2", "3", "4", "5", "6", "7"].includes(stat)) statusColor = "#f39c12";
+                            else if (stat === "8") statusColor = "#27ae60";
+                            else if (stat === "9") statusColor = "#7f8c8d";
+                            dot.style.backgroundColor = statusColor;
+                        }
+                        editable.innerHTML = tempDiv.innerHTML;
+                    } else if (fieldName === 'fk_user_assign') {
+                        if (!newValue) {
+                            editable.textContent = '?';
+                        } else {
+                            const matchedUser = window.usersList ? window.usersList.find(u => String(u.id) === String(newValue)) : null;
+                            const parts = displayValue.split(' ');
+                            let initials = parts.length > 1 ? parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase() : displayValue.substring(0, 2).toUpperCase();
+                            if (matchedUser && matchedUser.photo && matchedUser.photo.trim() !== '') {
+                                const img = document.createElement('img');
+                                img.src = `${apiUrl.replace('/api/index.php', '')}/document.php?modulepart=user&file=${encodeURIComponent(matchedUser.photo)}`;
+                                img.alt = initials;
+                                img.onerror = () => {
+                                    editable.textContent = initials;
+                                };
+                                editable.textContent = '';
+                                editable.appendChild(img);
+                            } else {
+                                editable.textContent = initials;
+                            }
+                        }
+                    } else if (fieldName === 'severity_code') {
+                        editable.textContent = displayValue;
+                    } else if (fieldName === 'progress') {
+                        editable.textContent = newValue + '%';
+                    } else {
+                        if (!newValue) {
+                            editable.classList.add('placeholder-text');
+                            if (fieldName === 'options_reedcrm_firstname') displayValue = 'Prénom';
+                            else if (fieldName === 'options_reedcrm_lastname') displayValue = 'Nom';
+                            else if (fieldName === 'options_projectphone') displayValue = '0102030405';
+                            else if (fieldName === 'options_reedcrm_email') displayValue = 'nomail@nomail.com';
+                            else if (fieldName === 'options_reedcrm_website') displayValue = 'https://www.website.com';
+                            else if (fieldName === 'opp_percent') displayValue = '0 %';
+                            else if (fieldName === 'opp_amount') displayValue = '0 €';
+                        } else {
+                            editable.classList.remove('placeholder-text');
+                            if (fieldName === 'opp_percent') {
+                                displayValue = `${Math.round(parseFloat(newValue))} %`;
+                            } else if (fieldName === 'opp_amount') {
+                                displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(parseFloat(newValue));
+                            } else if (fieldName === 'options_reedcrm_website') {
+                                displayValue = newValue;
+                            }
+                        }
+                        editable.textContent = displayValue;
+                    }
                     
                     const contactLine = editable.closest('.rt-contact-line');
                     if (contactLine) {
@@ -3004,13 +3133,36 @@ document.addEventListener('click', async (e) => {
                 alert(chrome.i18n.getMessage('popup_js_err_save') + err.message);
                 editable.innerHTML = originalHtml;
                 editable.className = originalClass;
+                editable.classList.remove('is-editing');
+            } finally {
+                editable.classList.remove('is-editing');
             }
         };
         
-        input.addEventListener('blur', saveEdit);
+        if (input.tagName === 'SELECT') {
+            input.addEventListener('change', saveEdit);
+            const outsideClickListener = (evt) => {
+                if (!editable.contains(evt.target)) {
+                    document.removeEventListener('click', outsideClickListener);
+                    if (editable.classList.contains('is-editing') && !isSaving) {
+                        editable.innerHTML = originalHtml;
+                        editable.className = originalClass;
+                        editable.classList.remove('is-editing');
+                    }
+                }
+            };
+            setTimeout(() => document.addEventListener('click', outsideClickListener), 100);
+        } else {
+            input.addEventListener('blur', saveEdit);
+        }
         input.addEventListener('keydown', (evt) => {
             if (evt.key === 'Enter') {
-                saveEdit();
+                if (input.tagName === 'TEXTAREA') {
+                    if (evt.ctrlKey || evt.metaKey) saveEdit();
+                    // Sinon on laisse faire le saut de ligne natif
+                } else {
+                    saveEdit();
+                }
             } else if (evt.key === 'Tab') {
                 evt.preventDefault();
                 saveEdit().then(() => {
@@ -3024,6 +3176,7 @@ document.addEventListener('click', async (e) => {
                 isSaving = true;
                 editable.innerHTML = originalHtml;
                 editable.className = originalClass;
+                editable.classList.remove('is-editing');
             }
         });
     }
