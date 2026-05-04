@@ -3055,7 +3055,7 @@ document.addEventListener('click', async (e) => {
                             }
                         }
                     } else if (fieldName === 'severity_code') {
-                        editable.innerHTML = displayValue;
+                        editable.textContent = displayValue;
                     } else if (fieldName === 'progress') {
                         editable.innerHTML = newValue + '%';
                     } else {
