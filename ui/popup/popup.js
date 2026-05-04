@@ -2861,7 +2861,11 @@ document.addEventListener('click', async (e) => {
             input.value = currentValue;
         }
         
-        const originalHtml = editable.innerHTML;
+        const originalNodes = Array.from(editable.childNodes).map(n => n.cloneNode(true));
+        const restoreOriginal = (el) => {
+            el.textContent = '';
+            originalNodes.forEach(n => el.appendChild(n.cloneNode(true)));
+        };
         const originalClass = editable.className;
         
         editable.classList.add('is-editing');
@@ -2887,7 +2891,7 @@ document.addEventListener('click', async (e) => {
                 setTimeout(() => {
                     editable.style.color = '';
                     editable.style.transition = '';
-                    editable.innerHTML = originalHtml;
+                    restoreOriginal(editable);
                     editable.className = originalClass;
                     editable.classList.remove('is-editing');
                     // On ne remet pas isSaving à false car on a restauré l'état initial (plus d'input)
@@ -2962,7 +2966,7 @@ document.addEventListener('click', async (e) => {
             }
             
             if (newValue === currentValue) {
-                editable.innerHTML = originalHtml;
+                restoreOriginal(editable);
                 editable.className = originalClass;
                 editable.classList.remove('is-editing');
                 return;
@@ -3018,11 +3022,10 @@ document.addEventListener('click', async (e) => {
                     }
 
                     if (fieldName === 'fk_statut') {
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = originalHtml;
-                        const label = tempDiv.querySelector('.tc-status-label');
+                        restoreOriginal(editable);
+                        const label = editable.querySelector('.tc-status-label');
                         if (label) label.textContent = displayValue;
-                        const dot = tempDiv.querySelector('.tc-status-dot');
+                        const dot = editable.querySelector('.tc-status-dot');
                         if (dot) {
                             let statusColor = "#95a5a6";
                             const stat = String(newValue);
@@ -3033,7 +3036,6 @@ document.addEventListener('click', async (e) => {
                             else if (stat === "9") statusColor = "#7f8c8d";
                             dot.style.backgroundColor = statusColor;
                         }
-                        editable.innerHTML = tempDiv.innerHTML;
                     } else if (fieldName === 'fk_user_assign') {
                         if (!newValue) {
                             editable.textContent = '?';
@@ -3076,9 +3078,32 @@ document.addEventListener('click', async (e) => {
                                 displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(parseFloat(newValue));
                             } else if (fieldName === 'options_reedcrm_website') {
                                 displayValue = newValue;
+                                if (editable.tagName === 'A') {
+                                    let safeHref = '#';
+                                    try {
+                                        const parsedUrl = new URL(newValue, window.location.origin);
+                                        if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+                                            safeHref = parsedUrl.href;
+                                        }
+                                    } catch (e) {}
+                                    editable.setAttribute('href', safeHref);
+                                }
                             }
                         }
-                        editable.textContent = displayValue;
+                        
+                        let iconNode = null;
+                        for (const n of originalNodes) {
+                            if (n.nodeName === 'I') { iconNode = n.cloneNode(true); break; }
+                            if (n.querySelector && n.querySelector('i')) { iconNode = n.querySelector('i').cloneNode(true); break; }
+                        }
+                        
+                        editable.textContent = '';
+                        if (iconNode) {
+                            editable.appendChild(iconNode);
+                            editable.appendChild(document.createTextNode(' ' + displayValue));
+                        } else {
+                            editable.textContent = displayValue;
+                        }
                     }
                     
                     const contactLine = editable.closest('.rt-contact-line');
@@ -3131,7 +3156,7 @@ document.addEventListener('click', async (e) => {
             } catch (err) {
                 console.error(err);
                 alert(chrome.i18n.getMessage('popup_js_err_save') + err.message);
-                editable.innerHTML = originalHtml;
+                restoreOriginal(editable);
                 editable.className = originalClass;
                 editable.classList.remove('is-editing');
             } finally {
@@ -3145,7 +3170,7 @@ document.addEventListener('click', async (e) => {
                 if (!editable.contains(evt.target)) {
                     document.removeEventListener('click', outsideClickListener);
                     if (editable.classList.contains('is-editing') && !isSaving) {
-                        editable.innerHTML = originalHtml;
+                        restoreOriginal(editable);
                         editable.className = originalClass;
                         editable.classList.remove('is-editing');
                     }
@@ -3174,7 +3199,7 @@ document.addEventListener('click', async (e) => {
                 });
             } else if (evt.key === 'Escape') {
                 isSaving = true;
-                editable.innerHTML = originalHtml;
+                restoreOriginal(editable);
                 editable.className = originalClass;
                 editable.classList.remove('is-editing');
             }
