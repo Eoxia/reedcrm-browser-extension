@@ -3057,7 +3057,7 @@ document.addEventListener('click', async (e) => {
                     } else if (fieldName === 'severity_code') {
                         editable.textContent = displayValue;
                     } else if (fieldName === 'progress') {
-                        editable.innerHTML = newValue + '%';
+                        editable.textContent = newValue + '%';
                     } else {
                         if (!newValue) {
                             editable.classList.add('placeholder-text');
