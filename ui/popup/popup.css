@@ -1024,11 +1024,12 @@ a.rt-ref:hover {
 
 .upload-left {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     flex: 1;
     cursor: pointer;
-    gap: 12px;
+    gap: 6px;
 }
 
 .icon-cloud {
@@ -1039,9 +1040,10 @@ a.rt-ref:hover {
 
 .upload-text {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
 }
 
 .blue-link {
@@ -1052,9 +1054,8 @@ a.rt-ref:hover {
 }
 
 .upload-hint {
-    font-size: 11px;
+    font-size: 12px;
     color: #6c757d;
-    margin-top: 2px;
 }
 
 .upload-separator {
