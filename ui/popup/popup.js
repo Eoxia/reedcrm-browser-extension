@@ -2137,11 +2137,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const ticketId = await response.json(); // L'API POST /tickets retourne généralement l'ID du nouvel objet
 
-                // Détermination du fichier à envoyer (priorité au fichier collé si existant, sinon champ classique)
-                let fileToSend = pastedFile;
-                if (!fileToSend && fileInput.files.length > 0) {
-                    fileToSend = fileInput.files[0];
-                }
 
                 // 2. Gestion de la pièce jointe (si présente)
                 let ticketRef = ticketId ? ticketId.toString() : '';
