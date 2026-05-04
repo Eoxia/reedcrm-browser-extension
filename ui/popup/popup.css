@@ -1289,7 +1289,7 @@ a.rt-ref:hover {
     color: white;
     border: none;
     border-radius: 6px;
-    padding: 6px 10px;
+    padding: 5px 10px;
     cursor: pointer;
     display: flex;
     flex-direction: column;
@@ -1315,7 +1315,7 @@ a.rt-ref:hover {
 .icon-rocket {
     width: 30px;
     height: 30px;
-    margin-top: 4px;
+    
 }
 
 /* --- RICH THUMBNAILS --- */
