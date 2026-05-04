@@ -1002,6 +1002,7 @@ a.rt-ref:hover {
     gap: 10px;
     align-items: stretch;
     margin-top: 10px;
+    height: 60px;
 }
 
 .dashed-upload-zone {
@@ -1010,9 +1011,10 @@ a.rt-ref:hover {
     border-radius: 8px;
     display: flex;
     align-items: center;
-    padding: 10px 15px;
+    padding: 0 15px;
     background-color: #fff;
     transition: background-color 0.2s, border-color 0.2s;
+    box-sizing: border-box;
 }
 
 .dashed-upload-zone:hover {
@@ -1029,8 +1031,8 @@ a.rt-ref:hover {
 }
 
 .icon-cloud {
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
     color: #212529;
 }
 
@@ -1040,16 +1042,16 @@ a.rt-ref:hover {
 }
 
 .blue-link {
-    font-size: 16px;
+    font-size: 14px;
     color: #0259a8;
     text-decoration: underline;
     font-weight: 600;
 }
 
 .upload-hint {
-    font-size: 12px;
+    font-size: 11px;
     color: #6c757d;
-    margin-top: 4px;
+    margin-top: 2px;
 }
 
 .upload-separator {
@@ -1076,8 +1078,8 @@ a.rt-ref:hover {
 }
 
 .icon-camera {
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
 }
 
 .btn-submit-rocket {
@@ -1085,16 +1087,17 @@ a.rt-ref:hover {
     color: white;
     border: none;
     border-radius: 6px;
-    padding: 0 25px;
+    padding: 0 15px;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 15px;
+    font-size: 13px;
     transition: background-color 0.2s;
-    min-width: 120px;
+    min-width: 100px;
+    box-sizing: border-box;
 }
 
 .btn-submit-rocket:hover:not(:disabled) {
@@ -1107,9 +1110,9 @@ a.rt-ref:hover {
 }
 
 .icon-rocket {
-    width: 40px;
-    height: 40px;
-    margin-bottom: 4px;
+    width: 24px;
+    height: 24px;
+    margin-bottom: 2px;
 }
 
 /* --- RICH THUMBNAILS --- */
