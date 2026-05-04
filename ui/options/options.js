@@ -460,10 +460,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 date: new Date().toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
             }, normalizedUrl);
             
-            // On met directement à jour le token si on l'a obtenu via un test de connexion
+            // On met directement à jour le token et les permissions
             const p = getActiveProfile();
-            if(p && testResult.apiToken) {
-                 p.doliApiToken = testResult.apiToken;
+            if(p) {
+                 if (testResult.apiToken) p.doliApiToken = testResult.apiToken;
+                 if (testResult.permissions) p.permissions = testResult.permissions;
+                 chrome.storage.sync.set({ doliProfiles: profiles });
             }
 
         } else {
