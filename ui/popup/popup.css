@@ -1000,6 +1000,201 @@ a.rt-ref:hover {
 .bottom-actions-row.new-layout {
     display: flex;
     gap: 6px;
+.mini-select .custom-select-trigger {
+    padding: 2px 8px; /* Removed left padding for absolute icon */
+    font-size: 11px;
+    border-radius: 4px;
+    height: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.mini-select .custom-select-trigger span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mini-select .custom-options-container {
+    max-height: 150px;
+}
+.mini-select .custom-option {
+    padding: 6px 10px;
+    font-size: 11px;
+}
+.mini-select .custom-search-box input {
+    font-size: 11px;
+    padding: 4px 6px;
+}
+.btn-clear { flex: 0 0 40px; background: transparent; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.btn-clear:hover { background-color: #fee2e2 !important; color: #ef4444 !important; border-color: #f87171 !important; }
+.btn-clear-hover:hover { background: #2980b9 !important; }
+
+
+/* --- Dynamic Bottom Actions Row --- */
+.attachment-section.bottom-actions-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 0px;
+    align-items: stretch; /* Les 3 colonnes font la même hauteur */
+}
+
+/* On force certains éléments à s'étirer */
+.attachment-section.bottom-actions-row .attachment-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.attachment-section.bottom-actions-row .left-col {
+    flex: 6; /* Un peu plus grand pour la zone fichier */
+}
+
+.attachment-section.bottom-actions-row .left-col .file-paste-zone {
+    flex: 1; /* Etirer la zone de drag&drop sur la hauteur restante */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.attachment-section.bottom-actions-row .center-col {
+    flex: 4;
+}
+
+.attachment-section.bottom-actions-row .center-col .btn-orange {
+    flex: 1; /* Occupe toute la place verticale disponible */
+    margin: 0; 
+    padding: 2px 4px; /* Réduire un peu le padding pour qu'il loge mieux */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.attachment-section.bottom-actions-row .right-submit-col {
+    flex: 5;
+    display: flex;
+    flex-direction: column;
+}
+
+.btn-submit-inline {
+    width: 100%;
+    flex: 1;
+    margin: 0 !important;
+    white-space: pre-wrap; /* Autorise le retour à la ligne pour "Créer\nl'opportunité" */
+    line-height: 1.2;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Spinner de chargement */
+.loader-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(52, 152, 219, 0.3);
+    border-radius: 50%;
+    border-top-color: #3498db;
+    animation: spin 1s ease-in-out infinite;
+    vertical-align: middle;
+}
+.loader-spinner.small {
+    width: 12px;
+    height: 12px;
+    border-width: 2px;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.loader-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 20px 0;
+    color: #999;
+    font-size: 11px;
+}
+
+/* Segmented Control for Filters */
+.opp-quick-filter {
+    color: #4b5563;
+}
+.opp-quick-filter.active {
+    background-color: #ffffff;
+    color: #1e293b;
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.opp-quick-filter:hover:not(.active) {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+.opp-quick-filter .filter-icon { color: #94a3b8; transition: color 0.2s; }
+.opp-quick-filter.active .filter-icon { color: #5c6e82; }
+
+/* Inline Editing */
+.inline-editable {
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-bottom-color 0.2s;
+}
+.inline-editable:hover {
+    border-bottom-color: #94a3b8;
+}
+.inline-editable.placeholder-text {
+    color: #94a3b8;
+    font-style: italic;
+}
+.inline-edit-input {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    padding: 0 4px;
+    margin: -1px -5px;
+    outline: none;
+    width: 100%;
+    max-width: 150px;
+}
+.rt-stats .inline-edit-input {
+    width: 65px;
+    text-align: right;
+    margin: -1px -2px;
+    padding: 0 2px;
+}
+.rt-contact-line-web .inline-edit-input {
+    width: 250px;
+    max-width: 100%;
+    margin: 0;
+}
+.inline-edit-input:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 1px #3498db;
+}
+.copy-icon {
+    cursor: pointer;
+    color: #94a3b8;
+    margin-left: 4px;
+    vertical-align: middle;
+    transition: color 0.2s;
+}
+.copy-icon:hover {
+    color: #3498db;
+}
+.rt-contact-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+}
+
+/* --- NEW UPLOAD UI (Refonte) --- */
+.bottom-actions-row.new-layout {
+    display: flex;
+    gap: 6px;
     align-items: stretch;
     margin-top: 10px;
     min-height: 60px;
@@ -1010,8 +1205,8 @@ a.rt-ref:hover {
     border: 2px dashed #a5b4fc;
     border-radius: 8px;
     display: flex;
-    align-items: center;
-    padding: 0 5px;
+    align-items: stretch;
+    padding: 5px;
     background-color: #fff;
     transition: background-color 0.2s, border-color 0.2s;
     box-sizing: border-box;
@@ -1026,10 +1221,9 @@ a.rt-ref:hover {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     flex: 1;
     cursor: pointer;
-    gap: 6px;
 }
 
 .icon-cloud {
@@ -1043,7 +1237,8 @@ a.rt-ref:hover {
     flex-direction: row;
     align-items: baseline;
     justify-content: center;
-    flex-wrap: wrap;\n    gap: 4px;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 .blue-link {
@@ -1075,7 +1270,7 @@ a.rt-ref:hover {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     color: #212529;
     transition: color 0.2s;
 }
@@ -1094,7 +1289,7 @@ a.rt-ref:hover {
     color: white;
     border: none;
     border-radius: 6px;
-    padding: 0 10px;
+    padding: 6px 10px;
     cursor: pointer;
     display: flex;
     flex-direction: column;
@@ -1215,5 +1410,6 @@ a.rt-ref:hover {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    height: 100%;
 }
