@@ -1002,7 +1002,7 @@ a.rt-ref:hover {
     gap: 10px;
     align-items: stretch;
     margin-top: 10px;
-    height: 60px;
+    min-height: 60px;
 }
 
 .dashed-upload-zone {
@@ -1054,14 +1054,15 @@ a.rt-ref:hover {
 }
 
 .upload-hint {
-    font-size: 12px;
+    font-size: 11px;
     color: #6c757d;
+    white-space: nowrap;
 }
 
 .upload-separator {
     width: 1px;
     background-color: #dee2e6;
-    margin: 0 15px;
+    margin: 0 10px;
     align-self: stretch;
 }
 
