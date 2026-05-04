@@ -2252,14 +2252,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     const baseUrl = items.doliUrl ? items.doliUrl.replace(/\/api\/index\.php\/?$/, '').replace(/\/htdocs\/api\/index\.php\/?$/, '/htdocs') : '#';
                     const match = error.message.match(/Ticket créé \((.*?)\)/);
                     const extractedRef = match ? match[1] : '';
-                    let detailsMsg = error.message.split('pièce jointe échouée:');
-                    detailsMsg = detailsMsg.length > 1 ? detailsMsg[1].trim() : 'Erreur inconnue de la PJ';
+                    
+                    let detailsMsg = error.message;
+                    if (detailsMsg.includes('fichier. ')) {
+                        detailsMsg = detailsMsg.split('fichier. ')[1].trim();
+                    } else if (detailsMsg.includes('pièce jointe échouée:')) {
+                        detailsMsg = detailsMsg.split('pièce jointe échouée:')[1].trim();
+                    }
+                    detailsMsg = detailsMsg.replace('PR#37499', '<a href="https://github.com/Dolibarr/dolibarr/pull/37499" target="_blank" style="text-decoration:underline; color:#e74c3c;">PR#37499</a>');
 
                     statusMessage.innerHTML = `
-                        <div style="font-size:13px; text-align:left;">
-                            <span style="color:#e67e22; font-weight:bold;">⚠️ Créé partiellement :</span>
-                            Le <a href="${baseUrl}/ticket/card.php?id=${extractedRef}" target="_blank" style="text-decoration:none; font-weight:bold; color:#e67e22;">Ticket ${extractedRef}</a> a été enregistré, mais la pièce jointe n'a pas pu être envoyée.
-                            <br><small style="color:#e74c3c;"><i>Détail : ${detailsMsg}</i></small>
+                        <div style="font-size:13px; text-align:center; padding: 10px; margin-top: 10px; border: 1px solid #e74c3c; border-radius: 4px; background: #fdfdfd;">
+                            <span style="color:#e67e22; font-weight:bold; font-size:13px;">⚠️ Création partielle du ticket : <a href="${baseUrl}/ticket/card.php?id=${extractedRef}" target="_blank" style="text-decoration:underline; color:#e67e22;">${extractedRef}</a></span><br>
+                            <span style="color:#c0392b; font-weight:bold; font-size:13px; display:inline-block; margin-top:4px;">Attention la pièce n'est pas envoyée</span><br>
+                            <small style="color:#e74c3c; display:inline-block; margin-top:4px;"><i>Détail : ${detailsMsg}</i></small>
                         </div>
                     `;
                 } else {
