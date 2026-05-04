@@ -3076,9 +3076,21 @@ document.addEventListener('click', async (e) => {
                                 displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(parseFloat(newValue));
                             } else if (fieldName === 'options_reedcrm_website') {
                                 displayValue = newValue;
+                                if (editable.tagName === 'A') editable.setAttribute('href', newValue);
                             }
                         }
-                        editable.textContent = displayValue;
+                        
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = originalHtml;
+                        const icon = tempDiv.querySelector('i');
+                        
+                        editable.textContent = '';
+                        if (icon) {
+                            editable.appendChild(icon);
+                            editable.appendChild(document.createTextNode(' ' + displayValue));
+                        } else {
+                            editable.textContent = displayValue;
+                        }
                     }
                     
                     const contactLine = editable.closest('.rt-contact-line');
