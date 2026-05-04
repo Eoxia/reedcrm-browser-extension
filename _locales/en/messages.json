@@ -684,7 +684,7 @@
     "message": "Unable to attach file to the opportunity. Check your permissions or the file type."
   },
   "error_4004": {
-    "message": "Unable to attach file to the ticket. Check your permissions or the file type."
+    "message": "Unable to attach file to the ticket. Check your permissions, or ensure your Dolibarr API supports this feature (Dolibarr v23+ or PR#37499)."
   },
   "error_4001": {
     "message": "Unable to assign contact. Check your permissions."

@@ -705,7 +705,7 @@
     "message": "Impossible de joindre le fichier à l'opportunité. Vérifiez vos droits ou le type de fichier."
   },
   "error_4004": {
-    "message": "Impossible de joindre le fichier au ticket. Vérifiez vos droits ou le type de fichier."
+    "message": "Impossible de joindre le fichier au ticket. Vérifiez vos droits, ou assurez-vous que votre API Dolibarr supporte cet envoi (Dolibarr v23+ ou PR#37499)."
   },
   "error_4001": {
     "message": "Impossible d'affecter le contact. Vérifiez vos droits."
