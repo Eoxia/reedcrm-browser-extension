@@ -1000,6 +1000,15 @@ a.rt-ref:hover {
 .bottom-actions-row.new-layout {
     display: flex;
     gap: 6px;
+}
+.custom-option:hover, .custom-option.selected {
+    background-color: #f1f5f9;
+}
+.custom-option.disabled {
+    color: #94a3b8;
+    pointer-events: none;
+    font-style: italic;
+}
 .mini-select .custom-select-trigger {
     padding: 2px 8px; /* Removed left padding for absolute icon */
     font-size: 11px;
@@ -1413,3 +1422,173 @@ a.rt-ref:hover {
     justify-content: space-between;
     height: 100%;
 }
+/* --- NOUVELLE CARTE TICKET --- */
+.ticket-card-new.recent-ticket-item {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px;
+    transition: box-shadow 0.2s;
+    /* Overrides for .recent-ticket-item */
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+}
+.ticket-card-new.recent-ticket-item:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    background-color: #fff;
+}
+.tc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    width: 100%;
+}
+.tc-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 12px;
+    color: #64748b;
+}
+.tc-ref {
+    font-weight: 500;
+    color: #0f172a;
+}
+.tc-sep {
+    color: #cbd5e1;
+}
+.tc-severity {
+    font-weight: 600;
+    color: #0f172a;
+    cursor: pointer;
+}
+.tc-progress {
+    font-weight: 700;
+    color: #0f172a;
+    cursor: pointer;
+}
+.tc-assignee {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    flex-shrink: 0;
+    cursor: pointer;
+    overflow: hidden;
+}
+.tc-assignee.is-editing {
+    width: auto;
+    height: auto;
+    border-radius: 4px;
+    overflow: visible;
+}
+.tc-assignee img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.tc-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.3;
+}
+.tc-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+}
+.tc-message-preview {
+    flex: 1;
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+}
+.tc-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.tc-chat-link {
+    color: #94a3b8;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+.tc-chat-link:hover {
+    color: #3b82f6;
+}
+.tc-status-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f172a;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.2s;
+}
+.tc-status-btn:hover {
+    background: #f8f9fa;
+}
+.tc-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Specific overrides for inline edit inside Ticket Card */
+.tc-meta .inline-edit-input[type="text"] {
+    width: 45px;
+    max-width: 45px;
+    padding: 0 2px;
+    margin: 0;
+    text-align: center;
+}
+.tc-meta .inline-edit-select {
+    width: auto;
+    max-width: 110px;
+    padding: 0 2px;
+    margin: 0;
+    font-size: 11px;
+}
+.tc-actions .inline-edit-select {
+    width: auto;
+    max-width: 130px;
+    padding: 2px;
+    margin: 0;
+    font-size: 11px;
+}
+.tc-company {
+    color: #475569;
+    font-weight: 500;
+}
+

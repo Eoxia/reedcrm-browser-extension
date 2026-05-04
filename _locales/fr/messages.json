@@ -12,7 +12,7 @@
         "description": "Extracted string popup_3"
     },
     "popup_4": {
-        "message": "Ticket",
+        "message": "+ Ticket",
         "description": "Extracted string popup_4"
     },
     "popup_5": {
@@ -728,5 +728,11 @@
                 "content": ""
             }
         }
+    },
+    "popup_ticket_list": {
+        "message": "Tickets"
+    },
+    "popup_title_ticket_list": {
+        "message": "Liste des tickets"
     }
 }
