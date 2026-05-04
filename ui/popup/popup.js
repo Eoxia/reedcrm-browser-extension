@@ -98,8 +98,8 @@ class CustomSelect {
         searchBox.className = 'custom-search-box';
         this.searchInput = document.createElement('input');
         this.searchInput.type = 'text';
-        this.searchInput.id = 'search_' + this.originalSelect.id;
-        this.searchInput.name = 'search_' + this.originalSelect.id;
+        this.searchInput.id = 'search_' + this.selectElement.id;
+        this.searchInput.name = 'search_' + this.selectElement.id;
         this.searchInput.placeholder = chrome.i18n.getMessage('popup_jsph_134');
         searchBox.appendChild(this.searchInput);
 
