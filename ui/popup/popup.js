@@ -739,7 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             let rawMsg = ticket.message || "";
                             rawMsg = rawMsg.replace(/<br\s*[\/]?>/gi, '\n').replace(/<\/p>/gi, '\n\n');
                             const safeSubject = (ticket.subject || "Sans titre").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                            const safeMessage = rawMsg.replace(/<[^>]*>?/gm, '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
+                            const safeMessage = rawMsg.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
                             const safeMessageAttr = safeMessage.replace(/\n/g, '&#10;');
                             const searchString = (ticketRef + ' ' + safeSubject + ' ' + (companyName || '')).toLowerCase();
                             
@@ -3036,15 +3036,22 @@ document.addEventListener('click', async (e) => {
                         editable.innerHTML = tempDiv.innerHTML;
                     } else if (fieldName === 'fk_user_assign') {
                         if (!newValue) {
-                            editable.innerHTML = '?';
+                            editable.textContent = '?';
                         } else {
                             const matchedUser = window.usersList ? window.usersList.find(u => String(u.id) === String(newValue)) : null;
                             const parts = displayValue.split(' ');
                             let initials = parts.length > 1 ? parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase() : displayValue.substring(0, 2).toUpperCase();
                             if (matchedUser && matchedUser.photo && matchedUser.photo.trim() !== '') {
-                                editable.innerHTML = `<img src="${apiUrl.replace('/api/index.php', '')}/document.php?modulepart=user&file=${encodeURIComponent(matchedUser.photo)}" alt="${initials}" onerror="this.outerHTML='${initials}'">`;
+                                const img = document.createElement('img');
+                                img.src = `${apiUrl.replace('/api/index.php', '')}/document.php?modulepart=user&file=${encodeURIComponent(matchedUser.photo)}`;
+                                img.alt = initials;
+                                img.onerror = () => {
+                                    editable.textContent = initials;
+                                };
+                                editable.textContent = '';
+                                editable.appendChild(img);
                             } else {
-                                editable.innerHTML = initials;
+                                editable.textContent = initials;
                             }
                         }
                     } else if (fieldName === 'severity_code') {
