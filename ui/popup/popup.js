@@ -3078,7 +3078,7 @@ document.addEventListener('click', async (e) => {
                                 displayValue = newValue;
                             }
                         }
-                        editable.innerHTML = displayValue;
+                        editable.textContent = displayValue;
                     }
                     
                     const contactLine = editable.closest('.rt-contact-line');
