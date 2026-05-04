@@ -98,6 +98,8 @@ class CustomSelect {
         searchBox.className = 'custom-search-box';
         this.searchInput = document.createElement('input');
         this.searchInput.type = 'text';
+        this.searchInput.id = 'search_' + this.originalSelect.id;
+        this.searchInput.name = 'search_' + this.originalSelect.id;
         this.searchInput.placeholder = chrome.i18n.getMessage('popup_jsph_134');
         searchBox.appendChild(this.searchInput);
 
@@ -2793,6 +2795,8 @@ document.addEventListener('click', async (e) => {
         
         const input = document.createElement('input');
         input.type = 'text';
+        input.id = 'inline_edit_' + fieldName + '_' + projectId;
+        input.name = 'inline_edit_' + fieldName;
         input.className = 'inline-edit-input';
         input.value = currentValue;
         
