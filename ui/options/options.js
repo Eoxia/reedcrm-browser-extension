@@ -162,11 +162,11 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
             const prStatus = prResponse.status;
             const prData = await prResponse.text();
             
-            // On considère que le PR est là si on obtient un 404 (Object not found), ou 200 (Succès), ou 403 (Accès refusé mais route validée)
-            if (prStatus === 404 || prStatus === 200 || prStatus === 403 || prStatus === 401) {
-                if (!prData.toLowerCase().includes('not implemented')) {
-                    hasGedPR37499 = true;
-                }
+            // On considère que le PR est là si on n'a PAS d'erreur explicite "not implemented" ou "unknown modulepart"
+            if (prData.toLowerCase().includes('not implemented') || prData.toLowerCase().includes('unknown modulepart')) {
+                hasGedPR37499 = false;
+            } else {
+                hasGedPR37499 = true;
             }
         } catch (err) {
             console.warn("Erreur lors de la vérification des droits API:", err);
@@ -772,7 +772,7 @@ function renderPermissions(statusObj, baseUrl) {
 
             let rightLink = "#";
             if (baseDoli && right.id === 'PR #37499') {
-                rightLink = "https://github.com/Dolibarr/dolibarr/pull/37499";
+                rightLink = `${baseDoli}/admin/modules.php?search_keyword=api`;
             } else if (baseDoli && right.id !== 'API') {
                 // Lien basé sur l'ID 58 spécifié, injection du right ID de manière dynamique.
                 rightLink = `${baseDoli}/user/group/perms.php?id=58&rights=${right.id}`;
@@ -780,11 +780,18 @@ function renderPermissions(statusObj, baseUrl) {
                 rightLink = `${baseDoli}/admin/modules.php?search_keyword=api`;
             }
 
+            let displayTitle = right.title;
+            let displayId = right.id;
+            if (right.id === 'PR #37499') {
+                displayTitle = `<a href="https://github.com/Dolibarr/dolibarr/pull/37499" target="_blank" style="text-decoration: underline; color: var(--primary-color);" title="Voir la Pull Request sur GitHub">PR #37499</a> Support pour les Tickets`;
+                displayId = 'GED';
+            }
+
             html += `
             <div class="perm-row">
-                <span class="perm-id">${right.id}</span>
-                <span class="perm-title">${right.title}</span>
-                <span class="perm-link"><a href="${rightLink}" target="_blank" title="Voir ce droit sur Dolibarr">🔗 Voir</a></span>
+                <span class="perm-id">${displayId}</span>
+                <span class="perm-title">${displayTitle}</span>
+                <span class="perm-link"><a href="${rightLink}" target="_blank" title="Voir la configuration API">🔗 Voir</a></span>
                 <span class="perm-status ${statusClass}">${statusText}</span>
             </div>`;
         });

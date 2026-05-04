@@ -1501,7 +1501,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Vérification des droits GED pour afficher un avertissement si nécessaire
                 const gedWarning = document.getElementById('ged-warning');
-                if (gedWarning && p.doliStatus && p.doliStatus.ged !== 'ok') {
+                const pasteZone = document.getElementById('paste-zone');
+                
+                if (gedWarning && p.permissions && p.permissions.ged_pr === false) {
+                    gedWarning.classList.remove('hidden');
+                    gedWarning.innerHTML = `L'API de votre Dolibarr ne permet pas l'upload des fichiers joints aux tickets.<br> Voir <a href="https://github.com/Dolibarr/dolibarr/pull/37499" target="_blank" style="color: #c0392b; text-decoration: underline;">PR#37499</a> ou utilisez Dolibarr v23+.`;
+                    
+                    if (pasteZone) {
+                        const uploadZone = pasteZone.querySelector('.dashed-upload-zone');
+                        if (uploadZone) {
+                            uploadZone.style.display = 'none';
+                        }
+                    }
+                } else if (gedWarning && p.doliStatus && p.doliStatus.ged !== 'ok') {
                     gedWarning.classList.remove('hidden');
                 }
 
