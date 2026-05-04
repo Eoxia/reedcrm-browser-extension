@@ -1067,6 +1067,7 @@ a.rt-ref:hover {
 }
 
 .upload-right {
+    flex: 1;
     background: none;
     border: none;
     cursor: pointer;
