@@ -1976,8 +1976,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                         if (!docResponse.ok) {
                                             const docError = await docResponse.json().catch(() => null);
-                                            let errorMsg = docError?.error?.message || ErrorManager.getMessage('ReedCRM-4002');
-                                            throw new Error(`Opportunité créée, mais erreur PJ: ${errorMsg}`);
+                                            let errorMsg = docError?.error?.message || "";
+                                            throw new DoliError('ReedCRM-4005', errorMsg, { substitution: projectRef });
                                         }
                                         resolve();
                                     } catch (err) {
@@ -2195,14 +2195,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                     if (!docResponse.ok) {
                                         const docError = await docResponse.json().catch(() => null);
-                                        let errorMsg = ErrorManager.getMessage('ReedCRM-4004');
-                                        if (docError && docError.error && docError.error.message) {
-                                            errorMsg = docError.error.message;
-                                            if (errorMsg.includes("Modulepart ticket not implemented yet")) {
-                                                errorMsg = "Votre version de Dolibarr ne supporte pas encore l'envoi de fichiers vers les tickets via son API REST.";
-                                            }
-                                        }
-                                        throw new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur PJ: ${errorMsg}`);
+                                        let errorMsg = docError?.error?.message || "";
+                                        throw new DoliError('ReedCRM-4006', errorMsg, { substitution: ticketRef });
                                     }
                                     resolve();
                                 } catch (err) {

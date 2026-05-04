@@ -681,15 +681,31 @@
     "message": "opportunity"
   },
   "error_4002": {
-    "message": "Unable to attach file to the opportunity. Check your permissions or the file type."
+    "message": "Error while saving the opportunity. Check your data."
   },
   "error_4004": {
-    "message": "Unable to attach file to the ticket. Check your permissions, or ensure your Dolibarr API supports this feature (Dolibarr v23+ or PR#37499)."
+    "message": "Error while saving the ticket. Check your data."
   },
   "error_4001": {
     "message": "Unable to assign contact. Check your permissions."
   },
   "error_4003": {
     "message": "Network error while assigning contact."
+  },
+  "error_4005": {
+    "message": "Opportunity created (), but unable to attach file. Check your permissions or the file format.",
+    "placeholders": {
+      "1": {
+        "content": ""
+      }
+    }
+  },
+  "error_4006": {
+    "message": "Ticket created (), but unable to attach file. Check your permissions, or ensure the API supports this feature (Dolibarr v23+ or PR#37499).",
+    "placeholders": {
+      "1": {
+        "content": ""
+      }
+    }
   }
 }

@@ -23,6 +23,8 @@ const ERROR_DICTIONARY = {
     'ReedCRM-4002': { category: 'Sauvegarde API', key: 'error_4002', file: 'popup.js', line: 1023 },
     'ReedCRM-4003': { category: 'Erreur Réseau (Contact)', key: 'error_4003', file: 'popup.js', line: 1067 },
     'ReedCRM-4004': { category: 'Sauvegarde API', key: 'error_4004', file: 'popup.js', line: 1341 },
+    'ReedCRM-4005': { category: 'Envoi PJ Opportunité', key: 'error_4005', file: 'popup.js', line: 'auto' },
+    'ReedCRM-4006': { category: 'Envoi PJ Ticket', key: 'error_4006', file: 'popup.js', line: 'auto' },
 
     // ---- Défaut ----
     'ReedCRM-9999': { category: 'Erreur Inconnue', key: 'error_9999', file: 'Partout', line: 'auto' }
@@ -59,7 +61,7 @@ class DoliError extends Error {
         const errorDef = ERROR_DICTIONARY[code] || ERROR_DICTIONARY['ReedCRM-9999'];
         
         // Récupération dynamique du message traduit
-        const translatedMessage = ErrorManager.getMessage(code);
+        const translatedMessage = ErrorManager.getMessage(code, context.substitution || "");
         super(translatedMessage);
         
         this.name = 'DoliError';
