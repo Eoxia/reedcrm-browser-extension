@@ -3078,7 +3078,16 @@ document.addEventListener('click', async (e) => {
                                 displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(parseFloat(newValue));
                             } else if (fieldName === 'options_reedcrm_website') {
                                 displayValue = newValue;
-                                if (editable.tagName === 'A') editable.setAttribute('href', newValue);
+                                if (editable.tagName === 'A') {
+                                    let safeHref = '#';
+                                    try {
+                                        const parsedUrl = new URL(newValue, window.location.origin);
+                                        if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+                                            safeHref = parsedUrl.href;
+                                        }
+                                    } catch (e) {}
+                                    editable.setAttribute('href', safeHref);
+                                }
                             }
                         }
                         
