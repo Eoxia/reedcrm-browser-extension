@@ -1522,6 +1522,7 @@ a.rt-ref:hover {
     -webkit-box-orient: vertical;
     overflow: hidden;
     word-break: break-word;
+    white-space: pre-wrap;
 }
 .tc-actions {
     display: flex;
@@ -1592,3 +1593,19 @@ a.rt-ref:hover {
     font-weight: 500;
 }
 
+.tc-title .inline-edit-input {
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    font-weight: inherit;
+}
+
+.tc-message-preview .inline-edit-input {
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    box-sizing: border-box;
+}

@@ -365,6 +365,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!window.ticketAssigneeSelect) window.ticketAssigneeSelect = new CustomSelect(assigneeSelect);
                         else window.ticketAssigneeSelect.update();
                         
+                        window.usersList = activeUsers;
+                        
                         return activeUsers;
                     }
                     if (!window.ticketAssigneeSelect) window.ticketAssigneeSelect = new CustomSelect(assigneeSelect);
@@ -548,12 +550,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fonction pour charger les derniers tickets
         async function loadRecentTickets(apiUrl, token, limit = 10, entity, usersPromise, thirdpartiesPromise) {
             recentTicketsContainer.classList.remove('hidden');
-            recentTicketsList.innerHTML = `
+            const formContainer = document.getElementById('recent-tickets-container-form');
+            const formList = document.getElementById('recent-tickets-list-form');
+            if (formContainer) formContainer.classList.remove('hidden');
+            
+            const loaderHtml = `
                 <div class="loader-container">
                     <div class="loader-spinner"></div>
                     <div>${chrome.i18n.getMessage("popup_32") || "Chargement des tickets..."}</div>
                 </div>
             `;
+            recentTicketsList.innerHTML = loaderHtml;
+            if (formList) formList.innerHTML = loaderHtml;
 
             let usersList = [];
             if (usersPromise) {
@@ -598,6 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (isArr && tickets.length > 0) {
                         recentTicketsList.innerHTML = ''; // Nettoyer
+                        if (formList) formList.innerHTML = ''; // Nettoyer le formulaire
                         const sortedTickets = tickets.sort((a, b) => b.datec - a.datec).slice(0, limit);
 
                         sortedTickets.forEach(ticket => {
@@ -657,6 +666,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (ticketStatusMap[stat]) statusLabelText = ticketStatusMap[stat];
                             if (ticket.status_label) statusLabelText = ticket.status_label;
                             else if (ticket.statut_label) statusLabelText = ticket.statut_label;
+                            
+                            if (statusLabelText.length > 15) statusLabelText = statusLabelText.substring(0, 15) + '..';
 
                             if (stat === "0") {
                                 statusColor = "#e74c3c"; // Rouge (Brouillon/Non lu)
@@ -685,7 +696,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                 companyName = companyName.substring(0, 20) + '...';
                             }
 
-                            const severity = ticket.severity_label || ticket.severity_code || "Normal";
+                            const severityMap = {
+                                "LOW": "Basse",
+                                "NORMAL": "Normale",
+                                "HIGH": "Haute",
+                                "BLOCKING": "Bloquante"
+                            };
+                            let severityCode = String(ticket.severity_code || "").toUpperCase();
+                            let severity = severityMap[severityCode] || ticket.severity_label || ticket.severity_code || "Normal";
+                            if (severity.length > 15) severity = severity.substring(0, 15) + '..';
                             
                             let dateFormatted = "";
                             let elapsedTimeStr = "";
@@ -717,8 +736,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             // ============================================
                             // Construction du DOM (Template Literal avec échappement)
                             // ============================================
+                            let rawMsg = ticket.message || "";
+                            rawMsg = rawMsg.replace(/<br\s*[\/]?>/gi, '\n').replace(/<\/p>/gi, '\n\n');
                             const safeSubject = (ticket.subject || "Sans titre").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                            const safeMessage = (ticket.message || "").replace(/<[^>]*>?/gm, '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            const safeMessage = rawMsg.replace(/<[^>]*>?/gm, '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
+                            const safeMessageAttr = safeMessage.replace(/\n/g, '&#10;');
                             const searchString = (ticketRef + ' ' + safeSubject + ' ' + (companyName || '')).toLowerCase();
                             
                             const assigneeHtml = ticket.user_assign_photo && ticket.user_assign_photo.trim() !== ''
@@ -742,18 +764,20 @@ document.addEventListener('DOMContentLoaded', () => {
                                             ${assigneeHtml}
                                         </div>
                                     </div>
-                                    <div class="tc-title inline-editable" data-field="subject" data-pid="${ticket.id}" data-val="${safeSubject}" title="${safeSubject}">${safeSubject}</div>
-                                    <div class="tc-body">
-                                        <div class="tc-message-preview inline-editable" data-field="message" data-pid="${ticket.id}" data-val="${safeMessage}" title="${safeMessage}">${safeMessage}</div>
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                                        <div class="tc-title inline-editable" data-field="subject" data-pid="${ticket.id}" data-val="${safeSubject}" title="${safeSubject}" style="flex: 1;">${safeSubject}</div>
                                         <div class="tc-actions">
-                                            <a href="${doliBaseUrl}/ticket/messaging.php?id=${ticket.id}" target="_blank" class="tc-chat-link" title="Messages & Evénements">
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-                                            </a>
                                             <div class="inline-editable tc-status-btn" data-field="fk_statut" data-pid="${ticket.id}" data-val="${stat}" title="Changer le statut">
                                                 <div class="tc-status-dot" style="background-color: ${statusColor}"></div>
                                                 <span class="tc-status-label" style="text-transform: uppercase;">${statusLabelText}</span>
                                             </div>
+                                            <a href="${doliBaseUrl}/ticket/messaging.php?id=${ticket.id}" target="_blank" class="tc-chat-link" title="Messages & Evénements">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                                            </a>
                                         </div>
+                                    </div>
+                                    <div class="tc-body" style="margin-top: 4px;">
+                                        <div class="tc-message-preview inline-editable" data-field="message" data-pid="${ticket.id}" data-val="${safeMessageAttr}" title="${safeMessageAttr}">${safeMessage}</div>
                                     </div>
                                 </div>
                             `;
@@ -761,21 +785,33 @@ document.addEventListener('DOMContentLoaded', () => {
                             const div = document.createElement('div');
                             div.innerHTML = html.trim();
                             recentTicketsList.appendChild(div.firstChild);
+                            
+                            if (formList) {
+                                const formDiv = document.createElement('div');
+                                formDiv.innerHTML = html.trim();
+                                formList.appendChild(formDiv.firstChild);
+                            }
                         });
                     } else {
-                        recentTicketsList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucun ticket récent trouvé (ou accès API refusé pour cet utilisateur).</div>`;
+                        const noTicketsMsg = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucun ticket récent trouvé (ou accès API refusé pour cet utilisateur).</div>`;
+                        recentTicketsList.innerHTML = noTicketsMsg;
+                        if (formList) formList.innerHTML = noTicketsMsg;
                     }
                 } else {
                     recentTicketsList.innerHTML = '';
+                    if (formList) formList.innerHTML = '';
                     const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
                     d.textContent = `Erreur API (${response.status})`;
                     recentTicketsList.appendChild(d);
+                    if (formList) formList.appendChild(d.cloneNode(true));
                 }
             } catch (error) {
                 recentTicketsList.innerHTML = '';
+                if (formList) formList.innerHTML = '';
                 const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
                 d.textContent = `Erreur JS: ${error.message}`;
                 recentTicketsList.appendChild(d);
+                if (formList) formList.appendChild(d.cloneNode(true));
             }
         }
 
@@ -1403,7 +1439,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const recentLimit = items.doliRecentCount !== undefined ? parseInt(items.doliRecentCount, 10) || 10 : 10;
                 const listCount = items.doliListCount !== undefined ? parseInt(items.doliListCount, 10) || 15 : 15;
                 const apiLimit = items.doliApiLimit !== undefined ? parseInt(items.doliApiLimit, 10) || 5000 : 5000;
-                loadRecentTickets(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, usersPromise, thirdpartiesPromise);
+                loadRecentTickets(p.doliUrl, p.doliApiToken, listCount, p.doliEntity, usersPromise, thirdpartiesPromise);
                 loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly, usersPromise, p.doliDictMap || "");
                 
                 // Progressive loading: first 100 fast, then the rest in background
@@ -2745,10 +2781,10 @@ document.addEventListener('click', async (e) => {
 
     const editable = e.target.closest('.inline-editable');
     if (editable) {
+        if (editable.querySelector('input') || editable.querySelector('select') || editable.querySelector('textarea')) return;
+        
         e.preventDefault();
         e.stopPropagation();
-        
-        if (editable.querySelector('input')) return;
         
         const currentValue = editable.getAttribute('data-val') || '';
         const projectId = editable.getAttribute('data-pid');
@@ -2774,7 +2810,7 @@ document.addEventListener('click', async (e) => {
                 for (const [val, label] of Object.entries(statuses)) {
                     const opt = document.createElement('option');
                     opt.value = val;
-                    opt.textContent = label;
+                    opt.textContent = label.length > 15 ? label.substring(0, 15) + '..' : label;
                     if (String(val) === String(currentValue)) opt.selected = true;
                     input.appendChild(opt);
                 }
@@ -2788,7 +2824,7 @@ document.addEventListener('click', async (e) => {
                 for (const [val, label] of Object.entries(severities)) {
                     const opt = document.createElement('option');
                     opt.value = val;
-                    opt.textContent = label;
+                    opt.textContent = label.length > 15 ? label.substring(0, 15) + '..' : label;
                     if (String(val) === String(currentValue)) opt.selected = true;
                     input.appendChild(opt);
                 }
@@ -2801,7 +2837,8 @@ document.addEventListener('click', async (e) => {
                     window.usersList.forEach(u => {
                         const opt = document.createElement('option');
                         opt.value = u.id;
-                        opt.textContent = (u.firstname || '') + ' ' + (u.lastname || u.login || '');
+                        let userLabel = (u.firstname || '') + ' ' + (u.lastname || u.login || '');
+                        opt.textContent = userLabel.length > 15 ? userLabel.substring(0, 15) + '..' : userLabel;
                         if (String(u.id) === String(currentValue)) opt.selected = true;
                         input.appendChild(opt);
                     });
@@ -3097,11 +3134,28 @@ document.addEventListener('click', async (e) => {
         
         if (input.tagName === 'SELECT') {
             input.addEventListener('change', saveEdit);
+            const outsideClickListener = (evt) => {
+                if (!editable.contains(evt.target)) {
+                    document.removeEventListener('click', outsideClickListener);
+                    if (editable.classList.contains('is-editing') && !isSaving) {
+                        editable.innerHTML = originalHtml;
+                        editable.className = originalClass;
+                        editable.classList.remove('is-editing');
+                    }
+                }
+            };
+            setTimeout(() => document.addEventListener('click', outsideClickListener), 100);
+        } else {
+            input.addEventListener('blur', saveEdit);
         }
-        input.addEventListener('blur', saveEdit);
         input.addEventListener('keydown', (evt) => {
             if (evt.key === 'Enter') {
-                saveEdit();
+                if (input.tagName === 'TEXTAREA') {
+                    if (evt.ctrlKey || evt.metaKey) saveEdit();
+                    // Sinon on laisse faire le saut de ligne natif
+                } else {
+                    saveEdit();
+                }
             } else if (evt.key === 'Tab') {
                 evt.preventDefault();
                 saveEdit().then(() => {
