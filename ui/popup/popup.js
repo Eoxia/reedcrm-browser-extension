@@ -2997,6 +2997,13 @@ document.addEventListener('click', async (e) => {
                     payload = {
                         [fieldName]: newValue
                     };
+                    if (fieldName === 'fk_statut') {
+                        payload.statut = parseInt(newValue, 10);
+                        payload.status = parseInt(newValue, 10);
+                        payload.fk_statut = parseInt(newValue, 10);
+                    } else if (fieldName === 'progress') {
+                        payload.progression = parseInt(newValue, 10);
+                    }
                 }
                 
                 let endpointUrl = `${apiUrl}/projects/${projectId}`;
