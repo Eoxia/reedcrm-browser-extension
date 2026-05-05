@@ -5,7 +5,9 @@ import { fetchDoli } from './src/api/dolibarr.js';
 import { extractTextFromHtml, escapeHtml, formatLineBreaksForAttribute } from './src/utils/formatters.js';
 import { store } from './src/store/store.js';
 import { mapTicket } from './src/models/ticket.mapper.js';
+import { mapOpportunity } from \'./src/models/opportunity.mapper.js\';
 import { renderTicketItemHtml } from './src/components/ticket.js';
+import { renderOppItemHtml } from \'./src/components/opportunity.js\';
 
 class CustomSelect {
     constructor(selectElement) {
@@ -630,34 +632,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Fonction pour charger les dernières opportunités (Projets)
         
-        function renderOppItemHtml(project, doliBaseUrl, usersList, customOppDict, oppOriginDict, dolibarrNativeInputReasons) {
-            let subject = project.title || project.ref || "Projet sans titre";
-            if (subject.length > 50) subject = subject.substring(0, 50) + '...';
-
-            let statusColor = "#95a5a6";
-            const stat = String(project.statut || project.status || "0");
-            
-            let statusLabelText = stat;
-            const oppStatusMap = {
-                "0": "Brouillon",
-                "1": "Validé / Ouvert",
-                "2": "Clôturé"
-            };
-            if (oppStatusMap[stat]) statusLabelText = oppStatusMap[stat];
-            if (project.status_label) statusLabelText = project.status_label;
-            else if (project.statut_label) statusLabelText = project.statut_label;
-
-            if (stat === "0") statusColor = "#3498db"; // Brouillon
-            else if (stat === "1") statusColor = "#27ae60"; // Validé/Ouvert
-            else if (stat === "2") statusColor = "#7f8c8d"; // Clôturé
-
-            const projectRef = project.ref || `PROJ #${project.id}`;
-            
-            let dateCStr = "";
-            if (project.date_c) {
-                const d = new Date(project.date_c * 1000);
-                dateCStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-            }
             
             let initials = "?";
             if (project.user_author_id) {
@@ -919,18 +893,94 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        async function loadAllOpportunities(apiUrl, token, limit, listCount, entity, doliOppOnly, isBackground = false) {
-            const allOppList = document.getElementById('all-opp-list');
-            if (!allOppList) return;
+        async function loadAllOpportunities(apiUrl, token, entity, customOppDict, oppOriginDict, dolibarrNativeInputReasons) {
+            recentOppContainer.classList.remove('hidden');
+            const formOppContainer = document.getElementById('recent-opp-container-form');
+            if (formOppContainer) formOppContainer.classList.remove('hidden');
             
-            if (!isBackground) {
-                allOppList.innerHTML = `
-                    <div class="loader-container">
-                        <div class="loader-spinner"></div>
-                        <div>${chrome.i18n.getMessage("popup_20")}</div>
-                    </div>
-                `;
+            const loaderHtml = `
+                <div class="loader-container">
+                    <div class="loader-spinner"></div>
+                    <div>${chrome.i18n.getMessage("popup_33") || "Chargement des opportunites..."}</div>
+                </div>
+            `;
+            oppList.innerHTML = loaderHtml;
+            const formOppList = document.getElementById('recent-opp-list-form');
+            if (formOppList) formOppList.innerHTML = loaderHtml;
+
+            const doliBaseUrl = apiUrl.replace(/\/api\/index\.php\/?$/, '');
+
+            try {
+                store.setOppDictionaries({ customOppDict, oppOriginDict, dolibarrNativeInputReasons });
+
+                const headers = {
+                    'DOLAPIKEY': token,
+                    'Accept': 'application/json'
+                };
+                if (entity && String(entity).trim() !== '') {
+                    headers['DOLAPIENTITY'] = String(entity).trim();
+                }
+
+                const response = await fetchDoli(`${apiUrl}/projects?sortfield=t.rowid&sortorder=DESC&limit=50`, {
+                    method: 'GET',
+                    headers: headers
+                });
+
+                if (response.ok) {
+                    const textData = await response.text();
+                    const projects = textData.trim() ? JSON.parse(textData) : [];
+
+                    if (Array.isArray(projects) && projects.length > 0) {
+                        const sortedProjects = projects.sort((a, b) => b.date_c - a.date_c);
+                        
+                        const mappedOpps = sortedProjects.map(p => mapOpportunity(p, store.state));
+                        store.setOpportunities(mappedOpps);
+
+                        oppList.innerHTML = '';
+                        if (formOppList) formOppList.innerHTML = '';
+
+                        store.state.opportunities.forEach(mappedOpp => {
+                            const html = renderOppItemHtml(mappedOpp);
+                            
+                            const div = document.createElement('div');
+                            div.innerHTML = html.trim();
+                            const newCard = div.firstChild;
+                            oppList.appendChild(newCard);
+                            
+                            if (formOppList) {
+                                const formDiv = document.createElement('div');
+                                formDiv.innerHTML = html.trim();
+                                const newFormCard = formDiv.firstChild;
+                                formOppList.appendChild(newFormCard);
+                            }
+                        });
+
+                        if (typeof initInlineEdit === 'function') {
+                            initInlineEdit(apiUrl, token, entity);
+                        }
+                    } else {
+                        const emptyHtml = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunite recente.</div>`;
+                        oppList.innerHTML = emptyHtml;
+                        if (formOppList) formOppList.innerHTML = emptyHtml;
+                    }
+                } else {
+                    oppList.innerHTML = '';
+                    if (formOppList) formOppList.innerHTML = '';
+                    const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
+                    d.textContent = `Erreur API (${response.status})`;
+                    oppList.appendChild(d);
+                    if (formOppList) formOppList.appendChild(d.cloneNode(true));
+                }
+            } catch (error) {
+                oppList.innerHTML = '';
+                if (formOppList) formOppList.innerHTML = '';
+                const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
+                d.textContent = `Erreur JS: ${error.message}`;
+                oppList.appendChild(d);
+                if (formOppList) formOppList.appendChild(d.cloneNode(true));
             }
+        }
+
 
             try {
                 const headers = {

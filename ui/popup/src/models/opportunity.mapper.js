@@ -66,6 +66,11 @@ export function mapOpportunity(project, state) {
 
     const searchString = `${projectRef} ${subject} ${oppNom} ${oppPrenom} ${oppTel} ${oppEmail} ${amountDisplay}`.toLowerCase();
 
+    let projectUrl = '#';
+    if (state && state.activeProfile) {
+        projectUrl = `${state.activeProfile.url}/projet/card.php?id=${project.id}`;
+    }
+
     return {
         id: project.id,
         rawProject: project,
@@ -86,6 +91,7 @@ export function mapOpportunity(project, state) {
         oppOriginRaw,
         mappedOrigin,
         messageDisplay,
-        searchString
+        searchString,
+        projectUrl
     };
 }
