@@ -756,7 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
 
                             sortedProjects.forEach(project => {
-                                const mappedOpp = mapOpportunity(project, { customOppDict, oppOriginDict, dolibarrNativeInputReasons }, apiUrl, usersList);
+                                const mappedOpp = mapOpportunity(project, { activeProfile: { url: doliBaseUrl }, oppDictionaries: { customOppDict, oppOriginDict, dolibarrNativeInputReasons }, users: usersList });
                                 const html = renderOppItemHtml(mappedOpp);
                                 recentOppList.insertAdjacentHTML('beforeend', html);
                             });
@@ -780,18 +780,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        async function loadAllOpportunities(apiUrl, token, limit, listCount, entity, doliOppOnly, isBackground = false) {
-            const allOppList = document.getElementById('all-opp-list');
-            if (!allOppList) return;
+        async function loadAllOpportunities(apiUrl, token, limit = 50, listCount, entity, oppOnly = true, isFullLoad = false) {
+            recentOppContainer.classList.remove('hidden');
+            const formOppContainer = document.getElementById('recent-opp-container-form');
+            if (formOppContainer) formOppContainer.classList.remove('hidden');
             
-            if (!isBackground) {
-                allOppList.innerHTML = `
-                    <div class="loader-container">
-                        <div class="loader-spinner"></div>
-                        <div>${chrome.i18n.getMessage("popup_20")}</div>
-                    </div>
-                `;
-            }
+            const loaderHtml = `
+                <div class="loader-container">
+                    <div class="loader-spinner"></div>
+                    <div>${chrome.i18n.getMessage("popup_33") || "Chargement des opportunites..."}</div>
+                </div>
+            `;
+            oppList.innerHTML = loaderHtml;
+            const formOppList = document.getElementById('recent-opp-list-form');
+            if (formOppList) formOppList.innerHTML = loaderHtml;
+
+            const doliBaseUrl = apiUrl.replace(/\/api\/index\.php\/?$/, '');
 
             try {
                 const headers = {
@@ -802,158 +806,63 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers['DOLAPIENTITY'] = String(entity).trim();
                 }
 
-                // Fetch locally with high limit for JS filtering
                 const response = await fetchDoli(`${apiUrl}/projects?sortfield=t.rowid&sortorder=DESC&limit=${limit}`, {
                     method: 'GET',
                     headers: headers
                 });
 
                 if (response.ok) {
-                    const projects = await response.json();
-                    
+                    const textData = await response.text();
+                    const projects = textData.trim() ? JSON.parse(textData) : [];
+
                     if (Array.isArray(projects) && projects.length > 0) {
-                        let oppProjects = projects;
+                        const sortedProjects = projects.sort((a, b) => b.date_c - a.date_c);
                         
-                        if (doliOppOnly) {
-                            try {
-                                const activeProfile = getActiveProfile();
-                                const doliVersion = activeProfile && activeProfile.doliVersion ? activeProfile.doliVersion : "20.0";
-                                const isOldDoli = parseFloat(doliVersion) < 20;
+                        const mappedOpps = sortedProjects.map(p => mapOpportunity(p, store.state));
+                        store.setOpportunities(mappedOpps);
 
-                                oppProjects = projects.filter(p => {
-                                    if (isOldDoli && p.usage_bill_time === "1" && p.usage_opportunity !== "1") {
-                                        return false; 
-                                    }
-                                    return p.usage_opportunity == 1 || p.usage_opportunity === "1";
-                                });
-                            } catch(e) {
-                                oppProjects = projects.filter(p => p.usage_opportunity == 1 || p.usage_opportunity === "1");
+                        oppList.innerHTML = '';
+                        if (formOppList) formOppList.innerHTML = '';
+
+                        store.state.opportunities.forEach(mappedOpp => {
+                            const html = renderOppItemHtml(mappedOpp);
+                            
+                            const div = document.createElement('div');
+                            div.innerHTML = html.trim();
+                            const newCard = div.firstChild;
+                            oppList.appendChild(newCard);
+                            
+                            if (formOppList) {
+                                const formDiv = document.createElement('div');
+                                formDiv.innerHTML = html.trim();
+                                const newFormCard = formDiv.firstChild;
+                                formOppList.appendChild(newFormCard);
                             }
-                        }
+                        });
 
-                        if (oppProjects.length > 0) {
-                            if (!isBackground) allOppList.innerHTML = '';
-                            const sortedProjects = oppProjects.sort((a, b) => b.date_c - a.date_c);
-                            
-                            // Get users
-                            let usersList = [];
-                            try {
-                                const uRes = await fetchDoli(`${apiUrl}/users?limit=500`, { method: 'GET', headers: headers });
-                                if (uRes.ok) usersList = await uRes.json();
-                            } catch(e) {}
-                            
-                            // Dictionary maps (native)
-                            const dolibarrNativeInputReasons = {
-                                "1": "Campagne d'emailing",
-                                "2": "Campagne Fax",
-                                "3": "Campagne Publipostage",
-                                "4": "Campagne Téléphonique",
-                                "5": "Contact commercial",
-                                "6": "Contact entrant",
-                                "7": "Employé",
-                                "8": "Internet",
-                                "9": "Partenaire",
-                                "10": "Contact en boutique",
-                                "11": "Parrainage",
-                                "12": "Bouche à oreille"
-                            };
-
-                            let customOppDict = {};
-                            let oppOriginDict = {};
-                            
-                            // Get dictionaries
-                            try {
-                                const activeProfile = getActiveProfile();
-                                if (activeProfile && activeProfile.doliDictMap) {
-                                    activeProfile.doliDictMap.split(/\r?\n/).forEach(line => {
-                                        const parts = line.split(':');
-                                        if (parts.length >= 2) customOppDict[parts[0].trim()] = parts.slice(1).join(':').trim();
-                                    });
-                                }
-
-                                const efRes = await fetchDoli(`${apiUrl}/setup/extrafields`, { method: 'GET', headers: headers });
-                                if (efRes.ok) {
-                                    const efJson = await efRes.json();
-                                    let oField = null;
-                                    if (Array.isArray(efJson)) {
-                                        oField = efJson.find(f => f.name === 'opporigin' || f.name === 'origine_opportunite' || f.name === 'origine');
-                                    } else {
-                                        const pFields = efJson.project || efJson.projet || efJson;
-                                        oField = pFields.options_opporigin || pFields.opporigin || pFields.origine_opportunite || pFields.options_origine_opportunite;
-                                    }
-
-                                    if (oField && oField.param) {
-                                        if (typeof oField.param === 'string') {
-                                            oField.param.split(/\r?\n/).forEach(line => {
-                                                const parts = line.split(',');
-                                                if (parts.length >= 2) oppOriginDict[parts[0].trim()] = parts.slice(1).join(',').trim();
-                                            });
-                                        } else if (typeof oField.param === 'object') {
-                                            const paramsToMerge = oField.param.options || oField.param;
-                                            Object.keys(paramsToMerge).forEach(k => {
-                                                oppOriginDict[k.toString()] = paramsToMerge[k];
-                                            });
-                                        }
-                                    }
-                                }
-                            } catch(e) {}
-
-                            // Extract the domain
-                            let doliBaseUrl = apiUrl.replace('/api/index.php', '').replace('/api', '');
-
-                            let openCount = 0;
-                            let htmlToAppend = "";
-                            let renderedCount = document.querySelectorAll('.opp-list-item').length;
-                            sortedProjects.forEach((project, index) => {
-                                if (String(project.statut || project.status || "0") === "1") openCount++;
-                                
-                                // Prevent re-rendering if it already exists
-                                if (isBackground && document.getElementById(`opp-list-item-${project.id}`)) {
-                                    return;
-                                }
-
-                                const html = renderOppItemHtml(project, doliBaseUrl, usersList, customOppDict, oppOriginDict, dolibarrNativeInputReasons);
-                                
-                                // Build final HTML string directly to avoid DOMParser overhead
-                                let displayStyle = index >= listCount ? 'display: none;' : '';
-                                let visibilityClass = index >= listCount ? 'initially-hidden' : 'initially-visible';
-                                
-                                // We inject our classes and styles into the first div
-                                const modifiedHtml = html.replace('class="', `class="${visibilityClass} `).replace('style="', `style="${displayStyle} `);
-                                htmlToAppend += modifiedHtml;
-                                renderedCount++;
-                            });
-                            
-                            if (htmlToAppend) {
-                                allOppList.insertAdjacentHTML('beforeend', htmlToAppend);
-                            }
-                            
-                            if (typeof applyOppFilters === 'function') {
-                                applyOppFilters();
-                            }
-                            
-                            const countEl = document.getElementById('opp-count-total');
-                            if (countEl) {
-                                if (isBackground || limit >= 1000) {
-                                    countEl.textContent = openCount;
-                                } else {
-                                    countEl.innerHTML = `<div class="loader-spinner small" style="border-top-color: #c0392b; border-color: rgba(192,57,43,0.3); border-top-color: #c0392b; width: 10px; height: 10px; border-width: 2px;"></div><span style="font-size:10px;">chargement...</span>`;
-                                }
-                            }
-
-                        } else {
-                            allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">${chrome.i18n.getMessage('popup_js_110')}</div>`;
-                            const countEl = document.getElementById('opp-count-total');
-                            if (countEl) countEl.textContent = "0";
+                        if (typeof initInlineEdit === 'function') {
+                            initInlineEdit(apiUrl, token, entity);
                         }
                     } else {
-                        allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">${chrome.i18n.getMessage('popup_js_110')}</div>`;
+                        const emptyHtml = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunite recente.</div>`;
+                        oppList.innerHTML = emptyHtml;
+                        if (formOppList) formOppList.innerHTML = emptyHtml;
                     }
                 } else {
-                    allOppList.innerHTML = `<div style="text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;">Erreur API (${response.status})</div>`;
+                    oppList.innerHTML = '';
+                    if (formOppList) formOppList.innerHTML = '';
+                    const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
+                    d.textContent = `Erreur API (${response.status})`;
+                    oppList.appendChild(d);
+                    if (formOppList) formOppList.appendChild(d.cloneNode(true));
                 }
             } catch (error) {
-                allOppList.innerHTML = `<div style="text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;">Erreur JS: ${error.message}</div>`;
+                oppList.innerHTML = '';
+                if (formOppList) formOppList.innerHTML = '';
+                const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
+                d.textContent = `Erreur JS: ${error.message}`;
+                oppList.appendChild(d);
+                if (formOppList) formOppList.appendChild(d.cloneNode(true));
             }
         }
 
