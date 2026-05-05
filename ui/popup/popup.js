@@ -781,19 +781,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function loadAllOpportunities(apiUrl, token, limit = 50, listCount, entity, oppOnly = true, isFullLoad = false) {
-            recentOppContainer.classList.remove('hidden');
-            const formOppContainer = document.getElementById('recent-opp-container-form');
-            if (formOppContainer) formOppContainer.classList.remove('hidden');
+            const allOppList = document.getElementById('all-opp-list');
+            if (!allOppList) return;
             
-            const loaderHtml = `
-                <div class="loader-container">
-                    <div class="loader-spinner"></div>
-                    <div>${chrome.i18n.getMessage("popup_33") || "Chargement des opportunites..."}</div>
-                </div>
-            `;
-            oppList.innerHTML = loaderHtml;
-            const formOppList = document.getElementById('recent-opp-list-form');
-            if (formOppList) formOppList.innerHTML = loaderHtml;
+            if (!isFullLoad) {
+                const loaderHtml = `
+                    <div class="loader-container">
+                        <div class="loader-spinner"></div>
+                        <div>${chrome.i18n.getMessage("popup_33") || "Chargement des opportunites..."}</div>
+                    </div>
+                `;
+                allOppList.innerHTML = loaderHtml;
+            }
 
             const doliBaseUrl = apiUrl.replace(/\/api\/index\.php\/?$/, '');
 
@@ -818,51 +817,52 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (Array.isArray(projects) && projects.length > 0) {
                         const sortedProjects = projects.sort((a, b) => b.date_c - a.date_c);
                         
-                        const mappedOpps = sortedProjects.map(p => mapOpportunity(p, store.state));
+                        const mappedOpps = sortedProjects.map(p => mapOpportunity(p, { activeProfile: { url: doliBaseUrl }, oppDictionaries: { customOppDict: typeof customOppDict !== 'undefined' ? customOppDict : {}, oppOriginDict: typeof oppOriginDict !== 'undefined' ? oppOriginDict : {}, dolibarrNativeInputReasons: typeof dolibarrNativeInputReasons !== 'undefined' ? dolibarrNativeInputReasons : {} }, users: typeof window.usersList !== 'undefined' ? window.usersList : [] }));
                         store.setOpportunities(mappedOpps);
 
-                        oppList.innerHTML = '';
-                        if (formOppList) formOppList.innerHTML = '';
+                        if (!isFullLoad) allOppList.innerHTML = '';
 
-                        store.state.opportunities.forEach(mappedOpp => {
+                        let htmlToAppend = '';
+                        let renderedCount = isFullLoad ? document.querySelectorAll('.opp-list-item').length : 0;
+                        
+                        store.state.opportunities.forEach((mappedOpp, index) => {
+                            if (isFullLoad && document.getElementById(`opp-list-item-${mappedOpp.id}`)) return;
+                            
                             const html = renderOppItemHtml(mappedOpp);
+                            let displayStyle = index >= listCount ? 'display: none;' : '';
+                            let visibilityClass = index >= listCount ? 'initially-hidden' : 'initially-visible';
+                            const modifiedHtml = html.replace('class="', `class="${visibilityClass} `).replace('style="', `style="${displayStyle} `);
                             
-                            const div = document.createElement('div');
-                            div.innerHTML = html.trim();
-                            const newCard = div.firstChild;
-                            oppList.appendChild(newCard);
-                            
-                            if (formOppList) {
-                                const formDiv = document.createElement('div');
-                                formDiv.innerHTML = html.trim();
-                                const newFormCard = formDiv.firstChild;
-                                formOppList.appendChild(newFormCard);
-                            }
+                            htmlToAppend += modifiedHtml;
                         });
+                        
+                        if (htmlToAppend) {
+                            allOppList.insertAdjacentHTML('beforeend', htmlToAppend);
+                        }
 
                         if (typeof initInlineEdit === 'function') {
                             initInlineEdit(apiUrl, token, entity);
                         }
                     } else {
-                        const emptyHtml = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunite recente.</div>`;
-                        oppList.innerHTML = emptyHtml;
-                        if (formOppList) formOppList.innerHTML = emptyHtml;
+                        if (!isFullLoad) {
+                            allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunite.</div>`;
+                        }
                     }
                 } else {
-                    oppList.innerHTML = '';
-                    if (formOppList) formOppList.innerHTML = '';
-                    const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
-                    d.textContent = `Erreur API (${response.status})`;
-                    oppList.appendChild(d);
-                    if (formOppList) formOppList.appendChild(d.cloneNode(true));
+                    if (!isFullLoad) {
+                        allOppList.innerHTML = '';
+                        const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
+                        d.textContent = `Erreur API (${response.status})`;
+                        allOppList.appendChild(d);
+                    }
                 }
             } catch (error) {
-                oppList.innerHTML = '';
-                if (formOppList) formOppList.innerHTML = '';
-                const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
-                d.textContent = `Erreur JS: ${error.message}`;
-                oppList.appendChild(d);
-                if (formOppList) formOppList.appendChild(d.cloneNode(true));
+                if (!isFullLoad) {
+                    allOppList.innerHTML = '';
+                    const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
+                    d.textContent = `Erreur JS: ${error.message}`;
+                    allOppList.appendChild(d);
+                }
             }
         }
 
