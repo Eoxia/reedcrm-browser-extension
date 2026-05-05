@@ -803,7 +803,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             const imgNode = newCard.querySelector('.avatar-img');
                             if (imgNode) {
                                 imgNode.addEventListener('error', function() {
-                                    this.outerHTML = this.getAttribute('data-initials') || '?';
+                                    const initials = this.getAttribute('data-initials') || '?';
+                                    this.replaceWith(document.createTextNode(initials));
                                 });
                             }
                             
@@ -815,7 +816,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const formImgNode = newFormCard.querySelector('.avatar-img');
                                 if (formImgNode) {
                                     formImgNode.addEventListener('error', function() {
-                                        this.outerHTML = this.getAttribute('data-initials') || '?';
+                                        const initials = this.getAttribute('data-initials') || '?';
+                                        this.replaceWith(document.createTextNode(initials));
                                     });
                                 }
                             }
