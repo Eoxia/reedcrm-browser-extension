@@ -737,14 +737,29 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Construction du DOM (Template Literal avec échappement)
                             // ============================================
                             let rawMsg = ticket.message || "";
-                            rawMsg = rawMsg.replace(/<br\s*[\/]?>/gi, '\n').replace(/<\/p>/gi, '\n\n');
+                            rawMsg = rawMsg.replace(/<br\s*[\/]?>/gi, '\n')
+                                           .replace(/<\/p>/gi, '\n\n')
+                                           .replace(/<\/li>/gi, '\n')
+                                           .replace(/<\/div>/gi, '\n')
+                                           .replace(/<\/h[1-6]>/gi, '\n\n');
+                            const doc = new DOMParser().parseFromString(rawMsg, 'text/html');
+                            rawMsg = doc.body.textContent || "";
+                            rawMsg = rawMsg.replace(/\n{3,}/g, '\n\n').trim();
+
                             const safeSubject = (ticket.subject || "Sans titre").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                             const safeMessage = rawMsg.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
                             const safeMessageAttr = safeMessage.replace(/\n/g, '&#10;');
                             const searchString = (ticketRef + ' ' + safeSubject + ' ' + (companyName || '')).toLowerCase();
                             
-                            const assigneeHtml = ticket.user_assign_photo && ticket.user_assign_photo.trim() !== ''
-                                ? `<img src="${doliBaseUrl}/document.php?modulepart=user&file=${encodeURIComponent(ticket.user_assign_photo)}" alt="${initials}" onerror="this.outerHTML='${initials}'">`
+                            let photoUrl = '';
+                            if (ticket.user_assign_photo && ticket.user_assign_photo.trim() !== '') {
+                                photoUrl = ticket.user_assign_photo.trim();
+                                if (!photoUrl.startsWith('http') && !photoUrl.startsWith('//')) {
+                                    photoUrl = `${doliBaseUrl}/document.php?modulepart=user&file=${encodeURIComponent(photoUrl)}`;
+                                }
+                            }
+                            const assigneeHtml = photoUrl
+                                ? `<img src="${photoUrl}" alt="${initials}" data-initials="${initials}" class="avatar-img">`
                                 : initials;
 
                             const companyHtml = companyName ? `<span class="tc-company" title="Tiers"><i class="fas fa-building" style="color: #6a7491;"></i> ${companyName}</span> <span class="tc-sep">•</span>` : '';
@@ -784,12 +799,28 @@ document.addEventListener('DOMContentLoaded', () => {
                             
                             const div = document.createElement('div');
                             div.innerHTML = html.trim();
-                            recentTicketsList.appendChild(div.firstChild);
+                            const newCard = div.firstChild;
+                            recentTicketsList.appendChild(newCard);
+                            const imgNode = newCard.querySelector('.avatar-img');
+                            if (imgNode) {
+                                imgNode.addEventListener('error', function() {
+                                    const initials = this.getAttribute('data-initials') || '?';
+                                    this.replaceWith(document.createTextNode(initials));
+                                });
+                            }
                             
                             if (formList) {
                                 const formDiv = document.createElement('div');
                                 formDiv.innerHTML = html.trim();
-                                formList.appendChild(formDiv.firstChild);
+                                const newFormCard = formDiv.firstChild;
+                                formList.appendChild(newFormCard);
+                                const formImgNode = newFormCard.querySelector('.avatar-img');
+                                if (formImgNode) {
+                                    formImgNode.addEventListener('error', function() {
+                                        const initials = this.getAttribute('data-initials') || '?';
+                                        this.replaceWith(document.createTextNode(initials));
+                                    });
+                                }
                             }
                         });
                     } else {
@@ -3068,7 +3099,11 @@ document.addEventListener('click', async (e) => {
                             let initials = parts.length > 1 ? parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase() : displayValue.substring(0, 2).toUpperCase();
                             if (matchedUser && matchedUser.photo && matchedUser.photo.trim() !== '') {
                                 const img = document.createElement('img');
-                                img.src = `${apiUrl.replace('/api/index.php', '')}/document.php?modulepart=user&file=${encodeURIComponent(matchedUser.photo)}`;
+                                let photoUrl = matchedUser.photo.trim();
+                                if (!photoUrl.startsWith('http') && !photoUrl.startsWith('//')) {
+                                    photoUrl = `${apiUrl.replace('/api/index.php', '')}/document.php?modulepart=user&file=${encodeURIComponent(photoUrl)}`;
+                                }
+                                img.src = photoUrl;
                                 img.alt = initials;
                                 img.onerror = () => {
                                     editable.textContent = initials;
