@@ -187,7 +187,7 @@ export function initInlineEdit() {
                 }
                 
                 if (fieldName === 'options_reedcrm_website' && newValue !== '') {
-                    const websiteRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
+                    const websiteRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)\/?$/i;
                     if (!websiteRegex.test(newValue)) {
                         showErrorInline(chrome.i18n.getMessage('popup_title_43') || "Exemple de domaine valide: monsite.com");
                         return;
@@ -403,7 +403,11 @@ export function initInlineEdit() {
                             if (fieldName === 'options_reedcrm_website') {
                                 const linkEl = contactLine.querySelector('.rt-contact-link');
                                 if (newValue) {
-                                    const href = newValue.startsWith('http') ? newValue : 'https://' + newValue;
+                                    let href = newValue.startsWith('http') ? newValue : 'https://' + newValue;
+                                    try {
+                                        const parsed = new URL(href);
+                                        href = (parsed.protocol === 'http:' || parsed.protocol === 'https:') ? parsed.href : '#';
+                                    } catch(e) { href = '#'; }
                                     if (linkEl) {
                                         linkEl.href = href;
                                     } else {
