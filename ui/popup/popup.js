@@ -2,6 +2,7 @@
 import { MESSAGE_TYPES } from '../../src/utils/constants.js';
 
 import { fetchDoli } from './src/api/dolibarr.js';
+import { extractTextFromHtml, escapeHtml, formatLineBreaksForAttribute } from './src/utils/formatters.js';
 
 class CustomSelect {
     constructor(selectElement) {
@@ -684,19 +685,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             // ============================================
                             // Construction du DOM (Template Literal avec échappement)
                             // ============================================
-                            let rawMsg = ticket.message || "";
-                            rawMsg = rawMsg.replace(/<br\s*[\/]?>/gi, '\n')
-                                           .replace(/<\/p>/gi, '\n\n')
-                                           .replace(/<\/li>/gi, '\n')
-                                           .replace(/<\/div>/gi, '\n')
-                                           .replace(/<\/h[1-6]>/gi, '\n\n');
-                            const doc = new DOMParser().parseFromString(rawMsg, 'text/html');
-                            rawMsg = doc.body.textContent || "";
-                            rawMsg = rawMsg.replace(/\n{3,}/g, '\n\n').trim();
+                            let rawMsg = extractTextFromHtml(ticket.message);
 
-                            const safeSubject = (ticket.subject || "Sans titre").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                            const safeMessage = rawMsg.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
-                            const safeMessageAttr = safeMessage.replace(/\n/g, '&#10;');
+                            const safeSubject = escapeHtml(ticket.subject || "Sans titre");
+                            const safeMessage = escapeHtml(rawMsg);
+                            const safeMessageAttr = formatLineBreaksForAttribute(safeMessage);
                             const searchString = (ticketRef + ' ' + safeSubject + ' ' + (companyName || '')).toLowerCase();
                             
                             let photoUrl = '';
