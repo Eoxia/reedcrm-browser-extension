@@ -5,9 +5,9 @@ import { fetchDoli } from './src/api/dolibarr.js';
 import { extractTextFromHtml, escapeHtml, formatLineBreaksForAttribute } from './src/utils/formatters.js';
 import { store } from './src/store/store.js';
 import { mapTicket } from './src/models/ticket.mapper.js';
-import { mapOpportunity } from \'./src/models/opportunity.mapper.js\';
+import { mapOpportunity } from './src/models/opportunity.mapper.js';
 import { renderTicketItemHtml } from './src/components/ticket.js';
-import { renderOppItemHtml } from \'./src/components/opportunity.js\';
+import { renderOppItemHtml } from './src/components/opportunity.js';
 
 class CustomSelect {
     constructor(selectElement) {
