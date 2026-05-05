@@ -80,6 +80,7 @@ export function mapOpportunity(project, state) {
         statusLabelText,
         statusColor,
         dateCStr,
+        date_c: project.date_c,
         initials,
         amountDisplay,
         probDisplay,
