@@ -743,9 +743,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                            .replace(/<\/div>/gi, '\n')
                                            .replace(/<\/h[1-6]>/gi, '\n\n');
                             rawMsg = rawMsg.replace(/<[^>]+>/g, '');
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = rawMsg;
-                            rawMsg = tempDiv.textContent || tempDiv.innerText || "";
                             rawMsg = rawMsg.replace(/\n{3,}/g, '\n\n').trim();
 
                             const safeSubject = (ticket.subject || "Sans titre").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
