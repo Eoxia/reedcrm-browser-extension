@@ -79,22 +79,38 @@ export function mapTicket(apiTicket, state) {
     const safeMessageAttr = formatLineBreaksForAttribute(safeMessage);
     const searchString = (ticketRef + ' ' + safeSubject + ' ' + (companyName || '')).toLowerCase();
     
-    // Assignee
+    // Assignee initials & photo
+    let initials = "?";
     let photoUrl = '';
-    if (apiTicket.user_assign_photo && apiTicket.user_assign_photo.trim() !== '') {
-        photoUrl = apiTicket.user_assign_photo.trim();
-        if (!photoUrl.startsWith('http') && !photoUrl.startsWith('//') && state && state.activeProfile) {
-            photoUrl = `${state.activeProfile.url}/document.php?modulepart=user&file=${encodeURIComponent(photoUrl)}`;
+
+    if (apiTicket.fk_user_assign && state && state.users) {
+        const matchedUser = state.users.find(u => String(u.id) === String(apiTicket.fk_user_assign));
+        if (matchedUser) {
+            // Initiales
+            if (matchedUser.firstname && matchedUser.lastname) {
+                initials = matchedUser.firstname.charAt(0).toUpperCase() + matchedUser.lastname.charAt(0).toUpperCase();
+            } else if (matchedUser.name) {
+                const parts = matchedUser.name.split(' ');
+                initials = parts.length > 1 ? parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase() : parts[0].substring(0, 2).toUpperCase();
+            } else if (matchedUser.login) {
+                initials = matchedUser.login.substring(0, 2).toUpperCase();
+            }
+            
+            // Photo
+            if (matchedUser.photo && matchedUser.photo.trim() !== '') {
+                photoUrl = matchedUser.photo.trim();
+            }
         }
     }
 
-    // Assignee initials
-    let initials = "?";
-    if (apiTicket.fk_user_assign && state && state.users) {
-        const matchedUser = state.users.find(u => String(u.id) === String(apiTicket.fk_user_assign));
-        if (matchedUser && matchedUser.name) {
-            initials = matchedUser.name.substring(0, 2).toUpperCase();
-        }
+    // Fallbacks from apiTicket directly if present
+    if (!photoUrl && apiTicket.user_assign_photo && apiTicket.user_assign_photo.trim() !== '') {
+        photoUrl = apiTicket.user_assign_photo.trim();
+    }
+    
+    // Resolve absolute photo URL
+    if (photoUrl && !photoUrl.startsWith('http') && !photoUrl.startsWith('//') && state && state.activeProfile) {
+        photoUrl = `${state.activeProfile.url}/document.php?modulepart=user&file=${encodeURIComponent(photoUrl)}`;
     }
 
     // URLs
