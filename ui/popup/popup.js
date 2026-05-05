@@ -820,6 +820,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         const mappedOpps = sortedProjects.map(p => mapOpportunity(p, { activeProfile: { url: doliBaseUrl }, oppDictionaries: { customOppDict: typeof customOppDict !== 'undefined' ? customOppDict : {}, oppOriginDict: typeof oppOriginDict !== 'undefined' ? oppOriginDict : {}, dolibarrNativeInputReasons: typeof dolibarrNativeInputReasons !== 'undefined' ? dolibarrNativeInputReasons : {} }, users: typeof window.usersList !== 'undefined' ? window.usersList : [] }));
                         store.setOpportunities(mappedOpps);
 
+                        const countEl = document.getElementById('opp-count-total');
+                        if (countEl) {
+                            const openCount = mappedOpps.filter(o => String(o.stat) === '1').length;
+                            countEl.textContent = openCount;
+                        }
+
                         if (!isFullLoad) allOppList.innerHTML = '';
 
                         let htmlToAppend = '';
@@ -846,6 +852,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         if (!isFullLoad) {
                             allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunite.</div>`;
+                            const countEl = document.getElementById('opp-count-total');
+                            if (countEl) countEl.textContent = '0';
                         }
                     }
                 } else {
@@ -854,6 +862,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
                         d.textContent = `Erreur API (${response.status})`;
                         allOppList.appendChild(d);
+                        const countEl = document.getElementById('opp-count-total');
+                        if (countEl) countEl.textContent = '!';
                     }
                 }
             } catch (error) {
@@ -862,6 +872,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const d = document.createElement('div'); d.style.cssText = "text-align: center; color: #e74c3c;font-size: 11px; padding: 10px;";
                     d.textContent = `Erreur JS: ${error.message}`;
                     allOppList.appendChild(d);
+                    const countEl = document.getElementById('opp-count-total');
+                    if (countEl) countEl.textContent = '!';
                 }
             }
         }
