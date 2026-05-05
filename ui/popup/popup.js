@@ -3001,6 +3001,10 @@ document.addEventListener('click', async (e) => {
                         payload.statut = parseInt(newValue, 10);
                         payload.status = parseInt(newValue, 10);
                         payload.fk_statut = parseInt(newValue, 10);
+                        if (String(newValue) === '8') {
+                            payload.progression = 100;
+                            payload.progress = 100;
+                        }
                     } else if (fieldName === 'progress') {
                         payload.progression = parseInt(newValue, 10);
                     }
@@ -3042,6 +3046,18 @@ document.addEventListener('click', async (e) => {
                             else if (stat === "8") statusColor = "#27ae60";
                             else if (stat === "9") statusColor = "#7f8c8d";
                             dot.style.backgroundColor = statusColor;
+                        }
+                        
+                        // Met à jour la progression à 100% si on clôture le ticket
+                        if (String(newValue) === '8') {
+                            const ticketCard = editable.closest('.recent-ticket-item');
+                            if (ticketCard) {
+                                const progressEl = ticketCard.querySelector('[data-field="progress"]');
+                                if (progressEl) {
+                                    progressEl.setAttribute('data-val', '100');
+                                    progressEl.textContent = '100%';
+                                }
+                            }
                         }
                     } else if (fieldName === 'fk_user_assign') {
                         if (!newValue) {
