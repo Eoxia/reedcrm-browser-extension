@@ -1,59 +1,11 @@
 
 import { MESSAGE_TYPES } from '../../src/utils/constants.js';
 
-// Remplacement global pour intercepter les fetch et les envoyer au SW (Règle 12)
-async function fetchDoli(url, options = {}) {
-    return new Promise((resolve, reject) => {
-        let method = options.method || 'GET';
-        let body = options.body ? JSON.parse(options.body) : null;
-        let doliUrl = '', endpoint = '', apiKey = '';
-
-        try {
-            const urlObj = new URL(url);
-            doliUrl = urlObj.origin + (urlObj.pathname.includes('/api/index.php') ? urlObj.pathname.split('/api/index.php')[0] : '');
-            endpoint = url.replace(doliUrl + '/api/index.php', '');
-            if(!endpoint.startsWith('/')) {
-                endpoint = url.replace(doliUrl, '');
-            }
-        } catch(e) {}
-
-        apiKey = options.headers?.DOLAPIKEY || options.headers?.['DOLAPIKEY'];
-
-        chrome.runtime.sendMessage({
-            type: MESSAGE_TYPES.API_CALL,
-            payload: { method, doliUrl, apiKey, endpoint, body }
-        }, response => {
-            if (chrome.runtime.lastError) {
-                return reject(new Error(chrome.runtime.lastError.message));
-            }
-            if (response && response.error) {
-                return resolve({
-                    ok: false,
-                    status: 500,
-                    statusText: response.error,
-                    json: async () => { throw new Error(response.error); },
-                    text: async () => response.error
-                });
-            }
-            resolve({
-                ok: true,
-                status: 200,
-                json: async () => response.data,
-                text: async () => typeof response.data === 'string' ? response.data : JSON.stringify(response.data),
-                blob: async () => {
-                    if(response.data) { // si base64 passé dans data
-                        const bstr = atob(response.data);
-                        const n = bstr.length;
-                        const u8arr = new Uint8Array(n);
-                        for(let i=0; i<n; i++) u8arr[i] = bstr.charCodeAt(i);
-                        return new Blob([u8arr], {type: response.mime || 'application/octet-stream'});
-                    }
-                    return null;
-                }
-            });
-        });
-    });
-}
+import { fetchDoli } from './src/api/dolibarr.js';
+import { extractTextFromHtml, escapeHtml, formatLineBreaksForAttribute } from './src/utils/formatters.js';
+import { store } from './src/store/store.js';
+import { mapTicket } from './src/models/ticket.mapper.js';
+import { renderTicketItemHtml } from './src/components/ticket.js';
 
 class CustomSelect {
     constructor(selectElement) {
@@ -576,6 +528,11 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const doliBaseUrl = apiUrl.replace(/\/api\/index\.php\/?$/, '');
 
+                // Mettre à jour le Store global
+                store.setUsers(usersList);
+                store.setThirdparties(thirdpartiesList);
+                store.setActiveProfile({ url: doliBaseUrl });
+
                 const headers = {
                     'DOLAPIKEY': token,
                     'Accept': 'application/json'
@@ -584,13 +541,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers['DOLAPIENTITY'] = String(entity).trim();
                 }
 
-                // On tente de récupérer les tickets les plus récents via l'API (sortfield)
                 let response = await fetchDoli(`${apiUrl}/tickets?sortfield=t.rowid&sortorder=DESC&limit=${limit}`, {
                     method: 'GET',
                     headers: headers
                 });
 
-                // Fallback de sécurité si l'API Dolibarr (versions anciennes) refuse le tri
                 if (!response.ok && (response.status === 400 || response.status === 500)) {
                     response = await fetchDoli(`${apiUrl}/tickets?limit=${limit}`, {
                         method: 'GET',
@@ -602,205 +557,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     const textData = await response.text();
                     const tickets = textData.trim() ? JSON.parse(textData) : [];
 
-                    let isArr = Array.isArray(tickets);
-
-                    if (isArr && tickets.length > 0) {
-                        recentTicketsList.innerHTML = ''; // Nettoyer
-                        if (formList) formList.innerHTML = ''; // Nettoyer le formulaire
+                    if (Array.isArray(tickets) && tickets.length > 0) {
                         const sortedTickets = tickets.sort((a, b) => b.datec - a.datec).slice(0, limit);
+                        
+                        // Utiliser le Mapper et le Store
+                        const mappedTickets = sortedTickets.map(t => mapTicket(t, store.state));
+                        store.setTickets(mappedTickets);
 
-                        sortedTickets.forEach(ticket => {
-                            // 2. Initiales
-                            let initials = "";
-                            
-                            // Enrichissement via la liste des utilisateurs mise en cache si l'API native ne remonte que l'ID (très fréquent sur REST)
-                            if (ticket.fk_user_assign && usersList && usersList.length > 0) {
-                                const matchedUser = usersList.find(u => String(u.id) === String(ticket.fk_user_assign));
-                                if (matchedUser) {
-                                    if (!ticket.user_assign_firstname) ticket.user_assign_firstname = matchedUser.firstname;
-                                    if (!ticket.user_assign_lastname) ticket.user_assign_lastname = matchedUser.lastname;
-                                    if (!ticket.user_assign_photo) ticket.user_assign_photo = matchedUser.photo;
-                                }
-                            }
+                        recentTicketsList.innerHTML = '';
+                        if (formList) formList.innerHTML = '';
 
-                            if (ticket.user_assign_firstname && ticket.user_assign_lastname) {
-                                initials = ticket.user_assign_firstname.charAt(0).toUpperCase() + ticket.user_assign_lastname.charAt(0).toUpperCase();
-                            } else if (ticket.user_assign_fullname) {
-                                const parts = String(ticket.user_assign_fullname).split(' ');
-                                if (parts.length > 1) {
-                                    initials = parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase();
-                                } else {
-                                    initials = parts[0].substring(0, 2).toUpperCase();
-                                }
-                            } else if (ticket.user_read && ticket.user_read.fullname) {
-                                // Fallback à l'utilisateur qui a lu si dispo 
-                                const parts = String(ticket.user_read.fullname).split(' ');
-                                initials = parts.length > 1 ? parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase() : parts[0].substring(0, 2).toUpperCase();
-                            } else if (ticket.user_create && ticket.user_create.login) {
-                                initials = ticket.user_create.login.substring(0, 2).toUpperCase();
-                            }
-
-                            if (!initials) initials = "?";
-
-                            // Troncature du sujet (agrandie à 50 caractères)
-                            let subject = ticket.subject || "Sans titre";
-                            if (subject.length > 50) subject = subject.substring(0, 50) + '...';
-
-                            // Détermination de la couleur de la puce d'état et de son libellé
-                            let statusColor = "#95a5a6"; // Gris par défaut (Inconnu)
-                            const stat = String(ticket.status || ticket.fk_statut || ticket.statut || "").toLowerCase();
-                            
-                            let statusLabelText = stat;
-                            const ticketStatusMap = {
-                                "0": "Non lu",
-                                "1": "Lu",
-                                "2": "Assigné",
-                                "3": "En cours",
-                                "4": "En attente",
-                                "5": "En attente retour",
-                                "6": "En pause",
-                                "7": "En pause",
-                                "8": "Fermé (Résolu)",
-                                "9": "Abandonné / Annulé"
-                            };
-                            if (ticketStatusMap[stat]) statusLabelText = ticketStatusMap[stat];
-                            if (ticket.status_label) statusLabelText = ticket.status_label;
-                            else if (ticket.statut_label) statusLabelText = ticket.statut_label;
-                            
-                            if (statusLabelText.length > 15) statusLabelText = statusLabelText.substring(0, 15) + '..';
-
-                            if (stat === "0") {
-                                statusColor = "#e74c3c"; // Rouge (Brouillon/Non lu)
-                            } else if (stat === "1") {
-                                statusColor = "#3498db"; // Bleu (À valider/Nouveau)
-                            } else if (stat === "2" || stat === "3" || stat === "4" || stat === "5" || stat === "6" || stat === "7") {
-                                statusColor = "#f39c12"; // Orange (En cours / Attente / Pause)
-                            } else if (stat === "8") {
-                                statusColor = "#27ae60"; // Vert (Résolu/Fermé)
-                            } else if (stat === "9") {
-                                statusColor = "#7f8c8d"; // Gris foncé (Annulé)
-                            }
-
-                            const ticketRef = ticket.ref || ticket.track_id || `Ticket #${ticket.id}`;
-                            
-                            // Résolution du Tiers manquant via le dictionnaire global
-                            let companyName = ticket.thirdparty_name || ticket.soc_name;
-                            if (!companyName && ticket.fk_soc && thirdpartiesList && thirdpartiesList.length > 0) {
-                                const matchedTiers = thirdpartiesList.find(t => String(t.id) === String(ticket.fk_soc));
-                                if (matchedTiers) companyName = matchedTiers.name || matchedTiers.nom;
-                            }
-                            if (!companyName && ticket.fk_soc) companyName = "Tiers #" + ticket.fk_soc;
-
-                            // Troncature du nom du tiers pour l'alignement UI
-                            if (companyName && companyName.length > 20) {
-                                companyName = companyName.substring(0, 20) + '...';
-                            }
-
-                            const severityMap = {
-                                "LOW": "Basse",
-                                "NORMAL": "Normale",
-                                "HIGH": "Haute",
-                                "BLOCKING": "Bloquante"
-                            };
-                            let severityCode = String(ticket.severity_code || "").toUpperCase();
-                            let severity = severityMap[severityCode] || ticket.severity_label || ticket.severity_code || "Normal";
-                            if (severity.length > 15) severity = severity.substring(0, 15) + '..';
-                            
-                            let dateFormatted = "";
-                            let elapsedTimeStr = "";
-                            if (ticket.datec) {
-                                const d = new Date(ticket.datec * 1000);
-                                const DD = String(d.getDate()).padStart(2, '0');
-                                const MM = String(d.getMonth() + 1).padStart(2, '0');
-                                const YYYY = d.getFullYear();
-                                dateFormatted = `${DD}/${MM}/${YYYY}`;
-                                
-                                // Calcul du temps écoulé
-                                const diffMs = Date.now() - d.getTime();
-                                if (diffMs > 0) {
-                                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                                    const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                                    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-                                    let tps = [];
-                                    if (diffDays > 0) tps.push(`${diffDays} j`);
-                                    tps.push(`${String(diffHrs).padStart(2,'0')}:${String(diffMins).padStart(2,'0')}`);
-                                    elapsedTimeStr = `Tps: ${tps.join(' ')}`;
-                                }
-                            } else if (ticket.date_creation) {
-                                const d = new Date(ticket.date_creation * 1000);
-                                if (!isNaN(d)) dateFormatted = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${d.getFullYear()}`;
-                            }
-
-                            const progressPct = ticket.progress || ticket.progression || "0";
-
-                            // ============================================
-                            // Construction du DOM (Template Literal avec échappement)
-                            // ============================================
-                            let rawMsg = ticket.message || "";
-                            rawMsg = rawMsg.replace(/<br\s*[\/]?>/gi, '\n')
-                                           .replace(/<\/p>/gi, '\n\n')
-                                           .replace(/<\/li>/gi, '\n')
-                                           .replace(/<\/div>/gi, '\n')
-                                           .replace(/<\/h[1-6]>/gi, '\n\n');
-                            const doc = new DOMParser().parseFromString(rawMsg, 'text/html');
-                            rawMsg = doc.body.textContent || "";
-                            rawMsg = rawMsg.replace(/\n{3,}/g, '\n\n').trim();
-
-                            const safeSubject = (ticket.subject || "Sans titre").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                            const safeMessage = rawMsg.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
-                            const safeMessageAttr = safeMessage.replace(/\n/g, '&#10;');
-                            const searchString = (ticketRef + ' ' + safeSubject + ' ' + (companyName || '')).toLowerCase();
-                            
-                            let photoUrl = '';
-                            if (ticket.user_assign_photo && ticket.user_assign_photo.trim() !== '') {
-                                photoUrl = ticket.user_assign_photo.trim();
-                                if (!photoUrl.startsWith('http') && !photoUrl.startsWith('//')) {
-                                    photoUrl = `${doliBaseUrl}/document.php?modulepart=user&file=${encodeURIComponent(photoUrl)}`;
-                                }
-                            }
-                            const assigneeHtml = photoUrl
-                                ? `<img src="${photoUrl}" alt="${initials}" data-initials="${initials}" class="avatar-img">`
-                                : initials;
-
-                            const companyHtml = companyName ? `<span class="tc-company" title="Tiers"><i class="fas fa-building" style="color: #6a7491;"></i> ${companyName}</span> <span class="tc-sep">•</span>` : '';
-
-                            const html = `
-                                <div class="ticket-card-new recent-ticket-item" data-search="${searchString}" data-date="${ticket.datec || 0}" data-stat="${stat}">
-                                    <div class="tc-header">
-                                        <div class="tc-meta">
-                                            <a href="${doliBaseUrl}/ticket/card.php?id=${ticket.id}" target="_blank" class="tc-ref" style="text-decoration: none;">${ticketRef}</a> <span class="tc-sep">•</span> 
-                                            ${companyHtml}
-                                            <span class="tc-date" title="Créé le">${dateFormatted}</span> <span class="tc-sep">•</span> 
-                                            <span class="tc-time" title="Temps écoulé">${elapsedTimeStr || 'Tps: 00:00'}</span> <span class="tc-sep">•</span>
-                                            <span class="inline-editable tc-severity" data-field="severity_code" data-pid="${ticket.id}" data-val="${ticket.severity_code || ''}" title="Sévérité">${severity}</span> <span class="tc-sep">•</span>
-                                            <span class="inline-editable tc-progress" data-field="progress" data-pid="${ticket.id}" data-val="${progressPct}" title="Avancement">${progressPct}%</span>
-                                        </div>
-                                        <div class="tc-assignee inline-editable" data-field="fk_user_assign" data-pid="${ticket.id}" data-val="${ticket.fk_user_assign || ''}" title="Assigné à">
-                                            ${assigneeHtml}
-                                        </div>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-                                        <div class="tc-title inline-editable" data-field="subject" data-pid="${ticket.id}" data-val="${safeSubject}" title="${safeSubject}" style="flex: 1;">${safeSubject}</div>
-                                        <div class="tc-actions">
-                                            <div class="inline-editable tc-status-btn" data-field="fk_statut" data-pid="${ticket.id}" data-val="${stat}" title="Changer le statut">
-                                                <div class="tc-status-dot" style="background-color: ${statusColor}"></div>
-                                                <span class="tc-status-label" style="text-transform: uppercase;">${statusLabelText}</span>
-                                            </div>
-                                            <a href="${doliBaseUrl}/ticket/messaging.php?id=${ticket.id}" target="_blank" class="tc-chat-link" title="Messages & Evénements">
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-                                            </a>
-                                        </div>
-                                    </div>
-                                    <div class="tc-body" style="margin-top: 4px;">
-                                        <div class="tc-message-preview inline-editable" data-field="message" data-pid="${ticket.id}" data-val="${safeMessageAttr}" title="${safeMessageAttr}">${safeMessage}</div>
-                                    </div>
-                                </div>
-                            `;
+                        // Rendu via le Composant
+                        store.state.tickets.forEach(mappedTicket => {
+                            const html = renderTicketItemHtml(mappedTicket);
                             
                             const div = document.createElement('div');
                             div.innerHTML = html.trim();
                             const newCard = div.firstChild;
                             recentTicketsList.appendChild(newCard);
+                            
                             const imgNode = newCard.querySelector('.avatar-img');
                             if (imgNode) {
                                 imgNode.addEventListener('error', function() {
@@ -823,6 +598,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             }
                         });
+
+                        // Réattacher les événements d'édition inline
+                        if (typeof initInlineEdit === 'function') {
+                            initInlineEdit(apiUrl, token, entity);
+                        }
+
                     } else {
                         const noTicketsMsg = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucun ticket récent trouvé (ou accès API refusé pour cet utilisateur).</div>`;
                         recentTicketsList.innerHTML = noTicketsMsg;
@@ -845,6 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (formList) formList.appendChild(d.cloneNode(true));
             }
         }
+
 
         // Fonction pour charger les dernières opportunités (Projets)
         
