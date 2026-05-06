@@ -1429,8 +1429,8 @@ a.rt-ref:hover {
     border-radius: 8px;
     padding: 10px 12px;
     margin-bottom: 10px;
-    display: flex !important;
-    flex-direction: column !important;
+    display: flex;
+    flex-direction: column;
     gap: 8px;
     transition: box-shadow 0.2s;
     /* Overrides for .recent-ticket-item */

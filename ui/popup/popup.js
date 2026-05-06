@@ -9,7 +9,9 @@ import { renderTicketItemHtml } from './src/components/ticket.js';
 import { mapOpportunity } from './src/models/opportunity.mapper.js';
 import { renderOppItemHtml } from './src/components/opportunity.js';
 import { initInlineEdit } from './src/features/inline-edit/index.js';
-
+import { initAttachments } from './src/features/attachments/index.js';
+import { uploadFileToDoli } from './src/features/attachments/api.js';
+import { attachmentsState, clearTicketFiles, clearOppFiles } from './src/features/attachments/state.js';
 class CustomSelect {
     constructor(selectElement) {
         this.selectElement = selectElement;
@@ -1509,44 +1511,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     // L'API projets est complexe. Par défaut on laisse vide ou on tenter d'utiliser fk_user_creat / affectation tierce.
 
                     // Pièce jointe
-                    if (oppFilesList.length > 0 && projectId) {
+                    if (attachmentsState.oppFiles.length > 0 && projectId) {
                         btnSubmitOpp.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_120');
 
-                        for (let fileObj of oppFilesList) {
-                            const fileToSend = fileObj.file;
-                            const reader = new FileReader();
-                            reader.readAsDataURL(fileToSend);
-
-                            await new Promise((resolve, reject) => {
-                                reader.onload = async () => {
-                                    try {
-                                        const base64Content = reader.result.split(',')[1];
-                                        const documentData = {
-                                            filecontent: base64Content,
-                                            filename: fileToSend.name,
-                                            fileencoding: "base64",
-                                            modulepart: "project",
-                                            ref: projectRef
-                                        };
-
-                                        const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
-                                            method: 'POST',
-                                            headers: baseHeaders,
-                                            body: JSON.stringify(documentData)
-                                        });
-
-                                        if (!docResponse.ok) {
-                                            const docError = await docResponse.json().catch(() => null);
-                                            let errorMsg = docError?.error?.message || "";
-                                            throw new DoliError('ReedCRM-4005', errorMsg, { substitution: projectRef });
-                                        }
-                                        resolve();
-                                    } catch (err) {
-                                        reject(err);
-                                    }
-                                };
-                                reader.onerror = () => reject(new Error("Erreur lecture fichier."));
-                            });
+                        for (let fileObj of attachmentsState.oppFiles) {
+                            try {
+                                await uploadFileToDoli(apiUrl, token, entity, fileObj.file, 'project', projectRef);
+                            } catch (err) {
+                                throw new DoliError('ReedCRM-4005', err.message, { substitution: projectRef });
+                            }
                         }
                     }
 
@@ -1587,7 +1560,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
                     oppForm.reset();
-                    oppFilesList = []; renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
+                    clearOppFiles();
+                    const oppPreviewContainer = document.getElementById('opp-preview-container');
+                    if (oppPreviewContainer) {
+                        oppPreviewContainer.innerHTML = '';
+                        oppPreviewContainer.classList.add('hidden');
+                    }
                     
                     // Nettoyage des brouillons après création réussie
                     const prId = p ? (p.id || 'default') : 'default';
@@ -1714,7 +1692,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 2. Gestion de la pièce jointe (si présente)
                 let ticketRef = ticketId ? ticketId.toString() : '';
 
-                if (ticketFilesList.length > 0 && ticketId) {
+                if (attachmentsState.ticketFiles.length > 0 && ticketId) {
                     btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_124');
 
                     // --- Récupération de la référence textuelle (ex: TCK2402-0001) ---
@@ -1729,43 +1707,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
 
-                    for (let fileObj of ticketFilesList) {
-                        const fileToSend = fileObj.file;
-                        // --- Lecture du fichier en base64 ---
-                        const reader = new FileReader();
-                        reader.readAsDataURL(fileToSend);
-
-                        await new Promise((resolve, reject) => {
-                            reader.onload = async () => {
-                                try {
-                                    const base64Content = reader.result.split(',')[1];
-
-                                    const documentData = {
-                                        filecontent: base64Content,
-                                        filename: fileToSend.name,
-                                        fileencoding: "base64",
-                                        modulepart: "ticket",
-                                        ref: ticketId.toString()
-                                    };
-
-                                    const docResponse = await fetchDoli(`${apiUrl}/documents/upload`, {
-                                        method: 'POST',
-                                        headers: baseHeaders,
-                                        body: JSON.stringify(documentData)
-                                    });
-
-                                    if (!docResponse.ok) {
-                                        const docError = await docResponse.json().catch(() => null);
-                                        let errorMsg = docError?.error?.message || "";
-                                        throw new DoliError('ReedCRM-4006', errorMsg, { substitution: ticketRef });
-                                    }
-                                    resolve();
-                                } catch (err) {
-                                    reject(err);
-                                }
-                            };
-                            reader.onerror = () => reject(new DoliError('ReedCRM-9999', `Ticket créé (${ticketRef}), mais erreur de lecture du fichier`));
-                        });
+                    if (attachmentsState.ticketFiles.length > 0 && ticketRef) {
+                        btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_120');
+                        for (let fileObj of attachmentsState.ticketFiles) {
+                            try {
+                                await uploadFileToDoli(apiUrl, token, entity, fileObj.file, 'ticket', ticketId.toString());
+                            } catch (err) {
+                                throw new DoliError('ReedCRM-4006', err.message, { substitution: ticketRef });
+                            }
+                        }
                     }
                 } else if (ticketId) {
                     // Si pas de fichier, on récupère quand même la ref pour l'affichage
@@ -1795,7 +1745,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
                 ticketForm.reset();
-                ticketFilesList = []; renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
+                clearTicketFiles();
+                const ticketPreviewContainer = document.getElementById('preview-container');
+                if (ticketPreviewContainer) {
+                    ticketPreviewContainer.innerHTML = '';
+                    ticketPreviewContainer.classList.add('hidden');
+                }
                 
                 // Nettoyage des brouillons après création réussie
                 const prfId = p ? (p.id || 'default') : 'default';
@@ -1836,360 +1791,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Gestion du collage d'image (Presse-papier) ---
-        let ticketFilesList = [];
-        let oppFilesList = [];
-
-        function renderThumbnails(filesArray, containerId, inputId) {
-            const container = document.getElementById(containerId);
-            const input = document.getElementById(inputId);
-            
-            if (filesArray.length === 0) {
-                container.classList.add('hidden');
-                container.innerHTML = '';
-                if (input) input.value = '';
-                return;
-            }
-            
-            container.classList.remove('hidden');
-            container.innerHTML = '';
-            container.classList.add('new-layout');
-            
-            filesArray.forEach((fileObj, index) => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'preview-item rich-thumb';
-                
-                let ext = fileObj.file.name.split('.').pop().toLowerCase();
-                let iconSvg = '';
-                let extBadge = ext;
-                let iconClass = '';
-
-                if (fileObj.file.type.startsWith('image/')) {
-                    iconSvg = `<img src="${fileObj.previewUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
-                    iconClass = 'is-image';
-                    if (ext === 'jpeg') extBadge = 'jpg';
-                } else if (ext === 'pdf') {
-                    iconSvg = '<svg viewBox="0 0 512 512" fill="currentColor"><path d="M0 64C0 28.7 28.7 0 64 0L224 0l0 128c0 17.7 14.3 32 32 32l128 0 0 144-208 0c-35.3 0-64 28.7-64 64l0 144-48 0c-35.3 0-64-28.7-64-64L0 64zm384 64l-128 0L256 0 384 128zM176 352l32 0c30.9 0 56 25.1 56 56s-25.1 56-56 56l-16 0 0 32c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-48 0-80c0-8.8 7.2-16 16-16zm32 80c13.3 0 24-10.7 24-24s-10.7-24-24-24l-16 0 0 48 16 0zm96-80l32 0c26.5 0 48 21.5 48 48l0 64c0 26.5-21.5 48-48 48l-32 0c-8.8 0-16-7.2-16-16l0-128c0-8.8 7.2-16 16-16zm32 128c8.8 0 16-7.2 16-16l0-64c0-8.8-7.2-16-16-16l-16 0 0 96 16 0zm80-112c0-8.8 7.2-16 16-16l48 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-32 0 0 32 32 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-32 0 0 48c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-64 0-64z"/></svg>';
-                    iconClass = 'is-pdf';
-                } else if (['doc', 'docx'].includes(ext)) {
-                    iconSvg = '<svg viewBox="0 0 384 512" fill="currentColor"><path d="M64 0C28.7 0 0 28.7 0 64L0 448c0 35.3 28.7 64 64 64l256 0c35.3 0 64-28.7 64-64l0-288-128 0c-17.7 0-32-14.3-32-32L224 0 64 0zM256 0l0 128 128 0L256 0zM111 257.1l26.8 89.2 31.6-90.3c3.4-9.6 12.5-16.1 22.7-16.1s19.3 6.4 22.7 16.1l31.6 90.3L273 257.1c3.8-12.7 17.2-19.9 29.9-16.1s19.9 17.2 16.1 29.9l-48 160c-3 10-12 16.9-22.4 17.1s-19.8-6.2-23.2-16.1L192 336.6l-33.3 95.3c-3.4 9.8-12.8 16.3-23.2 16.1s-19.5-7.1-22.4-17.1l-48-160c-3.8-12.7 3.4-26.1 16.1-29.9s26.1 3.4 29.9 16.1z"/></svg>';
-                    iconClass = 'is-word';
-                } else {
-                    iconSvg = '<svg viewBox="0 0 384 512" fill="currentColor"><path d="M64 0C28.7 0 0 28.7 0 64L0 448c0 35.3 28.7 64 64 64l256 0c35.3 0 64-28.7 64-64l0-288-128 0c-17.7 0-32-14.3-32-32L224 0 64 0zM256 0l0 128 128 0L256 0zM112 256l160 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-160 0c-8.8 0-16-7.2-16-16s7.2-16 16-16zm0 64l160 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-160 0c-8.8 0-16-7.2-16-16s7.2-16 16-16zm0 64l160 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-160 0c-8.8 0-16-7.2-16-16s7.2-16 16-16z"/></svg>';
-                    extBadge = ext.substring(0, 4);
-                }
-
-                // Safe DOM construction to prevent XSS from file names
-                const badgeDiv = document.createElement('div');
-                badgeDiv.className = 'thumb-badge';
-                badgeDiv.textContent = extBadge;
-
-                const iconDiv = document.createElement('div');
-                iconDiv.className = `thumb-icon ${iconClass}`;
-                iconDiv.innerHTML = iconSvg; // Safe: generated internally, not from user input
-
-                const nameDiv = document.createElement('div');
-                nameDiv.className = 'thumb-name';
-                nameDiv.title = fileObj.file.name;
-                nameDiv.textContent = fileObj.file.name; // Safe against XSS
-
-                itemDiv.appendChild(badgeDiv);
-                itemDiv.appendChild(iconDiv);
-                itemDiv.appendChild(nameDiv);
-
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'btn-remove-item rich-close';
-                removeBtn.innerHTML = '<svg viewBox="0 0 512 512" fill="currentColor"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM175 175c9.4-9.4 24.6-9.4 33.9 0l47 47 47-47c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-47 47 47 47c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0l-47-47-47 47c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l47-47-47-47c-9.4-9.4-9.4-24.6 0-33.9z"/></svg>';
-                removeBtn.title = "Supprimer";
-                removeBtn.onclick = (e) => {
-                    e.preventDefault();
-                    filesArray.splice(index, 1);
-                    renderThumbnails(filesArray, containerId, inputId);
-                };
-                itemDiv.appendChild(removeBtn);
-                
-                container.appendChild(itemDiv);
-            });
-        }
-
-        const fileInput = document.getElementById('ticket-file');
-        const oppFileInput = document.getElementById('opp-file');
-
-        document.addEventListener('paste', (e) => {
-            if (e.target.tagName === 'INPUT' && e.target.type === 'text' || e.target.tagName === 'TEXTAREA') {
-                return;
-            }
-
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            for (let index in items) {
-                const item = items[index];
-                if (item.kind === 'file') {
-                    const blob = item.getAsFile();
-                    if (blob && blob.type.startsWith('image/')) {
-                        const date = new Date().toISOString().replace(/T/, '_').replace(/:/g, '-').split('.')[0];
-                        const newFile = new File([blob], `Capture_${date}.png`, { type: blob.type });
-                        const fileObj = { file: newFile, previewUrl: URL.createObjectURL(blob) };
-
-                        if (tabOpportunite.classList.contains('active')) {
-                            oppFilesList.push(fileObj);
-                            renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
-                        } else {
-                            ticketFilesList.push(fileObj);
-                            renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
-                        }
-                        e.preventDefault();
-                    }
-                }
-            }
-        });
-
-        if (fileInput) {
-            fileInput.addEventListener('change', () => {
-                Array.from(fileInput.files).forEach(f => {
-                    const previewUrl = f.type.startsWith('image/') ? URL.createObjectURL(f) : '';
-                    ticketFilesList.push({ file: f, previewUrl });
-                });
-                renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
-            });
-        }
-
-        if (oppFileInput) {
-            oppFileInput.addEventListener('change', () => {
-                Array.from(oppFileInput.files).forEach(f => {
-                    const previewUrl = f.type.startsWith('image/') ? URL.createObjectURL(f) : '';
-                    oppFilesList.push({ file: f, previewUrl });
-                });
-                renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
-            });
-        }
-
-        // --- Gestion du bouton "Capturer l'écran" ---
-        const btnCaptureScreen = document.getElementById('btn-capture-screen');
-        const oppBtnCaptureScreen = document.getElementById('opp-btn-capture-screen');
-
-        const triggerCapture = async (btnElement, statusElementId) => {
-            try {
-                btnElement.textContent = chrome.i18n.getMessage('popup_js_128');
-                btnElement.disabled = true;
-                const statusMessage = document.getElementById(statusElementId);
-                if (statusMessage) { statusMessage.textContent = ""; }
-
-                // --- Sauvegarde des champs du formulaire avant fermeture du popup ---
-                const isOppActive = tabOpportunite.classList.contains('active');
-                let storageData = {
-                    doliPrefillSubject: document.getElementById(isOppActive ? 'opp-subject' : 'ticket-subject').value || '',
-                    doliPrefillMessage: document.getElementById(isOppActive ? 'opp-message' : 'ticket-message').value || '',
-                    doliPrefillAssignee: isOppActive ? (oppAssigneeSelect ? oppAssigneeSelect.value : '') : (assigneeSelect ? assigneeSelect.value : ''),
-                    doliActiveTab: isOppActive ? 'opportunite' : 'ticket'
-                };
-
-                if (isOppActive) {
-                    storageData.doliPrefillOppNom = document.getElementById('opp-nom').value || '';
-                    storageData.doliPrefillOppPrenom = document.getElementById('opp-prenom').value || '';
-                    storageData.doliPrefillOppTel = document.getElementById('opp-tel').value || '';
-                    storageData.doliPrefillOppEmail = document.getElementById('opp-email').value || '';
-                    storageData.doliPrefillOppProba = document.getElementById('opp-proba').value || '50';
-                    storageData.doliPrefillOppMontant = document.getElementById('opp-montant').value || '';
-                }
-
-                // Sauvegarde globale des 3 listes déroulantes (valable pour Ticket et Opp)
-                const tiersElem = document.getElementById('ticket-tiers');
-                const contactElem = document.getElementById('ticket-contact');
-                const projectElem = document.getElementById('ticket-project');
-                if (tiersElem) storageData.doliPrefillTicketTiers = tiersElem.value || '';
-                if (contactElem) storageData.doliPrefillTicketContact = contactElem.value || '';
-                if (projectElem) storageData.doliPrefillTicketProject = projectElem.value || '';
-
-                // Sauvegarde des fichiers en cours
-                const serializeFiles = async (filesArray) => {
-                    return Promise.all(filesArray.map(async fileObj => {
-                        return new Promise(resolve => {
-                            const reader = new FileReader();
-                            reader.onload = () => resolve({
-                                name: fileObj.file.name,
-                                type: fileObj.file.type,
-                                data: reader.result
-                            });
-                            reader.readAsDataURL(fileObj.file);
-                        });
-                    }));
-                };
-
-                storageData.doliPendingTicketFiles = await serializeFiles(ticketFilesList);
-                storageData.doliPendingOppFiles = await serializeFiles(oppFilesList);
-
-                chrome.storage.local.set(storageData);
-
-                // 1. Déclencher la capture
-                chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-                    if (chrome.runtime.lastError || !dataUrl) {
-                        const err = chrome.runtime.lastError ? chrome.runtime.lastError.message : "Pas d'image";
-                        if (statusMessage) {
-                            statusMessage.textContent = chrome.i18n.getMessage('popup_js_129') + err;
-                            statusMessage.style.color = "#e74c3c";
-                        }
-                        resetCaptureButton(btnElement);
-                        return;
-                    }
-
-                    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-                        if (!tabs || tabs.length === 0) {
-                            if (statusMessage) {
-                                statusMessage.textContent = chrome.i18n.getMessage('popup_js_130');
-                                statusMessage.style.color = "#e74c3c";
-                            }
-                            resetCaptureButton(btnElement);
-                            return;
-                        }
-
-                        let promises = tabs.map(tab => {
-                            return new Promise(resolve => {
-                                // Vérifier directement si l'URL est interdite par Chrome
-                                if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('https://chrome.google.com/webstore'))) {
-                                    resolve({ success: false, error: "FORBIDDEN_URL" });
-                                    return;
-                                }
-
-                                const trySendMessage = (retryCount = 0) => {
-                                    chrome.tabs.sendMessage(tab.id, {
-                                        action: "START_IN_PAGE_EDITOR",
-                                        image: dataUrl
-                                    }, (response) => {
-                                        if (chrome.runtime.lastError) {
-                                            const errMessage = chrome.runtime.lastError.message;
-                                            
-                                            // Si le content script n'est pas trouvé (Ex: extension rechargée ou page ouverte avant installation)
-                                            if (retryCount === 0 && errMessage.includes("Receiving end does not exist") && chrome.scripting) {
-                                                // Injection dynamique pour éviter à l'utilisateur de faire F5
-                                                chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["src/content/content.css"] }, () => {
-                                                    chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/content/content.js"] }, () => {
-                                                        // Laisser 250ms au content script pour écouter les messages
-                                                        setTimeout(() => trySendMessage(1), 250);
-                                                    });
-                                                });
-                                                return; // On attend la fin de l'injection
-                                            }
-                                            resolve({ success: false, error: errMessage });
-                                        }
-                                        else resolve({ success: true });
-                                    });
-                                };
-                                
-                                trySendMessage(0);
-                            });
-                        });
-
-                        const timeout = new Promise(resolve => setTimeout(() => resolve([{ success: false, timeout: true }]), 4000));
-
-                        Promise.race([Promise.all(promises), timeout]).then((results) => {
-                            let failed = false;
-                            let isTimeout = false;
-                            let specificError = "";
-
-                            for (let res of results) {
-                                if (!res.success) {
-                                    failed = true;
-                                    if (res.timeout) isTimeout = true;
-                                    if (res.error) specificError = res.error;
-                                }
-                            }
-
-                            if (failed) {
-                                if (statusMessage) {
-                                    let errorKey = 'error_5099';
-                                    if (isTimeout) {
-                                        errorKey = 'error_5001';
-                                    } else if (specificError === "FORBIDDEN_URL") {
-                                        errorKey = 'error_5002';
-                                    } else if (specificError.includes("Receiving end does not exist")) {
-                                        errorKey = 'error_5003';
-                                    }
-
-                                    statusMessage.textContent = ErrorManager.getMessage(errorKey, specificError);
-                                    statusMessage.style.color = "#e74c3c";
-                                }
-                                resetCaptureButton(btnElement);
-                            } else {
-                                window.close();
-                            }
-                        });
-                    });
-                });
-            } catch (e) {
-                console.error("CRITICAL ERROR CAPTURE:", e);
-                const statusMessage = document.getElementById(statusElementId);
-                if (statusMessage) {
-                    statusMessage.textContent = chrome.i18n.getMessage('popup_js_131') + e.message;
-                    statusMessage.style.color = "#e74c3c";
-                }
-                btnElement.disabled = false;
-                btnElement.textContent = chrome.i18n.getMessage('popup_js_132');
-            }
-        };
-
-        function resetCaptureButton(btn) {
-            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: text-bottom;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Capturer';
-            btn.disabled = false;
-        }
-
-        if (btnCaptureScreen) btnCaptureScreen.addEventListener('click', () => triggerCapture(btnCaptureScreen, 'status-message'));
-        if (oppBtnCaptureScreen) oppBtnCaptureScreen.addEventListener('click', () => triggerCapture(oppBtnCaptureScreen, 'opp-status-message'));
-
-        // --- Chargement automatique d'une capture en attente (depuis l'éditeur in-page) ---
-        chrome.storage.local.get(['doliPendingScreenshot', 'doliActiveTab', 'doliPendingTicketFiles', 'doliPendingOppFiles'], (result) => {
-            
-            // Restauration des fichiers précédents
-            const restoreFiles = (serializedArray, targetList, containerId, inputId) => {
-                if (serializedArray && serializedArray.length > 0) {
-                    serializedArray.forEach(f => {
-                        fetch(f.data).then(r => r.blob()).then(blob => {
-                            const newFile = new File([blob], f.name, { type: f.type });
-                            targetList.push({ file: newFile, previewUrl: URL.createObjectURL(blob) });
-                            renderThumbnails(targetList, containerId, inputId);
-                        });
-                    });
-                }
-            };
-
-            restoreFiles(result.doliPendingTicketFiles, ticketFilesList, 'preview-container', 'ticket-file');
-            restoreFiles(result.doliPendingOppFiles, oppFilesList, 'opp-preview-container', 'opp-file');
-            
-            // Nettoyage pour ne pas les garder indéfiniment
-            chrome.storage.local.remove(['doliPendingTicketFiles', 'doliPendingOppFiles']);
-
-
-            if (result.doliPendingScreenshot) {
-                const dataUrl = result.doliPendingScreenshot;
-                const activeTabScreenshot = result.doliActiveTab || 'ticket';
-
-                // Retirer de la mémoire pour ne pas recharger indéfiniment
-                chrome.storage.local.remove(['doliPendingScreenshot']);
-
-                fetch(dataUrl)
-                    .then(res => res.blob())
-                    .then(blob => {
-                        const date = new Date().toISOString().replace(/T/, '_').replace(/:/g, '-').split('.')[0];
-                        const extension = dataUrl.startsWith('data:image/jpeg') ? 'jpg' : 'png';
-                        const mimeType = dataUrl.startsWith('data:image/jpeg') ? 'image/jpeg' : 'image/png';
-                        const newFile = new File([blob], `Annotation_${date}.${extension}`, { type: mimeType });
-                        const fileObj = { file: newFile, previewUrl: URL.createObjectURL(blob) };
-
-                        if (activeTabScreenshot === 'opportunite') {
-                            oppFilesList.push(fileObj);
-                            renderThumbnails(oppFilesList, 'opp-preview-container', 'opp-file');
-                        } else {
-                            ticketFilesList.push(fileObj);
-                            renderThumbnails(ticketFilesList, 'preview-container', 'ticket-file');
-                        }
-                    });
-            }
-        });
+        initAttachments();
 
         const btnClearTicket = document.getElementById('btn-clear-ticket');
         if (btnClearTicket) {
             btnClearTicket.addEventListener('click', () => {
                 document.getElementById('ticket-form').reset();
                 document.getElementById('ticket-subject').focus();
+                clearTicketFiles();
+                const previewContainer = document.getElementById('preview-container');
+                if (previewContainer) { previewContainer.innerHTML = ''; previewContainer.classList.add('hidden'); }
                 // Forcer la sauvegarde d'un brouillon vide (ou la suppression)
                 const pId = document.getElementById('doli-active-profile').value;
                 if (pId) chrome.storage.local.remove([`draftTicket_${pId}`, `draftShared_${pId}`]);
@@ -2201,6 +1812,9 @@ document.addEventListener('DOMContentLoaded', () => {
             oppBtnClear.addEventListener('click', () => {
                 document.getElementById('opp-form').reset();
                 document.getElementById('opp-subject').focus();
+                clearOppFiles();
+                const oppPreviewContainer = document.getElementById('opp-preview-container');
+                if (oppPreviewContainer) { oppPreviewContainer.innerHTML = ''; oppPreviewContainer.classList.add('hidden'); }
                 const pId = document.getElementById('doli-active-profile').value;
                 if (pId) chrome.storage.local.remove([`draftOpp_${pId}`, `draftShared_${pId}`]);
             });
