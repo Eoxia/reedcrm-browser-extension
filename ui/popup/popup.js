@@ -862,7 +862,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (typeof window.applyOppFilters === 'function') {
                             window.applyOppFilters();
                         }
-                        }
                     } else {
                         if (!isFullLoad) {
                             allOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunite.</div>`;
