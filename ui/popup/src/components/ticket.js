@@ -6,7 +6,7 @@ export function renderTicketItemHtml(mappedTicket) {
     const companyHtml = mappedTicket.companyName ? `<span class="tc-company" title="Tiers"><i class="fas fa-building" style="color: #6a7491;"></i> ${mappedTicket.companyName}</span> <span class="tc-sep">•</span>` : '';
 
     return `
-        <div class="ticket-card-new recent-ticket-item" data-search="${mappedTicket.searchString}" data-date="${mappedTicket.datec || 0}" data-stat="${mappedTicket.stat}">
+        <div class="ticket-card-new recent-ticket-item" data-search="${mappedTicket.searchString}" data-date="${mappedTicket.datec || 0}" data-stat="${mappedTicket.stat}" data-assignee="${mappedTicket.fk_user_assign || ''}">
             <div class="tc-header">
                 <div class="tc-meta">
                     <a href="${mappedTicket.ticketUrl}" target="_blank" class="tc-ref" style="text-decoration: none;">${mappedTicket.ref}</a> <span class="tc-sep">•</span> 

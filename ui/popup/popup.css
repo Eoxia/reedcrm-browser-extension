@@ -922,21 +922,33 @@ a.rt-ref:hover {
 }
 
 /* Segmented Control for Filters */
-.opp-quick-filter {
+.opp-quick-filter, .ticket-quick-filter {
     color: #4b5563;
 }
-.opp-quick-filter.active {
+.opp-quick-filter.active, .ticket-quick-filter.active {
     background-color: #ffffff;
-    color: #1e293b;
+    color: #2563eb; /* Stronger blue for visibility */
     font-weight: bold;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid #bfdbfe; /* Subtle blue border */
 }
-.opp-quick-filter:hover:not(.active) {
+.opp-quick-filter:hover:not(.active), .ticket-quick-filter:hover:not(.active) {
     background-color: rgba(255, 255, 255, 0.5);
 }
 
-.opp-quick-filter .filter-icon { color: #94a3b8; transition: color 0.2s; }
-.opp-quick-filter.active .filter-icon { color: #5c6e82; }
+.opp-quick-filter .filter-icon, .ticket-quick-filter .filter-icon { color: #94a3b8; transition: color 0.2s; }
+.opp-quick-filter.active .filter-icon, .ticket-quick-filter.active .filter-icon { color: #2563eb; }
+
+/* Assignee Filter Badge */
+.ticket-assignee-filter:hover .user-initials-badge {
+    background-color: #cbd5e1;
+}
+.ticket-assignee-filter.active .user-initials-badge {
+    background-color: #2563eb;
+    color: #ffffff;
+    border-color: #1d4ed8;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+}
 
 /* Inline Editing */
 .inline-editable {
