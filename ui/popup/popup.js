@@ -605,6 +605,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
 
                         // Réattacher les événements d'édition inline
+                        if (typeof window.applyTicketFilters === 'function') {
+                            window.applyTicketFilters();
+                        }
 
                     } else {
                         const noTicketsMsg = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucun ticket récent trouvé (ou accès API refusé pour cet utilisateur).</div>`;
@@ -762,6 +765,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const html = renderOppItemHtml(mappedOpp);
                                 recentOppList.insertAdjacentHTML('beforeend', html);
                             });
+
+                            if (typeof window.applyOppFilters === 'function') {
+                                window.applyOppFilters();
+                            }
                         } else {
                             recentOppList.innerHTML = `<div style="text-align: center; color: #999;font-size: 11px; padding: 10px;">Aucune opportunité trouvée.</div>`;
                         }
@@ -850,6 +857,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         if (typeof initInlineEdit === 'function') {
                             initInlineEdit(apiUrl, token, entity);
+                        }
+
+                        if (typeof window.applyOppFilters === 'function') {
+                            window.applyOppFilters();
                         }
                     } else {
                         if (!isFullLoad) {
@@ -1844,6 +1855,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const oppSearchInput = document.getElementById('opp-search-input');
         let currentOppDateFilter = 'month';
         
+        window.applyOppFilters = applyOppFilters;
         function applyOppFilters() {
             const query = (oppSearchInput ? oppSearchInput.value : '').toLowerCase().trim();
             const items = document.querySelectorAll('.opp-list-item');
@@ -1882,7 +1894,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (matchSearch && matchDate) {
                     item.style.display = 'flex';
-                    visibleCount++;
+                    if (item.closest('#all-opp-list') || item.closest('#recent-opp-list')) {
+                        visibleCount++;
+                    }
                 } else {
                     item.style.display = 'none';
                 }
@@ -1913,6 +1927,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentTicketDateFilter = 'month'; // Keep 'month' as default based on user request
         let currentTicketAssigneeFilter = 'all';
 
+        window.applyTicketFilters = applyTicketFilters;
         function applyTicketFilters() {
             const query = (ticketSearchInput ? ticketSearchInput.value : '').toLowerCase().trim();
             const items = document.querySelectorAll('.recent-ticket-item:not(.opp-list-item)'); // Sélectionne uniquement les tickets
@@ -1957,7 +1972,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (matchSearch && matchDate && matchAssignee) {
                     item.style.display = 'flex';
-                    visibleCount++;
+                    if (item.closest('#recent-tickets-list')) {
+                        visibleCount++;
+                    }
                 } else {
                     item.style.display = 'none';
                 }
