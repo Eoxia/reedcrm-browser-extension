@@ -1060,7 +1060,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.oppAssigneeCustomSelect.update();
                     }
                 };
-                usersPromise.then(setupOppAssignees);
+                usersPromise.then(users => {
+                    setupOppAssignees(users);
+                    
+                    // Populate ticket assignee filter
+                    const assigneeSelect = document.getElementById('ticket-filter-assignee');
+                    if (assigneeSelect) {
+                        users.forEach(u => {
+                            const opt = document.createElement('option');
+                            opt.value = u.id;
+                            let displayName = (u.firstname || u.lastname) ? `${u.firstname || ''} ${u.lastname || ''}`.trim() : u.login;
+                            if (displayName.length > 15) {
+                                displayName = displayName.substring(0, 15) + '...';
+                            }
+                            opt.textContent = displayName;
+                            assigneeSelect.appendChild(opt);
+                        });
+                        
+                        // Select current user if we wanted to (but user asked for 'All' by default)
+                        // It defaults to 'all' because the first option is 'all'.
+                    }
+                });
 
                 // Vérification des droits GED pour afficher un avertissement si nécessaire
                 const gedWarning = document.getElementById('ged-warning');
@@ -1890,10 +1910,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Recherche dans les tickets
         const ticketSearchInput = document.getElementById('ticket-search-input');
         
+        let currentTicketDateFilter = 'month'; // Keep 'month' as default based on user request
+        let currentTicketAssigneeFilter = 'all';
+
         function applyTicketFilters() {
             const query = (ticketSearchInput ? ticketSearchInput.value : '').toLowerCase().trim();
             const items = document.querySelectorAll('.recent-ticket-item:not(.opp-list-item)'); // Sélectionne uniquement les tickets
             
+            const now = Date.now() / 1000;
+            const ONE_DAY = 24 * 3600;
+            const ONE_WEEK = 7 * ONE_DAY;
+            const ONE_MONTH = 30 * ONE_DAY;
+            
+            let visibleCount = 0;
+
             items.forEach(item => {
                 let matchSearch = true;
                 if (query !== '') {
@@ -1902,12 +1932,49 @@ document.addEventListener('DOMContentLoaded', () => {
                     matchSearch = searchTokens.every(token => searchStr.includes(token));
                 }
 
-                if (matchSearch) {
+                let matchDate = true;
+                if (currentTicketDateFilter) {
+                    const itemDate = parseFloat(item.getAttribute('data-date')) || 0;
+                    if (currentTicketDateFilter === 'yesterday') {
+                        // Moins de 48h (approximation de "hier")
+                        matchDate = (now - itemDate) <= (2 * ONE_DAY);
+                    } else if (currentTicketDateFilter === 'week') {
+                        matchDate = (now - itemDate) <= ONE_WEEK;
+                    } else if (currentTicketDateFilter === 'month') {
+                        matchDate = (now - itemDate) <= ONE_MONTH;
+                    }
+                }
+
+                let matchAssignee = true;
+                if (currentTicketAssigneeFilter && currentTicketAssigneeFilter !== 'all') {
+                    const itemAssignee = item.getAttribute('data-assignee');
+                    if (currentTicketAssigneeFilter === 'unassigned') {
+                        matchAssignee = !itemAssignee || itemAssignee === 'null' || itemAssignee === '0' || itemAssignee === '';
+                    } else {
+                        matchAssignee = (String(itemAssignee) === String(currentTicketAssigneeFilter));
+                    }
+                }
+
+                if (matchSearch && matchDate && matchAssignee) {
                     item.style.display = 'flex';
+                    visibleCount++;
                 } else {
                     item.style.display = 'none';
                 }
             });
+
+            if (query === '') {
+                items.forEach(item => {
+                    if (item.classList.contains('initially-hidden')) {
+                        item.style.display = 'none';
+                    }
+                });
+            }
+            
+            const countEl = document.getElementById('ticket-count-total');
+            if (countEl) {
+                countEl.textContent = visibleCount;
+            }
         }
 
         if (ticketSearchInput) {
@@ -1940,6 +2007,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyOppFilters();
             });
         });
+
+        const ticketQuickFilters = document.querySelectorAll('.ticket-quick-filter');
+        ticketQuickFilters.forEach(btn => {
+            if (btn.getAttribute('data-filter') === 'month') {
+                btn.classList.add('active');
+            }
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const filter = e.currentTarget.getAttribute('data-filter');
+                if (filter === 'all') {
+                    currentTicketDateFilter = null;
+                } else {
+                    currentTicketDateFilter = filter;
+                }
+                
+                ticketQuickFilters.forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+
+                applyTicketFilters();
+            });
+        });
+
+        const ticketFilterAssignee = document.getElementById('ticket-filter-assignee');
+        if (ticketFilterAssignee) {
+            ticketFilterAssignee.addEventListener('change', (e) => {
+                currentTicketAssigneeFilter = e.target.value;
+                if (currentTicketAssigneeFilter !== 'all') {
+                    ticketFilterAssignee.style.backgroundColor = '#2563eb';
+                    ticketFilterAssignee.style.color = '#ffffff';
+                } else {
+                    ticketFilterAssignee.style.backgroundColor = '#e2e8f0';
+                    ticketFilterAssignee.style.color = '#475569';
+                }
+                applyTicketFilters();
+            });
+        }
 
     } catch (fatalError) {
         document.body.innerHTML = `<div style="padding: 20px; color: red; font-family: sans-serif;">
