@@ -16,13 +16,35 @@ L'extension ne nécessite aucun processus de `build` complexe type Webpack ou Vi
 - **Débogage du Service Worker** : Cliquez sur "Service worker" sur la carte de l'extension pour ouvrir une console DevTools dédiée au script d'arrière-plan.
 - **Débogage du Popup** : Faites un clic-droit sur l'icône de l'extension dans la barre d'outils et sélectionnez "Inspecter le pop-up".
 
-## 3. Workflow Git
+## 3. Workflow Git (Git Conventions)
 
-1. **Une Feature = Une Branche** : Ne jamais travailler directement sur `main`.
-2. Format des branches : `{type}/{issue-number}-{description}`
-   - Exemple : `feat/102-ajout-opportunite` ou `fix/15-bug-affichage`
-3. Ouvrir une **Pull Request (PR)** vers `main` pour toute modification.
-4. Messages de commit au format Conventional Commits (`fix: ...`, `feat: ...`, `chore: ...`).
+**Branch** : `{type}/{issue-number}-{short-description}`
+→ `fix/503-mail-eventpro`, `feat/478-menu-reorder`
+
+**Ne jamais commiter directement sur main**. La branche de dev principale est `main`. Une PR est requise avec ≥1 relecteur.
+
+**Une issue = une branche = une PR.** Ne jamais mélanger plusieurs issues dans une seule branche ou PR.
+
+**Format des commits** : `#{issue} [{Scope}] {type}: {short description}`
+
+| Type | Usage |
+|------|-------|
+| `feat` / `add` | Nouvelle fonctionnalité |
+| `fix` | Correction de bug |
+| `rework` | Refactorisation / Rework |
+| `chore` / `ci` | Build, CI, configuration |
+| `docs` / `style` | Documentation, formatage |
+
+**Scope** : Élément métier si large (`Ticket`, `Opportunite`), ou catégorie technique si ciblée (`JS`, `UI`, `CI`).
+
+**Exemples de commits** :
+- `#503 [Ticket] fix: affichage du compteur`
+- `#478 [UI] rework: réorganisation des boutons`
+- `#1305 [JS] add: gestionnaire d'événements API`
+
+**Labels d'Issue** :
+- **Story points** — ajoutez un label de suite de Fibonacci à chaque issue : `0`, `1`, `2`, `3`, `5`, `8`, `13`, `21`.
+- **PWA** — ajoutez le label `PWA` aux issues liées à l'application web progressive si applicable.
 
 ## 4. Intégration Continue (CI)
 
