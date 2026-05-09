@@ -1227,14 +1227,26 @@ function extractAndOpenOutlookReadEntity(activeTab) {
     });
 }
 
+let cachedIsRoundcube = null;
 function isRoundcube() {
+    if (cachedIsRoundcube !== null) return cachedIsRoundcube;
+
+    let hasCookie = false;
+    try {
+        hasCookie = document.cookie && document.cookie.toLowerCase().includes('roundcube');
+    } catch (e) {
+        // Ignore SecurityError in sandboxed environments
+    }
+
     // Liste de sélecteurs stricts prouvant qu'on est sur une interface type Webmail/Roundcube
-    return !!document.getElementById('rcmApp') || 
+    cachedIsRoundcube = !!document.getElementById('rcmApp') || 
            !!document.getElementById('messagetoolbar') ||
            !!document.querySelector('meta[content*="Roundcube"]') ||
            !!document.querySelector('body.task-mail') ||
            !!document.querySelector('input[name="_task"][value="mail"]') ||
-           (document.cookie && document.cookie.toLowerCase().includes('roundcube'));
+           hasCookie;
+
+    return cachedIsRoundcube;
 }
 
 function injectRoundcubeReadButton() {
