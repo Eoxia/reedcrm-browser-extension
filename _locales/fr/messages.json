@@ -690,7 +690,7 @@
         "message": "glisser vos fichiers"
     },
     "popup_upload_hint": {
-        "message": "Copier-coller (Ctrl+V)"
+        "message": "(Ctrl+V)"
     },
     "popup_capture": {
         "message": "Capturer"

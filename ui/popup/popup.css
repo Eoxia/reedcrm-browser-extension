@@ -1218,7 +1218,7 @@ a.rt-ref:hover {
     gap: 6px;
     align-items: stretch;
     margin-top: 10px;
-    min-height: 60px;
+    min-height: 44px;
 }
 
 .dashed-upload-zone {
@@ -1248,8 +1248,8 @@ a.rt-ref:hover {
 }
 
 .icon-cloud {
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
     color: #212529;
 }
 
@@ -1258,7 +1258,7 @@ a.rt-ref:hover {
     flex-direction: row;
     align-items: baseline;
     justify-content: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 4px;
 }
 
@@ -1301,8 +1301,8 @@ a.rt-ref:hover {
 }
 
 .icon-camera {
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
 }
 
 .btn-submit-rocket {
@@ -1334,8 +1334,8 @@ a.rt-ref:hover {
 }
 
 .icon-rocket {
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
     
 }
 

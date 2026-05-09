@@ -669,7 +669,7 @@
         "message": "drag your files"
     },
     "popup_upload_hint": {
-        "message": "copy-paste (Ctrl+V)"
+        "message": "(Ctrl+V)"
     },
     "popup_capture": {
         "message": "Capture"
