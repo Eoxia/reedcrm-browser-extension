@@ -512,10 +512,10 @@ button:disabled {
     font-weight: 600;
     color: #475569;
     cursor: pointer;
-    padding: 2px 6px;
+    padding: 4px 12px;
+    border-radius: 4px;
     border-bottom: 2px solid transparent; /* default state */
     transition: all 0.2s;
-    min-width: 45px;
 }
 
 .nav-tab svg {
