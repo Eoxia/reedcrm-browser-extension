@@ -1386,10 +1386,12 @@ function isRoundcube() {
     if (cachedIsRoundcube !== null) return cachedIsRoundcube;
 
     let hasCookie = false;
-    try {
-        hasCookie = document.cookie && document.cookie.toLowerCase().includes('roundcube');
-    } catch (e) {
-        // Ignore SecurityError in sandboxed environments
+    if (window.origin !== 'null') {
+        try {
+            hasCookie = document.cookie && document.cookie.toLowerCase().includes('roundcube');
+        } catch (e) {
+            // Ignore SecurityError in sandboxed environments
+        }
     }
 
     // Liste de sélecteurs stricts prouvant qu'on est sur une interface type Webmail/Roundcube
