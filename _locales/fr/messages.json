@@ -4,7 +4,7 @@
         "description": "Extracted string popup_1"
     },
     "popup_2": {
-        "message": "+ Opp",
+        "message": "Opp",
         "description": "Extracted string popup_2"
     },
     "popup_3": {
@@ -12,7 +12,7 @@
         "description": "Extracted string popup_3"
     },
     "popup_4": {
-        "message": "+ Ticket",
+        "message": "Tickets",
         "description": "Extracted string popup_4"
     },
     "popup_5": {
