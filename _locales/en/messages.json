@@ -713,5 +713,62 @@
     },
     "popup_title_ticket_list": {
         "message": "Liste des tickets"
+    },
+    "opt_pointage_rh": {
+        "message": "Time Tracking & Human Resources"
+    },
+    "opt_pointage_desc": {
+        "message": "Configuration of the project used for tracking presence and absence."
+    },
+    "opt_hr_project": {
+        "message": "Human Resources Project"
+    },
+    "opt_hr_presence_tasks": {
+        "message": "Presence Tasks (WORK_TIME)"
+    },
+    "opt_hr_absence_tasks": {
+        "message": "Absence Tasks (NON_WORK_TIME)"
+    },
+    "time_standard_project": {
+        "message": "Standard Project"
+    },
+    "time_hr_mode": {
+        "message": "Presence / Absence"
+    },
+    "time_project": {
+        "message": "Project"
+    },
+    "time_task": {
+        "message": "Task"
+    },
+    "time_select_project": {
+        "message": "Select a project"
+    },
+    "time_select_task": {
+        "message": "Select a task"
+    },
+    "time_presence": {
+        "message": "Presence (Work)"
+    },
+    "time_absence": {
+        "message": "Absence"
+    },
+    "time_date": {
+        "message": "Date"
+    },
+    "time_duration": {
+        "message": "Duration (HH:MM)"
+    },
+    "time_note": {
+        "message": "Note / Comment"
+    },
+    "time_note_placeholder": {
+        "message": "Ex: Progress meeting..."
+    },
+    "time_save": {
+        "message": "Save Time"
+    },
+    "popup_title_timesheet": {
+        "message": "Time Tracking"
     }
 }

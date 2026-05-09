@@ -1,5 +1,7 @@
-
+﻿
 import { MESSAGE_TYPES } from '../../src/utils/constants.js';
+import { CustomSelect } from '../components/custom-select.js';
+import { CustomMultiSelect } from '../components/custom-multiselect.js';
 
 // Remplacement global pour intercepter les fetch et les envoyer au SW (Règle 12)
 async function fetchDoli(url, options = {}) {
@@ -265,6 +267,24 @@ function loadProfileIntoForm(p) {
     } else {
         renderPermissions({ connection: 'pending', users: 'pending', tickets: 'pending', thirdparties: 'pending', projects: 'pending', ged: 'pending', ged_pr: 'pending' }, p.doliUrl);
     }
+
+    // Reset de la section RH : vider le DOM et detruire les instances CustomSelect
+    const _pSel = document.getElementById('doli-hr-project');
+    const _prSel = document.getElementById('doli-hr-presence-tasks');
+    const _abSel = document.getElementById('doli-hr-absence-tasks');
+    if (_pSel) { _pSel.innerHTML = '<option value="">-- Selectionner un projet --</option>'; }
+    if (_prSel) { _prSel.innerHTML = ''; }
+    if (_abSel) { _abSel.innerHTML = ''; }
+    const _pw = _pSel && _pSel.parentElement ? _pSel.parentElement.querySelector('.custom-select-wrapper') : null;
+    if (_pw) { _pw.remove(); }
+    if (_pSel) _pSel.classList.remove('hidden');
+    const _prw = _prSel && _prSel.parentElement ? _prSel.parentElement.querySelector('.custom-multiselect-wrapper') : null;
+    if (_prw) _prw.remove();
+    const _abw = _abSel && _abSel.parentElement ? _abSel.parentElement.querySelector('.custom-multiselect-wrapper') : null;
+    if (_abw) _abw.remove();
+    window.optionsHrProjectSelect = null;
+    window.optionsHrPresenceSelect = null;
+    window.optionsHrAbsenceSelect = null;
 }
 
 // Met à jour la liste déroulante des profils
@@ -356,7 +376,15 @@ document.addEventListener('DOMContentLoaded', () => {
         activeProfileId = e.target.value;
         chrome.storage.sync.set({ doliActiveProfileId: activeProfileId });
         loadProfileIntoForm(getActiveProfile());
+        // Recharger automatiquement les donnees RH du nouveau profil
+        setTimeout(() => {
+            const newP = getActiveProfile();
+            if (newP && newP.doliUrl && newP.doliApiToken) {
+                loadHrData(newP, false);
+            }
+        }, 100);
     });
+
 
     // Renommer le profil en direct
     document.getElementById('doli-profile-name').addEventListener('input', (e) => {
@@ -662,6 +690,16 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     p.doliTicketSeverity = ticketSeverityVal;
     p.doliTicketCategory = ticketCategoryVal;
     p.doliDictMap = dictMapVal;
+    
+    // Nouveaux champs HR & Contact
+    p.doliContactRole = document.getElementById('doli-contact-role') ? document.getElementById('doli-contact-role').value.trim() : '';
+    p.doliHrProject = document.getElementById('doli-hr-project') ? document.getElementById('doli-hr-project').value : '';
+    if (document.getElementById('doli-hr-presence-tasks')) {
+        p.doliHrPresenceTasks = Array.from(document.getElementById('doli-hr-presence-tasks').selectedOptions).map(opt => opt.value);
+    }
+    if (document.getElementById('doli-hr-absence-tasks')) {
+        p.doliHrAbsenceTasks = Array.from(document.getElementById('doli-hr-absence-tasks').selectedOptions).map(opt => opt.value);
+    }
 
     // Règle 15 : Demande de permissions dynamiques au lieu de <all_urls>
     try {
@@ -811,4 +849,161 @@ function renderPermissions(statusObj, baseUrl) {
 // Cache l'état OK/KO si l'utilisateur modifie l'URL
 document.getElementById('doli-url').addEventListener('input', () => {
     document.getElementById('api-status-indicator').className = 'status-indicator';
+});
+
+// --- HR DATA FETCHING LOGIC ---
+async function loadHrData(profile, forceRefresh = false) {
+    const projectSelect = document.getElementById('doli-hr-project');
+    const presenceSelect = document.getElementById('doli-hr-presence-tasks');
+    const absenceSelect = document.getElementById('doli-hr-absence-tasks');
+    
+    if (!profile || !profile.doliUrl || !profile.doliApiToken) return;
+    
+    const headers = { 'DOLAPIKEY': profile.doliApiToken, 'Accept': 'application/json' };
+    if (profile.doliEntity) headers['DOLAPIENTITY'] = profile.doliEntity;
+
+    const btn = document.getElementById('btn-fetch-hr-projects');
+    if (btn) btn.disabled = true;
+
+    try {
+        // Fetch projects
+        const pRes = await fetchDoli(`${profile.doliUrl}/projects?limit=10000&status=1`, { headers });
+        if (pRes.ok) {
+            const projects = await pRes.json();
+            projectSelect.innerHTML = '<option value="">-- Sélectionner un projet --</option>';
+            if (Array.isArray(projects)) {
+                projects.forEach(proj => {
+                    const opt = document.createElement('option');
+                    opt.value = proj.id;
+                    opt.textContent = `${proj.ref} - ${proj.title}`;
+                    if (profile.doliHrProject == proj.id || projectSelect.dataset.selectedValue == proj.id) {
+                        opt.selected = true;
+                    }
+                    projectSelect.appendChild(opt);
+                });
+                
+                if (!window.optionsHrProjectSelect) {
+                    window.optionsHrProjectSelect = new CustomSelect(projectSelect);
+                } else {
+                    window.optionsHrProjectSelect.update();
+                }
+            }
+            
+            // Trigger change if a project is selected
+            if (projectSelect.value) {
+                await loadHrTasks(profile, projectSelect.value, presenceSelect, absenceSelect);
+            }
+        }
+    } catch(e) {
+        console.error("Error fetching HR projects", e);
+    }
+    
+    if (btn) btn.disabled = false;
+}
+
+async function loadHrTasks(profile, projectId, presenceSelect, absenceSelect) {
+    if (!projectId) {
+        presenceSelect.innerHTML = '';
+        absenceSelect.innerHTML = '';
+        return;
+    }
+    
+    const headers = { 'DOLAPIKEY': profile.doliApiToken, 'Accept': 'application/json' };
+    if (profile.doliEntity) headers['DOLAPIENTITY'] = profile.doliEntity;
+    
+    try {
+        const tRes = await fetchDoli(`${profile.doliUrl}/tasks?sqlfilters=(t.fk_projet:=:${projectId})&limit=100`, { headers });
+        if (tRes.ok) {
+            const tasks = await tRes.json();
+            
+            let presenceSelected = [];
+            let absenceSelected = [];
+            try { presenceSelected = JSON.parse(presenceSelect.dataset.selectedValues || "[]"); } catch(e){}
+            try { absenceSelected = JSON.parse(absenceSelect.dataset.selectedValues || "[]"); } catch(e){}
+
+            presenceSelect.innerHTML = '';
+            absenceSelect.innerHTML = '';
+            
+            if (Array.isArray(tasks)) {
+                tasks.forEach(task => {
+                    const opt1 = document.createElement('option');
+                    opt1.value = task.id;
+                    opt1.textContent = `${task.ref} - ${task.label}`;
+                    if (presenceSelected.includes(String(task.id))) opt1.selected = true;
+                    presenceSelect.appendChild(opt1);
+                    
+                    const opt2 = document.createElement('option');
+                    opt2.value = task.id;
+                    opt2.textContent = `${task.ref} - ${task.label}`;
+                    if (absenceSelected.includes(String(task.id))) opt2.selected = true;
+                    absenceSelect.appendChild(opt2);
+                });
+                
+                const updateExclusions = () => {
+                    const presSelected = Array.from(presenceSelect.selectedOptions).map(opt => opt.value);
+                    const absSelected = Array.from(absenceSelect.selectedOptions).map(opt => opt.value);
+
+                    Array.from(presenceSelect.options).forEach(opt => {
+                        opt.disabled = absSelected.includes(opt.value);
+                    });
+                    Array.from(absenceSelect.options).forEach(opt => {
+                        opt.disabled = presSelected.includes(opt.value);
+                    });
+
+                    if (window.optionsHrPresenceSelect) window.optionsHrPresenceSelect.update();
+                    if (window.optionsHrAbsenceSelect) window.optionsHrAbsenceSelect.update();
+                };
+
+                // Add listeners for mutual exclusion if not already added
+                if (!presenceSelect.dataset.listenerAdded) {
+                    presenceSelect.addEventListener('change', updateExclusions);
+                    absenceSelect.addEventListener('change', updateExclusions);
+                    presenceSelect.dataset.listenerAdded = 'true';
+                }
+
+                // Initialize CustomMultiSelect
+                if (!window.optionsHrPresenceSelect) {
+                    window.optionsHrPresenceSelect = new CustomMultiSelect(presenceSelect);
+                }
+                if (!window.optionsHrAbsenceSelect) {
+                    window.optionsHrAbsenceSelect = new CustomMultiSelect(absenceSelect);
+                }
+
+                // Trigger exclusion logic initially to disable cross-selected items
+                updateExclusions();
+            }
+        }
+    } catch(e) {
+        console.error("Error fetching HR tasks", e);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btnFetchHr = document.getElementById('btn-fetch-hr-projects');
+    const projectSelect = document.getElementById('doli-hr-project');
+    
+    if (btnFetchHr) {
+        btnFetchHr.addEventListener('click', () => {
+            const p = getActiveProfile();
+            loadHrData(p, true);
+        });
+    }
+    
+    if (projectSelect) {
+        projectSelect.addEventListener('change', (e) => {
+            const p = getActiveProfile();
+            const presenceSelect = document.getElementById('doli-hr-presence-tasks');
+            const absenceSelect = document.getElementById('doli-hr-absence-tasks');
+            loadHrTasks(p, e.target.value, presenceSelect, absenceSelect);
+        });
+    }
+
+    // Chargement automatique des données RH au démarrage de la page options
+    // On attend un court délai pour que le profil actif soit bien chargé depuis storage.sync
+    setTimeout(() => {
+        const p = getActiveProfile();
+        if (p && p.doliUrl && p.doliApiToken) {
+            loadHrData(p, false);
+        }
+    }, 800);
 });

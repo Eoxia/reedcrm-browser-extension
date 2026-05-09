@@ -373,11 +373,12 @@ button:disabled {
 
 .header-container {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     padding: 10px 15px 5px 15px;
     border-bottom: 1px solid #f0f0f0;
     margin-bottom: 15px;
+    gap: 8px;
 }
 
 .header-container h2 {

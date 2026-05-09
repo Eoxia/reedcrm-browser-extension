@@ -47,6 +47,13 @@
                         
                     </button>
                 </div>
+                <div class="nav-tab-group">
+                    <button class="nav-tab" id="tab-timesheet" data-i18n-title="popup_title_timesheet">
+                        <div class="icon-wrapper" style="position: relative; display: inline-flex;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </div>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -64,7 +71,7 @@
         <div class="header-container" id="main-header-container">
             <h2 id="view-title">Nouveau Ticket</h2>
             
-            <div id="ticket-top-actions" style="display: flex; align-items: center; gap: 8px; flex: 1;">                
+            <div id="ticket-top-actions" style="display: flex; align-items: center; gap: 8px;">                
                 <div class="searchable-select-container mini-select" style="flex: 1; min-width: 0;">
                     <select id="ticket-tiers" class="searchable-select hidden">
                         <option value=""><span data-i18n="popup_5"></span></option>
@@ -89,6 +96,122 @@
         <div id="setup-warning" class="warning hidden">
             <p><span data-i18n="popup_8"></span></p>
             <button id="btn-open-options"><span data-i18n="popup_9"></span></button>
+        </div>
+
+        <!-- VUE TIMESHEET -->
+        <div id="view-timesheet" class="tab-content hidden">
+            <!-- SETUP CONTAINER -->
+            <div id="timesheet-setup-container" class="hidden" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); padding: 16px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border: 1px solid #e2e8f0; margin-bottom: 15px;">
+                <h3 style="color: #0f172a; font-size: 14px; margin-top: 0; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3498db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    Bienvenue dans le suivi de temps
+                </h3>
+                <p style="font-size: 12px; color: #64748b; margin-bottom: 16px; line-height: 1.4;">On vous prend 1 minute pour la configuration :</p>
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">Choisissez votre projet ressources humaines :</label>
+                    <div class="searchable-select-container" style="min-width: 0;">
+                        <select id="time-setup-project" class="searchable-select hidden">
+                            <option value="">Chargement des projets...</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">Choisissez les tâches "Présences" :</label>
+                    <div id="time-setup-presence-container" style="background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; max-height: 120px; overflow-y: auto; font-size: 12px; color: #475569; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="color: #94a3b8; font-style: italic;">Sélectionnez le projet d'abord</span>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">Choisissez les tâches "Absences" :</label>
+                    <div id="time-setup-absence-container" style="background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; max-height: 120px; overflow-y: auto; font-size: 12px; color: #475569; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="color: #94a3b8; font-style: italic;">Sélectionnez le projet d'abord</span>
+                    </div>
+                </div>
+                
+                <button type="button" id="btn-save-time-setup" class="btn-submit-rocket" disabled style="background: #2ecc71; box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3);">
+                    <span class="btn-text" style="display: flex; align-items: center; justify-content: center;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    </span>
+                </button>
+            </div>
+
+            <!-- NORMAL CONTENT -->
+            <div id="timesheet-main-container">
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                <button type="button" id="btn-mode-standard" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #3498db; background: #3498db; color: white; cursor: pointer; font-weight: bold;"><span data-i18n="time_standard_project"></span></button>
+                <button type="button" id="btn-mode-rh" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1; background: white; color: #475569; cursor: pointer; font-weight: bold;"><span data-i18n="time_hr_mode"></span></button>
+            </div>
+
+            <!-- Mode Standard -->
+            <div id="timesheet-mode-standard">
+                <div class="form-group">
+                    <label for="time-project"><span data-i18n="time_project"></span></label>
+                    <div class="searchable-select-container" style="min-width: 0;">
+                        <select id="time-project" class="searchable-select hidden">
+                            <option value=""><span data-i18n="time_select_project"></span></option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="time-task"><span data-i18n="time_task"></span></label>
+                    <div class="searchable-select-container" style="min-width: 0;">
+                        <select id="time-task" class="searchable-select hidden" disabled>
+                            <option value=""><span data-i18n="time_select_task"></span></option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode RH -->
+            <div id="timesheet-mode-rh" class="hidden">
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px; font-weight: 600; color: #475569; display: block; margin-bottom: 5px;"><span data-i18n="time_presence"></span></label>
+                        <div id="hr-presence-container" style="display: flex; flex-direction: column; gap: 5px;">
+                            <!-- Boutons générés en JS -->
+                        </div>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px; font-weight: 600; color: #475569; display: block; margin-bottom: 5px;"><span data-i18n="time_absence"></span></label>
+                        <div id="hr-absence-container" style="display: flex; flex-direction: column; gap: 5px;">
+                            <!-- Boutons générés en JS -->
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="time-hr-task" value="">
+                <p id="time-hr-selected-label" style="font-size: 12px; font-weight: bold; color: #3498db; text-align: center; margin-top: 10px;"></p>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;">
+
+            <div class="form-group" style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label for="time-date"><span data-i18n="time_date"></span></label>
+                    <input type="date" id="time-date" required>
+                </div>
+                <div style="flex: 1;">
+                    <label for="time-duration"><span data-i18n="time_duration"></span></label>
+                    <input type="time" id="time-duration" value="01:00" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="time-note"><span data-i18n="time_note"></span></label>
+                <textarea id="time-note" rows="2" data-i18n-placeholder="time_note_placeholder" required></textarea>
+            </div>
+
+            <button type="button" id="btn-submit-time" class="btn-submit-rocket" style="margin-top: 15px;" disabled>
+                <span class="spinner"></span>
+                <span class="btn-text">
+                    <span data-i18n="time_save"></span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 8px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                </span>
+            </button>
+            <div id="time-status" style="font-size: 12px; text-align: center; margin-top: 10px; font-weight: bold;"></div>
+            </div> <!-- END NORMAL CONTENT -->
         </div>
 
         <!-- VUE TICKET -->
