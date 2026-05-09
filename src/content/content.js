@@ -1,7 +1,93 @@
 // content.js - Script injecté dans les pages web visitées
 console.log("Script de contenu Doli-ReedCRM chargé sur la page actuelle.");
 
+function createSvgIcon(type, size = 16) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    
+    if (type === 'opp') {
+        svg.setAttribute('fill', '#6c757d');
+        svg.setAttribute('width', size);
+        svg.setAttribute('height', size);
+        svg.setAttribute('viewBox', '0 0 24 24');
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('d', 'M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.92 18,21.92C19.61,21.92 20.92,20.61 20.92,19C20.92,17.39 19.61,16.08 18,16.08Z');
+        svg.appendChild(path);
+    } else if (type === 'ticket') {
+        svg.setAttribute('fill', '#38b2ac');
+        svg.setAttribute('width', size);
+        svg.setAttribute('height', size);
+        svg.setAttribute('viewBox', '0 0 24 24');
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('d', 'M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z');
+        svg.appendChild(path);
+    }
+    
+    return svg;
+}
+
+function createEditorSvg(mode) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('width', '16');
+    svg.setAttribute('height', '16');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+
+    if (mode === 'crop') {
+        const p1 = document.createElementNS(ns, 'path'); p1.setAttribute('d', 'M6 2v14a2 2 0 0 0 2 2h14');
+        const p2 = document.createElementNS(ns, 'path'); p2.setAttribute('d', 'M18 22V8a2 2 0 0 0-2-2H2');
+        svg.appendChild(p1); svg.appendChild(p2);
+    } else if (mode === 'pencil') {
+        const p1 = document.createElementNS(ns, 'path'); p1.setAttribute('d', 'M12 20h9');
+        const p2 = document.createElementNS(ns, 'path'); p2.setAttribute('d', 'M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z');
+        svg.appendChild(p1); svg.appendChild(p2);
+    } else if (mode === 'arrow') {
+        const l1 = document.createElementNS(ns, 'line'); l1.setAttribute('x1', '7'); l1.setAttribute('y1', '17'); l1.setAttribute('x2', '17'); l1.setAttribute('y2', '7');
+        const p1 = document.createElementNS(ns, 'polyline'); p1.setAttribute('points', '7 7 17 7 17 17');
+        svg.appendChild(l1); svg.appendChild(p1);
+    } else if (mode === 'text') {
+        const p1 = document.createElementNS(ns, 'polyline'); p1.setAttribute('points', '4 7 4 4 20 4 20 7');
+        const l1 = document.createElementNS(ns, 'line'); l1.setAttribute('x1', '9'); l1.setAttribute('y1', '20'); l1.setAttribute('x2', '15'); l1.setAttribute('y2', '20');
+        const l2 = document.createElementNS(ns, 'line'); l2.setAttribute('x1', '12'); l2.setAttribute('y1', '4'); l2.setAttribute('x2', '12'); l2.setAttribute('y2', '20');
+        svg.appendChild(p1); svg.appendChild(l1); svg.appendChild(l2);
+    } else if (mode === 'rect') {
+        const r1 = document.createElementNS(ns, 'rect'); r1.setAttribute('x', '3'); r1.setAttribute('y', '3'); r1.setAttribute('width', '18'); r1.setAttribute('height', '18'); r1.setAttribute('rx', '2'); r1.setAttribute('ry', '2');
+        svg.appendChild(r1);
+    } else if (mode === 'blur') {
+        const c1 = document.createElementNS(ns, 'circle'); c1.setAttribute('cx', '12'); c1.setAttribute('cy', '12'); c1.setAttribute('r', '10');
+        const p1 = document.createElementNS(ns, 'path'); p1.setAttribute('d', 'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z');
+        svg.appendChild(c1); svg.appendChild(p1);
+    } else if (mode === 'sequence') {
+        const c1 = document.createElementNS(ns, 'circle'); c1.setAttribute('cx', '12'); c1.setAttribute('cy', '12'); c1.setAttribute('r', '10');
+        const t1 = document.createElementNS(ns, 'text'); t1.setAttribute('x', '12'); t1.setAttribute('y', '16'); t1.setAttribute('font-family', 'Arial'); t1.setAttribute('font-size', '12'); t1.setAttribute('font-weight', 'bold'); t1.setAttribute('text-anchor', 'middle'); t1.setAttribute('fill', 'currentColor'); t1.setAttribute('stroke', 'none'); t1.textContent = '1';
+        svg.appendChild(c1); svg.appendChild(t1);
+    } else if (mode === 'settings') {
+        const c1 = document.createElementNS(ns, 'circle'); c1.setAttribute('cx', '12'); c1.setAttribute('cy', '12'); c1.setAttribute('r', '3');
+        const p1 = document.createElementNS(ns, 'path'); p1.setAttribute('d', 'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z');
+        svg.appendChild(c1); svg.appendChild(p1);
+    } else if (mode === 'cancel') {
+        const l1 = document.createElementNS(ns, 'line'); l1.setAttribute('x1', '18'); l1.setAttribute('y1', '6'); l1.setAttribute('x2', '6'); l1.setAttribute('y2', '18');
+        const l2 = document.createElementNS(ns, 'line'); l2.setAttribute('x1', '6'); l2.setAttribute('y1', '6'); l2.setAttribute('x2', '18'); l2.setAttribute('y2', '18');
+        svg.appendChild(l1); svg.appendChild(l2);
+    } else if (mode === 'validate') {
+        const p1 = document.createElementNS(ns, 'polyline'); p1.setAttribute('points', '20 6 9 17 4 12');
+        svg.appendChild(p1);
+    } else if (mode === 'size') {
+        svg.setAttribute('width', '14'); svg.setAttribute('height', '14'); svg.removeAttribute('stroke'); svg.setAttribute('fill', 'currentColor');
+        const c1 = document.createElementNS(ns, 'circle'); c1.setAttribute('cx', '12'); c1.setAttribute('cy', '12'); c1.setAttribute('r', '8');
+        svg.appendChild(c1);
+    }
+
+    return svg;
+}
+
 // --- Éditeur de Capture d'Écran In-Page ---
+
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "START_IN_PAGE_EDITOR") {
@@ -39,53 +125,97 @@ function initEditor(dataUrl) {
     editorOverlay = document.createElement('div');
     editorOverlay.id = 'doli-editor-overlay';
 
-    editorOverlay.innerHTML = `
-        <div id="doli-editor-toolbar">
-            <button class="doli-tool-btn active" data-mode="crop" title="${chrome.i18n.getMessage('editor_crop')}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"></path><path d="M18 22V8a2 2 0 0 0-2-2H2"></path></svg>
-            </button>
-            <button class="doli-tool-btn" data-mode="pencil" title="${chrome.i18n.getMessage('editor_draw')}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-            </button>
-            <button class="doli-tool-btn" data-mode="arrow" title="${chrome.i18n.getMessage('editor_arrow')}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
-            </button>
-            <button class="doli-tool-btn" data-mode="text" title="${chrome.i18n.getMessage('editor_text')}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
-            </button>
-            <button class="doli-tool-btn" data-mode="rect" title="${chrome.i18n.getMessage('editor_box')}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-            </button>
-            <button class="doli-tool-btn" data-mode="blur" title="${chrome.i18n.getMessage('editor_blur')}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-            </button>
-            <button class="doli-tool-btn" data-mode="sequence" title="${chrome.i18n.getMessage('editor_bullet')}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><text x="12" y="16" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle" fill="currentColor" stroke="none">1</text></svg>
-            </button>
-            <div class="doli-editor-separator"></div>
-            <div class="doli-tool-input-row" title="${chrome.i18n.getMessage('editor_color_label')}">
-                <input type="color" id="doli-color-picker" class="doli-editor-color" value="#e74c3c">
-            </div>
-            <div class="doli-tool-input-row" title="${chrome.i18n.getMessage('editor_size_label')}">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"></circle></svg>
-                <input type="range" id="doli-line-width" class="doli-editor-range" min="1" max="15" value="4">
-            </div>
-            <div class="doli-editor-separator"></div>
-            <button class="doli-tool-btn" id="doli-btn-settings" title="${chrome.i18n.getMessage('editor_settings_title')}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            </button>
-            <button class="doli-tool-btn danger" id="doli-btn-cancel" title="${chrome.i18n.getMessage('editor_cancel_btn')}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
-            <button class="doli-tool-btn success" id="doli-btn-validate" title="${chrome.i18n.getMessage('editor_save_btn')}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </button>
-        </div>
-        <div id="doli-editor-canvas-container">
-            <canvas id="doli-editor-canvas"></canvas>
-            <div id="doli-crop-selection" style="display: none;"></div>
-        </div>
-    `;
+    const toolbar = document.createElement('div');
+    toolbar.id = 'doli-editor-toolbar';
+
+    const tools = [
+        { mode: 'crop', titleKey: 'editor_crop', active: true },
+        { mode: 'pencil', titleKey: 'editor_draw' },
+        { mode: 'arrow', titleKey: 'editor_arrow' },
+        { mode: 'text', titleKey: 'editor_text' },
+        { mode: 'rect', titleKey: 'editor_box' },
+        { mode: 'blur', titleKey: 'editor_blur' },
+        { mode: 'sequence', titleKey: 'editor_bullet' }
+    ];
+
+    tools.forEach(t => {
+        const btn = document.createElement('button');
+        btn.className = 'doli-tool-btn' + (t.active ? ' active' : '');
+        btn.dataset.mode = t.mode;
+        btn.title = chrome.i18n.getMessage(t.titleKey) || t.titleKey;
+        btn.appendChild(createEditorSvg(t.mode));
+        toolbar.appendChild(btn);
+    });
+
+    const sep1 = document.createElement('div');
+    sep1.className = 'doli-editor-separator';
+    toolbar.appendChild(sep1);
+
+    const colorRow = document.createElement('div');
+    colorRow.className = 'doli-tool-input-row';
+    colorRow.title = chrome.i18n.getMessage('editor_color_label') || 'Couleur';
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.id = 'doli-color-picker';
+    colorInput.className = 'doli-editor-color';
+    colorInput.value = '#e74c3c';
+    colorRow.appendChild(colorInput);
+    toolbar.appendChild(colorRow);
+
+    const sizeRow = document.createElement('div');
+    sizeRow.className = 'doli-tool-input-row';
+    sizeRow.title = chrome.i18n.getMessage('editor_size_label') || 'Taille';
+    sizeRow.appendChild(createEditorSvg('size'));
+    const sizeInput = document.createElement('input');
+    sizeInput.type = 'range';
+    sizeInput.id = 'doli-line-width';
+    sizeInput.className = 'doli-editor-range';
+    sizeInput.min = '1';
+    sizeInput.max = '15';
+    sizeInput.value = '4';
+    sizeRow.appendChild(sizeInput);
+    toolbar.appendChild(sizeRow);
+
+    const sep2 = document.createElement('div');
+    sep2.className = 'doli-editor-separator';
+    toolbar.appendChild(sep2);
+
+    const btnSettings = document.createElement('button');
+    btnSettings.className = 'doli-tool-btn';
+    btnSettings.id = 'doli-btn-settings';
+    btnSettings.title = chrome.i18n.getMessage('editor_settings_title') || 'Paramètres';
+    btnSettings.appendChild(createEditorSvg('settings'));
+    toolbar.appendChild(btnSettings);
+
+    const btnCancel = document.createElement('button');
+    btnCancel.className = 'doli-tool-btn danger';
+    btnCancel.id = 'doli-btn-cancel';
+    btnCancel.title = chrome.i18n.getMessage('editor_cancel_btn') || 'Annuler';
+    btnCancel.appendChild(createEditorSvg('cancel'));
+    toolbar.appendChild(btnCancel);
+
+    const btnValidate = document.createElement('button');
+    btnValidate.className = 'doli-tool-btn success';
+    btnValidate.id = 'doli-btn-validate';
+    btnValidate.title = chrome.i18n.getMessage('editor_save_btn') || 'Valider';
+    btnValidate.appendChild(createEditorSvg('validate'));
+    toolbar.appendChild(btnValidate);
+
+    editorOverlay.appendChild(toolbar);
+
+    const canvasContainer = document.createElement('div');
+    canvasContainer.id = 'doli-editor-canvas-container';
+
+    const canvasEl = document.createElement('canvas');
+    canvasEl.id = 'doli-editor-canvas';
+    canvasContainer.appendChild(canvasEl);
+
+    const cropSelection = document.createElement('div');
+    cropSelection.id = 'doli-crop-selection';
+    cropSelection.style.display = 'none';
+    canvasContainer.appendChild(cropSelection);
+
+    editorOverlay.appendChild(canvasContainer);
 
     document.body.appendChild(editorOverlay);
 
@@ -616,11 +746,15 @@ function injectNextcloudButton() {
         mainBtn.addEventListener('mouseup', () => mainBtn.style.transform = 'scale(1)');
         
         // SVG / Icon enlevé selon demande
-        mainBtn.innerHTML = `
-            <span class="button-vue__wrapper">
-                <span class="button-vue__text" style="color: #ffffff;">ReedCRM ▼</span>
-            </span>
-        `;
+        mainBtn.textContent = '';
+        const wrapper = document.createElement('span');
+        wrapper.className = 'button-vue__wrapper';
+        const textSpan = document.createElement('span');
+        textSpan.className = 'button-vue__text';
+        textSpan.style.color = '#ffffff';
+        textSpan.textContent = 'ReedCRM ▼';
+        wrapper.appendChild(textSpan);
+        mainBtn.appendChild(wrapper);
 
         // Le menu déroulant
         const dropdown = document.createElement('div');
@@ -653,9 +787,8 @@ function injectNextcloudButton() {
         const oppAction = document.createElement('div');
         oppAction.style.cssText = actionStyle;
         oppAction.title = 'Créer une Opportunité';
-        oppAction.innerHTML = `
-            <svg fill="#6c757d" width="20" height="20" viewBox="0 0 24 24"><path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.92 18,21.92C19.61,21.92 20.92,20.61 20.92,19C20.92,17.39 19.61,16.08 18,16.08Z" /></svg>
-        `;
+        oppAction.textContent = '';
+        oppAction.appendChild(createSvgIcon('opp', 20));
         oppAction.addEventListener('mouseenter', () => oppAction.style.backgroundColor = '#f1f5f9');
         oppAction.addEventListener('mouseleave', () => oppAction.style.backgroundColor = 'transparent');
         oppAction.addEventListener('click', (e) => {
@@ -667,9 +800,8 @@ function injectNextcloudButton() {
         const ticketAction = document.createElement('div');
         ticketAction.style.cssText = actionStyle;
         ticketAction.title = 'Créer un Ticket';
-        ticketAction.innerHTML = `
-            <svg fill="#38b2ac" width="20" height="20" viewBox="0 0 24 24"><path d="M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z"></path></svg>
-        `;
+        ticketAction.textContent = '';
+        ticketAction.appendChild(createSvgIcon('ticket', 20));
         ticketAction.addEventListener('mouseenter', () => ticketAction.style.backgroundColor = '#f1f5f9');
         ticketAction.addEventListener('mouseleave', () => ticketAction.style.backgroundColor = 'transparent');
         ticketAction.addEventListener('click', (e) => {
@@ -813,7 +945,11 @@ function injectGmailButton() {
         
         mainBtn.addEventListener('mouseenter', () => mainBtn.style.opacity = '0.9');
         mainBtn.addEventListener('mouseleave', () => mainBtn.style.opacity = '1');
-        mainBtn.innerHTML = `<span style="color: #ffffff;">ReedCRM ▼</span>`;
+        mainBtn.textContent = '';
+        const span = document.createElement('span');
+        span.style.color = '#ffffff';
+        span.textContent = 'ReedCRM ▼';
+        mainBtn.appendChild(span);
 
         // Menu déroulant
         const dropdown = document.createElement('div');
@@ -845,9 +981,8 @@ function injectGmailButton() {
         const oppAction = document.createElement('div');
         oppAction.style.cssText = actionStyle;
         oppAction.title = 'Créer une Opportunité';
-        oppAction.innerHTML = `
-            <svg fill="#6c757d" width="20" height="20" viewBox="0 0 24 24"><path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.92 18,21.92C19.61,21.92 20.92,20.61 20.92,19C20.92,17.39 19.61,16.08 18,16.08Z" /></svg>
-        `;
+        oppAction.textContent = '';
+        oppAction.appendChild(createSvgIcon('opp', 20));
         oppAction.addEventListener('mouseenter', () => oppAction.style.backgroundColor = '#f1f5f9');
         oppAction.addEventListener('mouseleave', () => oppAction.style.backgroundColor = 'transparent');
         oppAction.addEventListener('click', (e) => {
@@ -859,9 +994,8 @@ function injectGmailButton() {
         const ticketAction = document.createElement('div');
         ticketAction.style.cssText = actionStyle;
         ticketAction.title = 'Créer un Ticket';
-        ticketAction.innerHTML = `
-            <svg fill="#38b2ac" width="20" height="20" viewBox="0 0 24 24"><path d="M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z"></path></svg>
-        `;
+        ticketAction.textContent = '';
+        ticketAction.appendChild(createSvgIcon('ticket', 20));
         ticketAction.addEventListener('mouseenter', () => ticketAction.style.backgroundColor = '#f1f5f9');
         ticketAction.addEventListener('mouseleave', () => ticketAction.style.backgroundColor = 'transparent');
         ticketAction.addEventListener('click', (e) => {
@@ -985,7 +1119,11 @@ function injectGmailReadButton() {
     
     mainBtn.addEventListener('mouseenter', () => mainBtn.style.opacity = '0.9');
     mainBtn.addEventListener('mouseleave', () => mainBtn.style.opacity = '1');
-    mainBtn.innerHTML = `<span style="color: #ffffff;">ReedCRM ▼</span>`;
+    mainBtn.textContent = '';
+        const span = document.createElement('span');
+        span.style.color = '#ffffff';
+        span.textContent = 'ReedCRM ▼';
+        mainBtn.appendChild(span);
 
     const dropdown = document.createElement('div');
     dropdown.className = 'doli-dropdown-menu';
@@ -1015,7 +1153,8 @@ function injectGmailReadButton() {
     const oppAction = document.createElement('div');
     oppAction.style.cssText = actionStyle;
     oppAction.title = 'Créer une Opportunité depuis ce fil';
-    oppAction.innerHTML = `<svg fill="#6c757d" width="20" height="20" viewBox="0 0 24 24"><path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.92 18,21.92C19.61,21.92 20.92,20.61 20.92,19C20.92,17.39 19.61,16.08 18,16.08Z" /></svg>`;
+    oppAction.textContent = '';
+        oppAction.appendChild(createSvgIcon('opp', 20));
     oppAction.addEventListener('mouseenter', () => oppAction.style.backgroundColor = '#f1f5f9');
     oppAction.addEventListener('mouseleave', () => oppAction.style.backgroundColor = 'transparent');
     oppAction.addEventListener('click', (e) => {
@@ -1026,7 +1165,8 @@ function injectGmailReadButton() {
     const ticketAction = document.createElement('div');
     ticketAction.style.cssText = actionStyle;
     ticketAction.title = 'Créer un Ticket depuis ce fil';
-    ticketAction.innerHTML = `<svg fill="#38b2ac" width="20" height="20" viewBox="0 0 24 24"><path d="M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z"></path></svg>`;
+    ticketAction.textContent = '';
+        ticketAction.appendChild(createSvgIcon('ticket', 20));
     ticketAction.addEventListener('mouseenter', () => ticketAction.style.backgroundColor = '#f1f5f9');
     ticketAction.addEventListener('mouseleave', () => ticketAction.style.backgroundColor = 'transparent');
     ticketAction.addEventListener('click', (e) => {
@@ -1122,7 +1262,17 @@ function injectOutlookReadButton() {
     
     mainBtn.addEventListener('mouseenter', () => mainBtn.style.opacity = '0.9');
     mainBtn.addEventListener('mouseleave', () => mainBtn.style.opacity = '1');
-    mainBtn.innerHTML = `<span style="color: #ffffff;">ReedCRM</span><span style="color: #ffffff; font-size: 8px; margin-top: 1px;">▼</span>`;
+    mainBtn.textContent = '';
+    const span1 = document.createElement('span');
+    span1.style.color = '#ffffff';
+    span1.textContent = 'ReedCRM';
+    const span2 = document.createElement('span');
+    span2.style.color = '#ffffff';
+    span2.style.fontSize = '8px';
+    span2.style.marginTop = '1px';
+    span2.textContent = '▼';
+    mainBtn.appendChild(span1);
+    mainBtn.appendChild(span2);
 
     const dropdown = document.createElement('div');
     dropdown.className = 'doli-dropdown-menu';
@@ -1155,7 +1305,9 @@ function injectOutlookReadButton() {
     const oppAction = document.createElement('div');
     oppAction.style.cssText = actionStyle;
     oppAction.title = 'Créer une Opportunité depuis ce mail';
-    oppAction.innerHTML = '<svg fill="#6c757d" width="16" height="16" viewBox="0 0 24 24"><path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.92 18,21.92C19.61,21.92 20.92,20.61 20.92,19C20.92,17.39 19.61,16.08 18,16.08Z" /></svg> Opportunité';
+    oppAction.textContent = '';
+    oppAction.appendChild(createSvgIcon('opp', 16));
+    oppAction.appendChild(document.createTextNode(' Opportunité'));
     oppAction.addEventListener('mouseenter', () => oppAction.style.backgroundColor = '#f1f5f9');
     oppAction.addEventListener('mouseleave', () => oppAction.style.backgroundColor = 'transparent');
     
@@ -1168,7 +1320,9 @@ function injectOutlookReadButton() {
     const ticketAction = document.createElement('div');
     ticketAction.style.cssText = actionStyle;
     ticketAction.title = 'Créer un Ticket depuis ce mail';
-    ticketAction.innerHTML = '<svg fill="#38b2ac" width="16" height="16" viewBox="0 0 24 24"><path d="M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z"></path></svg> Ticket';
+    ticketAction.textContent = '';
+    ticketAction.appendChild(createSvgIcon('ticket', 16));
+    ticketAction.appendChild(document.createTextNode(' Ticket'));
     ticketAction.addEventListener('mouseenter', () => ticketAction.style.backgroundColor = '#f1f5f9');
     ticketAction.addEventListener('mouseleave', () => ticketAction.style.backgroundColor = 'transparent');
     
@@ -1294,7 +1448,17 @@ function injectRoundcubeReadButton() {
     
     mainBtn.addEventListener('mouseenter', () => mainBtn.style.opacity = '0.9');
     mainBtn.addEventListener('mouseleave', () => mainBtn.style.opacity = '1');
-    mainBtn.innerHTML = `<span style="color: #ffffff;">ReedCRM</span><span style="color: #ffffff; font-size: 8px; margin-top: 1px;">▼</span>`;
+    mainBtn.textContent = '';
+    const span1 = document.createElement('span');
+    span1.style.color = '#ffffff';
+    span1.textContent = 'ReedCRM';
+    const span2 = document.createElement('span');
+    span2.style.color = '#ffffff';
+    span2.style.fontSize = '8px';
+    span2.style.marginTop = '1px';
+    span2.textContent = '▼';
+    mainBtn.appendChild(span1);
+    mainBtn.appendChild(span2);
 
     const dropdown = document.createElement('div');
     dropdown.className = 'doli-dropdown-menu';
@@ -1326,7 +1490,9 @@ function injectRoundcubeReadButton() {
     const oppAction = document.createElement('div');
     oppAction.style.cssText = actionStyle;
     oppAction.title = 'Créer une Opportunité depuis ce mail';
-    oppAction.innerHTML = '<svg fill="#6c757d" width="16" height="16" viewBox="0 0 24 24"><path d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.92 18,21.92C19.61,21.92 20.92,20.61 20.92,19C20.92,17.39 19.61,16.08 18,16.08Z" /></svg> Opportunité';
+    oppAction.textContent = '';
+    oppAction.appendChild(createSvgIcon('opp', 16));
+    oppAction.appendChild(document.createTextNode(' Opportunité'));
     oppAction.addEventListener('mouseenter', () => oppAction.style.backgroundColor = '#f1f5f9');
     oppAction.addEventListener('mouseleave', () => oppAction.style.backgroundColor = 'transparent');
     
@@ -1340,7 +1506,9 @@ function injectRoundcubeReadButton() {
     const ticketAction = document.createElement('div');
     ticketAction.style.cssText = actionStyle;
     ticketAction.title = 'Créer un Ticket depuis ce mail';
-    ticketAction.innerHTML = '<svg fill="#38b2ac" width="16" height="16" viewBox="0 0 24 24"><path d="M22,10V6A2,2 0 0,0 20,4H4A2,2 0 0,0 2,6V10C3.11,10 4,10.9 4,12C4,13.11 3.11,14 2,14V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V14C20.89,14 20,13.11 20,12C20,10.9 20.89,10 22,10M11,15H13V13H15V11H13V9H11V11H9V13H11V15Z"></path></svg> Ticket';
+    ticketAction.textContent = '';
+    ticketAction.appendChild(createSvgIcon('ticket', 16));
+    ticketAction.appendChild(document.createTextNode(' Ticket'));
     ticketAction.addEventListener('mouseenter', () => ticketAction.style.backgroundColor = '#f1f5f9');
     ticketAction.addEventListener('mouseleave', () => ticketAction.style.backgroundColor = 'transparent');
     
