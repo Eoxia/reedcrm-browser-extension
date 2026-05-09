@@ -46,9 +46,13 @@ export function initInlineEdit() {
             e.preventDefault();
             e.stopPropagation();
             
-            const currentValue = editable.getAttribute('data-val') || '';
+            let currentValue = editable.getAttribute('data-val') || '';
             const projectId = editable.getAttribute('data-pid');
             const fieldName = editable.getAttribute('data-field');
+            
+            if (fieldName === 'opp_percent' && currentValue !== '') {
+                currentValue = Math.round(parseFloat(currentValue)).toString();
+            }
             
             let input;
             if (fieldName === 'fk_statut' || fieldName === 'severity_code' || fieldName === 'fk_user_assign') {
