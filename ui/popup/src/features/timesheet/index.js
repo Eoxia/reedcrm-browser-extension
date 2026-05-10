@@ -480,11 +480,18 @@ function createHrCard(taskId, ref, label, type) {
     refSpan.appendChild(iconSvg);
     refSpan.appendChild(refLink);
 
+    // Tiret séparateur entre ref et label
+    const separatorSpan = document.createElement('span');
+    separatorSpan.className = 'ts-hr-card-sep';
+    separatorSpan.textContent = ' — ';
+
     const labelSpan = document.createElement('span');
     labelSpan.className = 'ts-hr-card-label';
-    labelSpan.textContent = label;  // donnée API via textContent
+    labelSpan.textContent = label;   // donnée API via textContent
+    labelSpan.title = label;         // tooltip pour voir le texte complet si tronqué
 
     info.appendChild(refSpan);
+    info.appendChild(separatorSpan);
     info.appendChild(labelSpan);
 
     // -- Input temps : pré-rempli avec la valeur du planning pour le jour courant ----
@@ -520,7 +527,7 @@ function createHrCard(taskId, ref, label, type) {
     mainRow.appendChild(timeInput);
     mainRow.appendChild(starBtn);
 
-    // ── Zone note (cachée par défaut) ─────────────────────────────────────────
+    // ── Zone note (toujours éditable, cachée par défaut) ──────────────────────
     const noteRow = document.createElement('div');
     noteRow.className = 'ts-hr-card-note-row hidden';
 
@@ -528,6 +535,9 @@ function createHrCard(taskId, ref, label, type) {
     noteInput.className   = 'ts-hr-note-input';
     noteInput.rows        = 2;
     noteInput.placeholder = chrome.i18n.getMessage('time_card_note_placeholder');
+    // S'assurer que le champ est toujours éditable
+    noteInput.removeAttribute('readonly');
+    noteInput.removeAttribute('disabled');
     noteRow.appendChild(noteInput);
 
     // ── Div statut par carte ──────────────────────────────────────────────────

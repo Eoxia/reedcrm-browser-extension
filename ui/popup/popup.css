@@ -2019,3 +2019,43 @@ a.rt-ref:hover {
     color: #1d4ed8;
     text-decoration: underline;
 }
+
+/* ===== TIMESHEET CARDS : corrections visuelles ===== */
+
+/* 1. Icône tâche en bleu */
+.ts-card-icon {
+    color: #3b82f6;
+    flex-shrink: 0;
+}
+
+/* 2. Label tronqué avec ellipsis */
+.ts-hr-card-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 90px;
+    font-size: 11px;
+    color: #64748b;
+}
+
+/* 3. Séparateur ref — label */
+.ts-hr-card-sep {
+    color: #94a3b8;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+/* 4. Note textarea toujours éditable */
+.ts-hr-note-input {
+    resize: vertical;
+    pointer-events: all !important;
+    user-select: text !important;
+}
+
+/* 5. Masquer l icone horloge dans les inputs time de la popup */
+.ts-hr-time-input::-webkit-calendar-picker-indicator {
+    display: none;
+    opacity: 0;
+    width: 0;
+    padding: 0;
+}
