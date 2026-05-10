@@ -793,4 +793,10 @@
     "opt_hr_day_ven": { "message": "Fri" },
     "opt_hr_day_sam": { "message": "Sat" },
     "opt_hr_day_dim": { "message": "Sun" }
+,
+    "error_5001": { "message": "Invalid duration. Please enter a duration before saving." },
+    "error_5002": { "message": "Failed to log time. Check your connection and API permissions ($1)." },
+    "error_5003": { "message": "Network error while logging time. Please try again." },
+    "error_5004": { "message": "No HR project configured. Go to options to set it up." },
+    "error_5005": { "message": "Failed to load HR project tasks. Check your connection ($1)." }
 }

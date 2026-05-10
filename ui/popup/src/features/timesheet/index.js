@@ -1,5 +1,6 @@
 import { fetchDoli } from '../../api/dolibarr.js';
 import { CustomSelect } from '../../../../components/custom-select.js';
+import { DoliError, showDoliError } from '../../../../src/utils/errors.js';
 
 let doliUrl = '';
 let apiToken = '';
@@ -366,8 +367,8 @@ async function buildHrUi() {
 
     const projectId = profileConfig?.doliHrProject;
     if (!projectId) {
-        presContainer.innerHTML = '<span style="font-size:11px;color:#e74c3c;">Projet RH non configuré. Allez dans les options.</span>';
-        absContainer.innerHTML  = '';
+        showDoliError(new DoliError('ReedCRM-5004', null, {}), presContainer);
+        absContainer.innerHTML = '';
         return;
     }
 
@@ -405,10 +406,15 @@ async function buildHrUi() {
             if (!absFound)  absContainer.innerHTML  = '<span style="font-size:11px;color:#94a3b8;font-style:italic;">Aucune tâche configurée</span>';
 
             presContainer.dataset.loaded = 'true';
+        } else {
+            let errTxt = res.statusText;
+            try { const body = await res.json(); errTxt = body.error || body.message || errTxt; } catch(_) {}
+            showDoliError(new DoliError('ReedCRM-5005', new Error(errTxt), { projectId }), presContainer);
+            absContainer.innerHTML = '';
         }
     } catch(e) {
-        presContainer.innerHTML = '<span style="font-size:11px;color:#e74c3c;">Erreur réseau</span>';
-        absContainer.innerHTML  = '';
+        showDoliError(new DoliError('ReedCRM-5005', e, { projectId }), presContainer);
+        absContainer.innerHTML = '';
     }
 }
 
@@ -570,8 +576,8 @@ function createHrCard(taskId, ref, label, type) {
 
         try {
             // L'API Dolibarr attend le timestamp Unix (en secondes) pour la date
-            const d = new Date(dateVal + 'T00:00:00');
-            const timestamp = Math.floor(d.getTime() / 1000);
+            const dateObj = new Date(dateVal + 'T00:00:00');
+            const timestamp = Math.floor(dateObj.getTime() / 1000);
 
             const res = await fetchDoli(`${doliUrl}/tasks/${taskId}/addtimespent`, {
                 method: 'POST',
@@ -606,15 +612,21 @@ function createHrCard(taskId, ref, label, type) {
                 try { const body = await res.json(); errTxt = body.error || body.message || errTxt; } catch(_) {}
                 starBtn.disabled = false;
                 statusDiv.classList.remove('hidden');
-                statusDiv.style.color = '#e74c3c';
-                statusDiv.textContent = chrome.i18n.getMessage('time_card_error_prefix') + ' ' + errTxt;
+                // Affichage standardisé ReedCRM-5002
+                showDoliError(
+                    new DoliError('ReedCRM-5002', new Error(`HTTP ${res.status}: ${errTxt}`), { taskId, dateVal, durationInSeconds }),
+                    statusDiv
+                );
             }
         } catch(e) {
             starBtn.disabled = false;
             starBtn.classList.remove('ts-star-loading');
             statusDiv.classList.remove('hidden');
-            statusDiv.style.color = '#e74c3c';
-            statusDiv.textContent = chrome.i18n.getMessage('time_card_error_network');
+            // Affichage standardisé ReedCRM-5003
+            showDoliError(
+                new DoliError('ReedCRM-5003', e, { taskId, dateVal }),
+                statusDiv
+            );
         }
     });
 

@@ -833,4 +833,10 @@
     "opt_hr_day_ven": { "message": "Ven" },
     "opt_hr_day_sam": { "message": "Sam" },
     "opt_hr_day_dim": { "message": "Dim" }
+,
+    "error_5001": { "message": "Durée invalide. Veuillez renseigner une durée avant d'enregistrer." },
+    "error_5002": { "message": "Impossible d'enregistrer le temps pointé. Vérifiez votre connexion et les droits API ($1)." },
+    "error_5003": { "message": "Erreur réseau lors de l'enregistrement du pointage. Veuillez réessayer." },
+    "error_5004": { "message": "Aucun projet RH configuré. Rendez-vous dans les options pour le définir." },
+    "error_5005": { "message": "Impossible de charger les tâches du projet RH. Vérifiez votre connexion ($1)." }
 }

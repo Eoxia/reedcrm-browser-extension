@@ -26,6 +26,13 @@ const ERROR_DICTIONARY = {
     'ReedCRM-4005': { category: 'Envoi PJ Opportunité', key: 'error_4005', file: 'popup.js', line: 'auto' },
     'ReedCRM-4006': { category: 'Envoi PJ Ticket', key: 'error_4006', file: 'popup.js', line: 'auto' },
 
+    // ---- Catégorie : Timesheet / Pointage RH (Série 5000) ----
+    'ReedCRM-5001': { category: 'Pointage RH - Validation', key: 'error_5001', file: 'timesheet/index.js', line: 'auto' },
+    'ReedCRM-5002': { category: 'Pointage RH - Enregistrement API', key: 'error_5002', file: 'timesheet/index.js', line: 'auto' },
+    'ReedCRM-5003': { category: 'Pointage RH - Erreur Réseau', key: 'error_5003', file: 'timesheet/index.js', line: 'auto' },
+    'ReedCRM-5004': { category: 'Pointage RH - Projet Non Configuré', key: 'error_5004', file: 'timesheet/index.js', line: 'auto' },
+    'ReedCRM-5005': { category: 'Pointage RH - Chargement Tâches', key: 'error_5005', file: 'timesheet/index.js', line: 'auto' },
+
     // ---- Défaut ----
     'ReedCRM-9999': { category: 'Erreur Inconnue', key: 'error_9999', file: 'Partout', line: 'auto' }
 };
