@@ -611,12 +611,43 @@ function createHrCard(taskId, ref, label, type) {
         const reqHeaders = { 'DOLAPIKEY': apiToken, 'Accept': 'application/json' };
         if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
 
-        console.log('[ReedCRM] Fetching timespent:', `${doliUrl}/tasks/${taskId}/timespent`, 'taskId=', taskId, 'apiToken=', apiToken ? apiToken.substring(0,6)+'...' : 'EMPTY');
+        console.log('[ReedCRM] Fetching timespent for task', taskId);
 
         try {
-            const res = await fetchDoli(`${doliUrl}/tasks/${taskId}/timespent?limit=500`, { headers: reqHeaders });
-            console.log('[ReedCRM] timespent response ok=', res.ok, 'status=', res.status, 'statusText=', res.statusText);
+            // ── Tentative 1 : endpoint dédié /tasks/{id}/timespent ────────────
+            let res = await fetchDoli(`${doliUrl}/tasks/${taskId}/timespent`, { headers: reqHeaders });
+            console.log('[ReedCRM] timespent response ok=', res.ok, 'statusText=', res.statusText);
             historyDiv.innerHTML = '';
+
+            // Fallback si 404 : utiliser GET /tasks/{id} et extraire timespent_declare
+            if (!res.ok && res.statusText && res.statusText.includes('404')) {
+                console.warn('[ReedCRM] /timespent endpoint 404, fallback sur GET /tasks/{id}');
+                res = await fetchDoli(`${doliUrl}/tasks/${taskId}`, { headers: reqHeaders });
+                historyDiv.innerHTML = '';
+
+                if (res.ok) {
+                    const task = await res.json();
+                    // timespent_declare = total en secondes (champ standard Dolibarr)
+                    const declaredSec = parseInt(task.timespent_declare || task.duration || 0, 10);
+                    const hT = Math.floor(declaredSec / 3600);
+                    const mT = Math.floor((declaredSec % 3600) / 60);
+                    totalVal.textContent = `${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`;
+
+                    const infoRow = document.createElement('p');
+                    infoRow.className = 'ts-hr-hist-empty';
+                    infoRow.textContent = `Total cumulé : ${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')} (détail non disponible via API)`;
+                    historyDiv.appendChild(infoRow);
+                    noteRow.classList.remove('hidden');
+                } else {
+                    totalVal.textContent = '!';
+                    const errMsg = document.createElement('p');
+                    errMsg.className = 'ts-hr-hist-empty';
+                    errMsg.textContent = `Erreur API : ${res.statusText}`;
+                    historyDiv.appendChild(errMsg);
+                }
+                card.dataset.historyLoaded = 'true';
+                return;
+            }
 
             if (!res.ok) {
                 totalVal.textContent = '!';
@@ -626,8 +657,9 @@ function createHrCard(taskId, ref, label, type) {
                 historyDiv.appendChild(errMsg);
                 card.dataset.historyLoaded = 'true';
                 console.warn('[ReedCRM] timespent endpoint error:', res.statusText);
-            } else if (res.ok) {
+            } else {
                 const entries = await res.json();
+                console.log('[ReedCRM] timespent entries:', Array.isArray(entries) ? entries.length : typeof entries, entries);
 
                 if (Array.isArray(entries) && entries.length > 0) {
                     // ── Pré-remplir le jour sélectionné ──────────────────────
