@@ -523,9 +523,17 @@ function createHrCard(taskId, ref, label, type) {
     starSvg.appendChild(polygon);
     starBtn.appendChild(starSvg);
 
+    // ── Bouton historique ▾ (charge et toggle le tableau timespent) ──────────
+    const expandBtn = document.createElement('button');
+    expandBtn.type      = 'button';
+    expandBtn.className = 'ts-hr-expand-btn';
+    expandBtn.title     = chrome.i18n.getMessage('time_card_load_title') || 'Voir l\'historique';
+    expandBtn.textContent = '▾';
+
     mainRow.appendChild(info);
     mainRow.appendChild(timeInput);
     mainRow.appendChild(starBtn);
+    mainRow.appendChild(expandBtn);
 
     // ── Zone note (toujours éditable, cachée par défaut) ──────────────────────
     const noteRow = document.createElement('div');
@@ -567,20 +575,19 @@ function createHrCard(taskId, ref, label, type) {
         }
     });
 
-    // ── Clic sur la zone info : charge l'historique complet + pré-remplit le jour ──
-    info.style.cursor = 'pointer';
-    info.title = chrome.i18n.getMessage('time_card_load_title') || 'Cliquer pour charger l\'historique';
-
-    info.addEventListener('click', async () => {
+    // ── Clic sur ▾ : charge l'historique complet + pré-remplit le jour ────────
+    expandBtn.addEventListener('click', async () => {
         if (card.dataset.loadingExisting === 'true') return;
 
         // Toggle : si déjà chargé, masquer/afficher le tableau
         if (card.dataset.historyLoaded === 'true') {
             historyDiv.classList.toggle('hidden');
+            expandBtn.textContent = historyDiv.classList.contains('hidden') ? '▾' : '▴';
             return;
         }
 
         card.dataset.loadingExisting = 'true';
+        expandBtn.textContent = '…';
         historyDiv.innerHTML = '';
         historyDiv.classList.remove('hidden');
 
@@ -719,6 +726,7 @@ function createHrCard(taskId, ref, label, type) {
             console.warn('[ReedCRM] Impossible de charger le temps existant:', e);
         } finally {
             card.dataset.loadingExisting = 'false';
+            expandBtn.textContent = historyDiv.classList.contains('hidden') ? '▾' : '▴';
         }
     });
 
