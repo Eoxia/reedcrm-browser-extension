@@ -619,7 +619,7 @@ function createHrCard(taskId, ref, label, type) {
             console.log('[ReedCRM] timespent response ok=', res.ok, 'statusText=', res.statusText);
             historyDiv.innerHTML = '';
 
-            // Fallback si 404 : utiliser GET /tasks/{id} et extraire timespent_declare
+            // Fallback si 404 : utiliser GET /tasks/{id} et extraire le temps loggué
             if (!res.ok && res.statusText && res.statusText.includes('404')) {
                 console.warn('[ReedCRM] /timespent endpoint 404, fallback sur GET /tasks/{id}');
                 res = await fetchDoli(`${doliUrl}/tasks/${taskId}`, { headers: reqHeaders });
@@ -627,15 +627,28 @@ function createHrCard(taskId, ref, label, type) {
 
                 if (res.ok) {
                     const task = await res.json();
-                    // timespent_declare = total en secondes (champ standard Dolibarr)
-                    const declaredSec = parseInt(task.timespent_declare || task.duration || 0, 10);
+                    // Log tous les champs disponibles pour diagnostic
+                    console.log('[ReedCRM] task fields:', JSON.stringify(Object.fromEntries(
+                        Object.entries(task).filter(([k, v]) => v !== null && v !== '' && v !== '0')
+                    )));
+                    // duration_effective = temps réellement loggué (llx_element_time)
+                    // timespent_declare = saisie manuelle de temps déclaré (différent)
+                    const declaredSec = parseInt(
+                        task.duration_effective ||
+                        task.timespent_not_billed ||
+                        task.timespent_billed ||
+                        task.timespent_declare ||
+                        0, 10
+                    );
                     const hT = Math.floor(declaredSec / 3600);
                     const mT = Math.floor((declaredSec % 3600) / 60);
                     totalVal.textContent = `${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`;
 
                     const infoRow = document.createElement('p');
                     infoRow.className = 'ts-hr-hist-empty';
-                    infoRow.textContent = `Total cumulé : ${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')} (détail non disponible via API)`;
+                    infoRow.textContent = declaredSec > 0
+                        ? `Total cumulé : ${String(hT).padStart(2,'0')}h${String(mT).padStart(2,'0')}`
+                        : 'Aucun temps enregistré.';
                     historyDiv.appendChild(infoRow);
                     noteRow.classList.remove('hidden');
                 } else {
