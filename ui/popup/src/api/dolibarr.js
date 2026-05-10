@@ -1,23 +1,30 @@
 import { MESSAGE_TYPES } from '../../../../src/utils/constants.js';
 
-// Remplacement global pour intercepter les fetch et les envoyer au SW (Règle 12)
+/**
+ * Proxy vers le Service Worker pour tous les appels API Dolibarr.
+ * Conforme AGENTS.md règle 3 (CORS) — timeout 12s pour gérer l'endormissement MV3.
+ * @param {string} url - URL complète de l'endpoint Dolibarr
+ * @param {Object} [options={}] - Options fetch (method, headers, body)
+ * @returns {Promise<Response>}
+ */
 export async function fetchDoli(url, options = {}) {
-    return new Promise((resolve, reject) => {
-        let method = options.method || 'GET';
-        let body = options.body ? JSON.parse(options.body) : null;
-        let doliUrl = '', endpoint = '', apiKey = '';
+    let method = options.method || 'GET';
+    let body = options.body ? JSON.parse(options.body) : null;
+    let doliUrl = '', endpoint = '', apiKey = '';
 
-        try {
-            const urlObj = new URL(url);
-            doliUrl = urlObj.origin + (urlObj.pathname.includes('/api/index.php') ? urlObj.pathname.split('/api/index.php')[0] : '');
-            endpoint = url.replace(doliUrl + '/api/index.php', '');
-            if(!endpoint.startsWith('/')) {
-                endpoint = url.replace(doliUrl, '');
-            }
-        } catch(e) {}
+    try {
+        const urlObj = new URL(url);
+        doliUrl = urlObj.origin + (urlObj.pathname.includes('/api/index.php') ? urlObj.pathname.split('/api/index.php')[0] : '');
+        endpoint = url.replace(doliUrl + '/api/index.php', '');
+        if (!endpoint.startsWith('/')) {
+            endpoint = url.replace(doliUrl, '');
+        }
+    } catch(e) {}
 
-        apiKey = options.headers?.DOLAPIKEY || options.headers?.['DOLAPIKEY'];
+    apiKey = options.headers?.DOLAPIKEY || options.headers?.['DOLAPIKEY'];
 
+    // Promesse principale via messagerie SW
+    const swPromise = new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
             type: MESSAGE_TYPES.API_CALL,
             payload: { method, doliUrl, apiKey, endpoint, body }
@@ -40,16 +47,23 @@ export async function fetchDoli(url, options = {}) {
                 json: async () => response.data,
                 text: async () => typeof response.data === 'string' ? response.data : JSON.stringify(response.data),
                 blob: async () => {
-                    if(response.data) { // si base64 passé dans data
+                    if (response.data) {
                         const bstr = atob(response.data);
                         const n = bstr.length;
                         const u8arr = new Uint8Array(n);
-                        for(let i=0; i<n; i++) u8arr[i] = bstr.charCodeAt(i);
-                        return new Blob([u8arr], {type: response.mime || 'application/octet-stream'});
+                        for (let i = 0; i < n; i++) u8arr[i] = bstr.charCodeAt(i);
+                        return new Blob([u8arr], { type: response.mime || 'application/octet-stream' });
                     }
                     return null;
                 }
             });
         });
     });
+
+    // Timeout 12s — évite les promesses bloquées quand le SW est endormi (MV3)
+    const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('[ReedCRM-5001] Service worker timeout (12s) — réessayez dans un instant.')), 12000)
+    );
+
+    return Promise.race([swPromise, timeoutPromise]);
 }
