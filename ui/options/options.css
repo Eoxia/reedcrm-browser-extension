@@ -1,4 +1,4 @@
-body {
+﻿body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #f4f7f6;
     margin: 0;
@@ -488,11 +488,12 @@ button:hover {
 
 /* ===== Label colonne planning RH ===== */
 .hr-schedule-row-label {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     color: #64748b;
     text-align: right;
-    padding-right: 6px;
+    padding-right: 4px;
     white-space: nowrap;
     vertical-align: middle;
+    width: 48px;
 }
