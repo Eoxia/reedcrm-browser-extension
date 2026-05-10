@@ -459,3 +459,12 @@ button:hover {
 #btn-save-hr.btn-save-hr-dirty:hover {
     opacity: 0.92;
 }
+
+/* Ajustement input time dans le planning */
+.hr-schedule-input[type="time"] {
+    max-width: none;
+    width: 72px;
+    padding: 4px 2px;
+    font-size: 11px;
+    -webkit-appearance: none;
+}

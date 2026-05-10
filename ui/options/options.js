@@ -298,11 +298,11 @@ function loadProfileIntoForm(p) {
     }
 
     // ── Restaurer le planning hebdomadaire ────────────────────────────────────
-    const schedule = p.doliHrSchedule || { lun: 8, mar: 8, mer: 8, jeu: 8, ven: 8, sam: 0, dim: 0 };
+    const schedule = p.doliHrSchedule || { lun: '07:00', mar: '07:00', mer: '07:00', jeu: '07:00', ven: '07:00', sam: '00:00', dim: '00:00' };
     const days = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
     days.forEach(d => {
         const inp = document.getElementById(`hr-schedule-${d}`);
-        if (inp) inp.value = schedule[d] !== undefined ? schedule[d] : 0;
+        if (inp) inp.value = schedule[d] !== undefined ? schedule[d] : (d === 'sam' || d === 'dim' ? '00:00' : '07:00');
     });
 }
 
@@ -1079,12 +1079,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? Array.from(absenceEl.selectedOptions).map(o => o.value)
                 : (p.doliHrAbsenceTasks || []);
 
-            // Lire le planning hebdomadaire
+            // Lire le planning hebdomadaire (format HH:MM)
             const days = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
             const schedule = {};
             days.forEach(d => {
                 const inp = document.getElementById(`hr-schedule-${d}`);
-                schedule[d] = inp ? parseFloat(inp.value) || 0 : 0;
+                schedule[d] = inp ? (inp.value || '00:00') : '00:00';
             });
 
             // Mettre à jour le profil en mémoire

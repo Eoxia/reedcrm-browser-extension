@@ -784,7 +784,7 @@
     "time_card_network_error_load": { "message": "Network error" }
 ,
     "opt_hr_schedule": { "message": "Expected attendance per day" },
-    "opt_hr_schedule_hint": { "message": "Decimal hours (e.g. 7.5 = 7h30)" },
+    "opt_hr_schedule_hint": { "message": "Format HH:MM (e.g. 07:30)" },
     "opt_hr_save": { "message": "Save HR configuration" },
     "opt_hr_day_lun": { "message": "Mon" },
     "opt_hr_day_mar": { "message": "Tue" },

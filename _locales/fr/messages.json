@@ -824,7 +824,7 @@
     }
 ,
     "opt_hr_schedule": { "message": "Temps de présence attendu par jour" },
-    "opt_hr_schedule_hint": { "message": "Heures décimales (ex: 7.5 = 7h30)" },
+    "opt_hr_schedule_hint": { "message": "Format HH:MM (ex: 07:30)" },
     "opt_hr_save": { "message": "Enregistrer la configuration RH" },
     "opt_hr_day_lun": { "message": "Lun" },
     "opt_hr_day_mar": { "message": "Mar" },
