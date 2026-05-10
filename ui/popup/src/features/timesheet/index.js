@@ -611,43 +611,60 @@ function createHrCard(taskId, ref, label, type) {
         const reqHeaders = { 'DOLAPIKEY': apiToken, 'Accept': 'application/json' };
         if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
 
-        console.log('[ReedCRM] Fetching timespent for task', taskId);
+        // ── Récupération de l'ID utilisateur courant pour filtrage ────────────
+        let currentUserId = null;
+        try {
+            const userRes = await fetchDoli(`${doliUrl}/users/info`, { headers: reqHeaders });
+            if (userRes.ok) {
+                const userInfo = await userRes.json();
+                currentUserId = userInfo.id || userInfo.rowid || null;
+                console.log('[ReedCRM] currentUserId=', currentUserId);
+            }
+        } catch(_) {}
+
+        console.log('[ReedCRM] Fetching timespent for task', taskId, 'date=', dateVal);
 
         try {
-            // ── Tentative 1 : endpoint dédié /tasks/{id}/timespent ────────────
+            // ── Tentative 1 : /tasks/{id}/timespent ──────────────────────────
             let res = await fetchDoli(`${doliUrl}/tasks/${taskId}/timespent`, { headers: reqHeaders });
-            console.log('[ReedCRM] timespent response ok=', res.ok, 'statusText=', res.statusText);
+            console.log('[ReedCRM] /timespent ok=', res.ok, 'statusText=', res.statusText);
+
+            // ── Tentative 2 : /tasks/{id}/timespentlines (variante Dolibarr) ─
+            if (!res.ok && res.statusText?.includes('404')) {
+                console.warn('[ReedCRM] /timespent 404, essai /timespentlines');
+                res = await fetchDoli(`${doliUrl}/tasks/${taskId}/timespentlines`, { headers: reqHeaders });
+                console.log('[ReedCRM] /timespentlines ok=', res.ok, 'statusText=', res.statusText);
+            }
+
             historyDiv.innerHTML = '';
 
-            // Fallback si 404 : utiliser GET /tasks/{id} et extraire le temps loggué
-            if (!res.ok && res.statusText && res.statusText.includes('404')) {
-                console.warn('[ReedCRM] /timespent endpoint 404, fallback sur GET /tasks/{id}');
+            // ── Fallback final : GET /tasks/{id} pour le total global ────────
+            if (!res.ok && res.statusText?.includes('404')) {
+                console.warn('[ReedCRM] endpoints timespent non disponibles, fallback GET /tasks/{id}');
                 res = await fetchDoli(`${doliUrl}/tasks/${taskId}`, { headers: reqHeaders });
                 historyDiv.innerHTML = '';
 
                 if (res.ok) {
                     const task = await res.json();
-                    // Log tous les champs disponibles pour diagnostic
-                    console.log('[ReedCRM] task fields:', JSON.stringify(Object.fromEntries(
+                    console.log('[ReedCRM] task fields (non-nuls):', JSON.stringify(Object.fromEntries(
                         Object.entries(task).filter(([k, v]) => v !== null && v !== '' && v !== '0')
                     )));
-                    // duration_effective = temps réellement loggué (llx_element_time)
-                    // timespent_declare = saisie manuelle de temps déclaré (différent)
-                    const declaredSec = parseInt(
+                    const totalSec = parseInt(
                         task.duration_effective ||
                         task.timespent_not_billed ||
                         task.timespent_billed ||
-                        task.timespent_declare ||
-                        0, 10
+                        task.timespent_declare || 0, 10
                     );
-                    const hT = Math.floor(declaredSec / 3600);
-                    const mT = Math.floor((declaredSec % 3600) / 60);
-                    totalVal.textContent = `${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`;
+                    const hT = Math.floor(totalSec / 3600);
+                    const mT = Math.floor((totalSec % 3600) / 60);
+                    // Label "Σ" = total global (toutes dates, tous users)
+                    totalVal.textContent = `Σ ${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`;
+                    totalLabel.textContent = 'Total';
 
                     const infoRow = document.createElement('p');
                     infoRow.className = 'ts-hr-hist-empty';
-                    infoRow.textContent = declaredSec > 0
-                        ? `Total cumulé : ${String(hT).padStart(2,'0')}h${String(mT).padStart(2,'0')}`
+                    infoRow.textContent = totalSec > 0
+                        ? `Σ global : ${String(hT).padStart(2,'0')}h${String(mT).padStart(2,'0')} (tous utilisateurs, toutes dates)`
                         : 'Aucun temps enregistré.';
                     historyDiv.appendChild(infoRow);
                     noteRow.classList.remove('hidden');
@@ -675,10 +692,15 @@ function createHrCard(taskId, ref, label, type) {
                 console.log('[ReedCRM] timespent entries:', Array.isArray(entries) ? entries.length : typeof entries, entries);
 
                 if (Array.isArray(entries) && entries.length > 0) {
-                    // ── Pré-remplir le jour sélectionné ──────────────────────
+                    // ── Filtrer les entrées par utilisateur courant si connu ──
+                    const myEntries = currentUserId
+                        ? entries.filter(e => String(e.fk_user || e.user_id || '') === String(currentUserId))
+                        : entries;
+
+                    // ── Pré-remplir le jour sélectionné (user courant) ────────
                     const dayStart = Math.floor(new Date(dateVal + 'T00:00:00').getTime() / 1000);
                     const dayEnd   = dayStart + 86399;
-                    const todayEntry = entries.find(e => {
+                    const todayEntry = myEntries.find(e => {
                         const ts = parseInt(e.task_date || e.timespent_date || 0, 10);
                         if (ts > 0) return ts >= dayStart && ts <= dayEnd;
                         return (e.task_date_withtimezone || '').substring(0, 10) === dateVal;
@@ -695,16 +717,16 @@ function createHrCard(taskId, ref, label, type) {
                         noteRow.classList.remove('hidden');
                     }
 
-                    // ── Calcul total ──────────────────────────────────────────
+                    // ── Total : uniquement les entrées du user courant ────────
                     let totalSec = 0;
-                    entries.forEach(e => {
+                    myEntries.forEach(e => {
                         totalSec += parseInt(e.task_duration || e.duration || 0, 10);
                     });
                     const hT = Math.floor(totalSec / 3600);
                     const mT = Math.floor((totalSec % 3600) / 60);
                     totalVal.textContent = `${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`;
 
-                    // ── Listing simple : JJ/MM/AAAA HH:MM | Note ─────────────
+                    // ── Listing : toutes les entrées (toutes dates, user courant) ─
                     entries.forEach(e => {
                         const row = document.createElement('div');
                         row.className = 'ts-hr-hist-row';
