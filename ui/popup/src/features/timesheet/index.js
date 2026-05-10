@@ -592,6 +592,7 @@ function createHrCard(taskId, ref, label, type) {
 
     // ── Clic sur "Total" : charge l'historique + pré-remplit le jour ──────────
     totalDiv.addEventListener('click', async () => {
+        console.log('[ReedCRM] totalDiv clicked, loadingExisting=', card.dataset.loadingExisting, 'historyLoaded=', card.dataset.historyLoaded);
         if (card.dataset.loadingExisting === 'true') return;
 
         // Toggle : si déjà chargé, masquer/afficher le listing
@@ -610,8 +611,11 @@ function createHrCard(taskId, ref, label, type) {
         const reqHeaders = { 'DOLAPIKEY': apiToken, 'Accept': 'application/json' };
         if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
 
+        console.log('[ReedCRM] Fetching timespent:', `${doliUrl}/tasks/${taskId}/timespent`, 'apiToken=', apiToken ? apiToken.substring(0,6)+'...' : 'EMPTY');
+
         try {
             const res = await fetchDoli(`${doliUrl}/tasks/${taskId}/timespent`, { headers: reqHeaders });
+            console.log('[ReedCRM] timespent response ok=', res.ok, 'status=', res.status);
             historyDiv.innerHTML = '';
 
             if (res.ok) {
