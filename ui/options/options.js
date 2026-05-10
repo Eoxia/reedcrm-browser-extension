@@ -973,10 +973,16 @@ async function loadHrTasks(profile, projectId, presenceSelect, absenceSelect) {
                     if (window.optionsHrAbsenceSelect) window.optionsHrAbsenceSelect.update();
                 };
 
-                // Add listeners for mutual exclusion if not already added
+                // Add listeners for mutual exclusion + dirty state if not already added
                 if (!presenceSelect.dataset.listenerAdded) {
-                    presenceSelect.addEventListener('change', updateExclusions);
-                    absenceSelect.addEventListener('change', updateExclusions);
+                    presenceSelect.addEventListener('change', () => {
+                        updateExclusions();
+                        if (window.markHrDirty) window.markHrDirty();
+                    });
+                    absenceSelect.addEventListener('change', () => {
+                        updateExclusions();
+                        if (window.markHrDirty) window.markHrDirty();
+                    });
                     presenceSelect.dataset.listenerAdded = 'true';
                 }
 
@@ -1010,12 +1016,47 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (projectSelect) {
         projectSelect.addEventListener('change', (e) => {
+            markHrDirty();
             const p = getActiveProfile();
             const presenceSelect = document.getElementById('doli-hr-presence-tasks');
             const absenceSelect = document.getElementById('doli-hr-absence-tasks');
             loadHrTasks(p, e.target.value, presenceSelect, absenceSelect);
         });
     }
+
+    // ── Helpers dirty / clean ─────────────────────────────────────────────────
+    /**
+     * Active le bouton Save RH (modifications détectées).
+     */
+    window.markHrDirty = function markHrDirty() {
+        const btn = document.getElementById('btn-save-hr');
+        if (!btn) return;
+        btn.disabled = false;
+        btn.classList.remove('btn-save-hr-idle');
+        btn.classList.add('btn-save-hr-dirty');
+    };
+
+    /**
+     * Remet le bouton Save RH en état idle (après sauvegarde réussie).
+     */
+    window.markHrClean = function markHrClean() {
+        const btn = document.getElementById('btn-save-hr');
+        if (!btn) return;
+        btn.disabled = true;
+        btn.classList.remove('btn-save-hr-dirty');
+        btn.classList.add('btn-save-hr-idle');
+    };
+
+    // Écouter tous les champs du bloc HR (schedule Lun-Dim)
+    ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'].forEach(d => {
+        const inp = document.getElementById(`hr-schedule-${d}`);
+        if (inp) inp.addEventListener('input', markHrDirty);
+    });
+
+    // Les selects tâches (présence / absence) déclenchent aussi dirty via leur
+    // événement natif "change" — câblage délégué car ils peuvent être recréés
+    document.getElementById('doli-hr-presence-tasks')?.addEventListener('change', markHrDirty);
+    document.getElementById('doli-hr-absence-tasks')?.addEventListener('change', markHrDirty);
 
     // ── Bouton Save dédié au bloc Pointage RH ────────────────────────────────
     const btnSaveHr = document.getElementById('btn-save-hr');
@@ -1085,12 +1126,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (chrome.runtime.lastError) {
                         console.error('HR save write error:', chrome.runtime.lastError.message);
                         if (statusDiv) { statusDiv.style.color = '#e74c3c'; statusDiv.textContent = '✗ Erreur de sauvegarde'; }
+                        // Erreur : le bouton repasse en dirty (modifications non sauvegardées)
+                        btnSaveHr.disabled = false;
+                        if (btnText) btnText.textContent = chrome.i18n.getMessage('opt_hr_save') || 'Enregistrer la configuration RH';
                     } else {
                         if (statusDiv) { statusDiv.style.color = '#22c55e'; statusDiv.textContent = '✓ Configuration RH enregistrée !'; }
                         setTimeout(() => { if (statusDiv) statusDiv.textContent = ''; }, 3000);
+                        if (btnText) btnText.textContent = chrome.i18n.getMessage('opt_hr_save') || 'Enregistrer la configuration RH';
+                        // Succès : bouton repasse en gris (plus de modifications en attente)
+                        markHrClean();
                     }
-                    btnSaveHr.disabled = false;
-                    if (btnText) btnText.textContent = chrome.i18n.getMessage('opt_hr_save') || 'Enregistrer la configuration RH';
                 });
             });
         });
