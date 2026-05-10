@@ -2178,3 +2178,92 @@ a.rt-ref:hover {
     color: #3b82f6;
     background: #eff6ff;
 }
+
+/* ===== Refonte carte RH : colonne droite + listing historique ===== */
+
+/* Ref (TK...) : légèrement plus petite */
+.ts-hr-card-ref-link {
+    font-size: 11px !important;
+    font-weight: 700;
+    color: #3b82f6;
+    text-decoration: none;
+}
+.ts-hr-card-ref-link:hover { text-decoration: underline; }
+
+/* Label (Présent/Absent) : plus grande */
+.ts-hr-card-label {
+    font-size: 13px !important;
+    color: #1e293b !important;
+    font-weight: 500;
+}
+
+/* Colonne droite (timeInput + total) */
+.ts-hr-right-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    gap: 2px;
+}
+
+/* Zone Total (cliquable) */
+.ts-hr-total {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    cursor: pointer;
+    padding: 1px 3px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+.ts-hr-total:hover { background: #f1f5f9; }
+
+.ts-hr-total-label {
+    font-size: 9px;
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    line-height: 1;
+}
+
+.ts-hr-total-val {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    line-height: 1.2;
+}
+
+/* Listing historique : lignes simples */
+.ts-hr-hist-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    padding: 2px 0;
+    font-size: 10.5px;
+    border-bottom: 1px solid #f1f5f9;
+    overflow: hidden;
+}
+.ts-hr-hist-row:last-child { border-bottom: none; }
+
+.ts-hr-hist-row-date {
+    color: #475569;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.ts-hr-hist-row-sep {
+    color: #94a3b8;
+    flex-shrink: 0;
+    font-weight: 700;
+}
+
+.ts-hr-hist-row-note {
+    color: #1e293b;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}

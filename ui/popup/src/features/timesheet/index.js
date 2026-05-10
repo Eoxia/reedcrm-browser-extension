@@ -506,6 +506,30 @@ function createHrCard(taskId, ref, label, type) {
     const defaultTime = schedule[dayKey] || '';
     if (defaultTime) timeInput.value = defaultTime;
 
+    // ── Colonne droite : timeInput + total ────────────────────────────────────
+    const rightCol = document.createElement('div');
+    rightCol.className = 'ts-hr-right-col';
+
+    // Zone "Total" (cliquable → charge l'historique)
+    const totalDiv = document.createElement('div');
+    totalDiv.className = 'ts-hr-total hidden';
+    totalDiv.title = chrome.i18n.getMessage('time_card_load_title') || 'Cliquer pour voir l\'historique';
+    totalDiv.style.cursor = 'pointer';
+
+    const totalLabel = document.createElement('span');
+    totalLabel.className = 'ts-hr-total-label';
+    totalLabel.textContent = 'Total';
+
+    const totalVal = document.createElement('span');
+    totalVal.className = 'ts-hr-total-val';
+    totalVal.textContent = '—';
+
+    totalDiv.appendChild(totalLabel);
+    totalDiv.appendChild(totalVal);
+
+    rightCol.appendChild(timeInput);
+    rightCol.appendChild(totalDiv);
+
     // -- Bouton étoile --------------------------------------------------------
     const starBtn = document.createElement('button');
     starBtn.type      = 'button';
@@ -523,17 +547,9 @@ function createHrCard(taskId, ref, label, type) {
     starSvg.appendChild(polygon);
     starBtn.appendChild(starSvg);
 
-    // ── Bouton historique ▾ (charge et toggle le tableau timespent) ──────────
-    const expandBtn = document.createElement('button');
-    expandBtn.type      = 'button';
-    expandBtn.className = 'ts-hr-expand-btn';
-    expandBtn.title     = chrome.i18n.getMessage('time_card_load_title') || 'Voir l\'historique';
-    expandBtn.textContent = '▾';
-
     mainRow.appendChild(info);
-    mainRow.appendChild(timeInput);
+    mainRow.appendChild(rightCol);
     mainRow.appendChild(starBtn);
-    mainRow.appendChild(expandBtn);
 
     // ── Zone note (toujours éditable, cachée par défaut) ──────────────────────
     const noteRow = document.createElement('div');
@@ -543,7 +559,6 @@ function createHrCard(taskId, ref, label, type) {
     noteInput.className   = 'ts-hr-note-input';
     noteInput.rows        = 2;
     noteInput.placeholder = chrome.i18n.getMessage('time_card_note_placeholder');
-    // S'assurer que le champ est toujours éditable
     noteInput.removeAttribute('readonly');
     noteInput.removeAttribute('disabled');
     noteRow.appendChild(noteInput);
@@ -552,7 +567,7 @@ function createHrCard(taskId, ref, label, type) {
     const statusDiv = document.createElement('div');
     statusDiv.className = 'ts-hr-card-status hidden';
 
-    // ── Historique timespent (affiché au clic) ────────────────────────────────
+    // ── Historique timespent (affiché au clic sur "Total") ────────────────────
     const historyDiv = document.createElement('div');
     historyDiv.className = 'ts-hr-history hidden';
 
@@ -575,27 +590,21 @@ function createHrCard(taskId, ref, label, type) {
         }
     });
 
-    // ── Clic sur ▾ : charge l'historique complet + pré-remplit le jour ────────
-    expandBtn.addEventListener('click', async () => {
+    // ── Clic sur "Total" : charge l'historique + pré-remplit le jour ──────────
+    totalDiv.addEventListener('click', async () => {
         if (card.dataset.loadingExisting === 'true') return;
 
-        // Toggle : si déjà chargé, masquer/afficher le tableau
+        // Toggle : si déjà chargé, masquer/afficher le listing
         if (card.dataset.historyLoaded === 'true') {
             historyDiv.classList.toggle('hidden');
-            expandBtn.textContent = historyDiv.classList.contains('hidden') ? '▾' : '▴';
             return;
         }
 
         card.dataset.loadingExisting = 'true';
-        expandBtn.textContent = '…';
+        totalVal.textContent = '…';
+        totalDiv.classList.remove('hidden');
         historyDiv.innerHTML = '';
         historyDiv.classList.remove('hidden');
-
-        // Petit spinner
-        const loader = document.createElement('span');
-        loader.className = 'ts-hr-history-loader';
-        loader.textContent = '…';
-        historyDiv.appendChild(loader);
 
         const dateVal = document.getElementById('time-date')?.value || toLocalDateStr(selectedDate);
         const reqHeaders = { 'DOLAPIKEY': apiToken, 'Accept': 'application/json' };
@@ -629,95 +638,64 @@ function createHrCard(taskId, ref, label, type) {
                         noteRow.classList.remove('hidden');
                     }
 
-                    // ── Tableau historique ────────────────────────────────────
-                    const table = document.createElement('table');
-                    table.className = 'ts-hr-history-table';
-
-                    // En-tête
-                    const thead = document.createElement('thead');
-                    const headerRow = document.createElement('tr');
-                    ['Date', 'Par', 'Note', 'Durée'].forEach(h => {
-                        const th = document.createElement('th');
-                        th.textContent = h;
-                        headerRow.appendChild(th);
-                    });
-                    thead.appendChild(headerRow);
-                    table.appendChild(thead);
-
-                    // Corps
-                    const tbody = document.createElement('tbody');
+                    // ── Calcul total ──────────────────────────────────────────
                     let totalSec = 0;
-
                     entries.forEach(e => {
-                        const tr = document.createElement('tr');
-
-                        // Date
-                        const ts = parseInt(e.task_date || 0, 10);
-                        const dateObj = ts > 0 ? new Date(ts * 1000) : null;
-                        const tdDate = document.createElement('td');
-                        tdDate.textContent = dateObj
-                            ? `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`
-                            : (e.task_date || '—');
-
-                        // Initiales user
-                        const fullname = e.task_fk_user_lastname || e.user_fullname || e.user_name || '';
-                        const initials = fullname.trim().split(/\s+/).map(w => w[0]).join('').substring(0,3).toUpperCase() || '—';
-                        const tdUser = document.createElement('td');
-                        tdUser.className = 'ts-hr-hist-user';
-                        tdUser.textContent = initials;
-                        tdUser.title = fullname;
-
-                        // Note (tronquée)
-                        const noteVal = e.note || e.note_private || e.timespent_note || '';
-                        const tdNote = document.createElement('td');
-                        tdNote.className = 'ts-hr-hist-note';
-                        tdNote.textContent = noteVal || '—';
-                        tdNote.title = noteVal;
-
-                        // Durée
-                        const dur = parseInt(e.task_duration || e.duration || 0, 10);
-                        totalSec += dur;
-                        const h = Math.floor(dur / 3600);
-                        const m = Math.floor((dur % 3600) / 60);
-                        const tdDur = document.createElement('td');
-                        tdDur.className = 'ts-hr-hist-dur';
-                        tdDur.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-
-                        tr.appendChild(tdDate);
-                        tr.appendChild(tdUser);
-                        tr.appendChild(tdNote);
-                        tr.appendChild(tdDur);
-                        tbody.appendChild(tr);
+                        totalSec += parseInt(e.task_duration || e.duration || 0, 10);
                     });
-
-                    // Ligne total
-                    const trTotal = document.createElement('tr');
-                    trTotal.className = 'ts-hr-hist-total';
-                    const tdTotalLabel = document.createElement('td');
-                    tdTotalLabel.colSpan = 3;
-                    tdTotalLabel.textContent = 'Total';
                     const hT = Math.floor(totalSec / 3600);
                     const mT = Math.floor((totalSec % 3600) / 60);
-                    const tdTotalVal = document.createElement('td');
-                    tdTotalVal.className = 'ts-hr-hist-dur';
-                    tdTotalVal.textContent = `${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`;
-                    trTotal.appendChild(tdTotalLabel);
-                    trTotal.appendChild(tdTotalVal);
-                    tbody.appendChild(trTotal);
+                    totalVal.textContent = `${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`;
 
-                    table.appendChild(tbody);
-                    historyDiv.appendChild(table);
+                    // ── Listing simple : JJ/MM/AAAA HH:MM | Note ─────────────
+                    entries.forEach(e => {
+                        const row = document.createElement('div');
+                        row.className = 'ts-hr-hist-row';
+
+                        const ts = parseInt(e.task_date || 0, 10);
+                        const dateObj = ts > 0 ? new Date(ts * 1000) : null;
+                        const dateStr = dateObj
+                            ? `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()} ${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`
+                            : (e.task_date || '—');
+
+                        const noteVal = e.note || e.note_private || e.timespent_note || '';
+
+                        const dateSpan = document.createElement('span');
+                        dateSpan.className = 'ts-hr-hist-row-date';
+                        dateSpan.textContent = dateStr;
+
+                        row.appendChild(dateSpan);
+
+                        if (noteVal) {
+                            const sep = document.createElement('span');
+                            sep.className = 'ts-hr-hist-row-sep';
+                            sep.textContent = ' | ';
+
+                            const noteSpan = document.createElement('span');
+                            noteSpan.className = 'ts-hr-hist-row-note';
+                            noteSpan.textContent = noteVal;
+                            noteSpan.title = noteVal;
+
+                            row.appendChild(sep);
+                            row.appendChild(noteSpan);
+                        }
+
+                        historyDiv.appendChild(row);
+                    });
+
                     card.dataset.historyLoaded = 'true';
                 } else {
+                    totalVal.textContent = '00:00';
                     const empty = document.createElement('p');
                     empty.className = 'ts-hr-hist-empty';
-                    empty.textContent = 'Aucun temps enregistré pour cette tâche.';
+                    empty.textContent = 'Aucun temps enregistré.';
                     historyDiv.appendChild(empty);
                     noteRow.classList.remove('hidden');
                     card.dataset.historyLoaded = 'true';
                 }
             }
         } catch(e) {
+            totalVal.textContent = '!';
             historyDiv.innerHTML = '';
             const errMsg = document.createElement('p');
             errMsg.className = 'ts-hr-hist-empty';
@@ -726,14 +704,13 @@ function createHrCard(taskId, ref, label, type) {
             console.warn('[ReedCRM] Impossible de charger le temps existant:', e);
         } finally {
             card.dataset.loadingExisting = 'false';
-            expandBtn.textContent = historyDiv.classList.contains('hidden') ? '▾' : '▴';
         }
     });
 
     // Si le temps est pré-rempli : card active mais note cachée jusqu'à interaction
     if (defaultTime) {
         card.classList.add('ts-hr-card-active');
-        // La note reste cachée jusqu'à ce que l'utilisateur modifie le champ
+        totalDiv.classList.remove('hidden');
     }
 
     // Étoile = soumettre ce temps via l'API
