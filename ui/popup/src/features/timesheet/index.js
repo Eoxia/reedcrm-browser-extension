@@ -544,9 +544,14 @@ function createHrCard(taskId, ref, label, type) {
     const statusDiv = document.createElement('div');
     statusDiv.className = 'ts-hr-card-status hidden';
 
+    // ── Historique timespent (affiché au clic) ────────────────────────────────
+    const historyDiv = document.createElement('div');
+    historyDiv.className = 'ts-hr-history hidden';
+
     card.appendChild(mainRow);
     card.appendChild(noteRow);
     card.appendChild(statusDiv);
+    card.appendChild(historyDiv);
 
     // ── Interactions ──────────────────────────────────────────────────────────
 
@@ -562,71 +567,155 @@ function createHrCard(taskId, ref, label, type) {
         }
     });
 
-    // ── Clic sur la zone info : charge le temps déjà saisi pour ce jour ──────
+    // ── Clic sur la zone info : charge l'historique complet + pré-remplit le jour ──
     info.style.cursor = 'pointer';
-    info.title = chrome.i18n.getMessage('time_card_load_title') || 'Cliquer pour charger les données existantes';
+    info.title = chrome.i18n.getMessage('time_card_load_title') || 'Cliquer pour charger l\'historique';
 
     info.addEventListener('click', async () => {
         if (card.dataset.loadingExisting === 'true') return;
+
+        // Toggle : si déjà chargé, masquer/afficher le tableau
+        if (card.dataset.historyLoaded === 'true') {
+            historyDiv.classList.toggle('hidden');
+            return;
+        }
+
         card.dataset.loadingExisting = 'true';
+        historyDiv.innerHTML = '';
+        historyDiv.classList.remove('hidden');
+
+        // Petit spinner
+        const loader = document.createElement('span');
+        loader.className = 'ts-hr-history-loader';
+        loader.textContent = '…';
+        historyDiv.appendChild(loader);
 
         const dateVal = document.getElementById('time-date')?.value || toLocalDateStr(selectedDate);
         const reqHeaders = { 'DOLAPIKEY': apiToken, 'Accept': 'application/json' };
         if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
 
         try {
-            // Récupérer les entrées de temps pour cette tâche
             const res = await fetchDoli(`${doliUrl}/tasks/${taskId}/timespent`, { headers: reqHeaders });
+            historyDiv.innerHTML = '';
+
             if (res.ok) {
                 const entries = await res.json();
+
                 if (Array.isArray(entries) && entries.length > 0) {
-                    // Dolibarr retourne task_date en timestamp Unix (secondes)
-                    // On convertit dateVal (YYYY-MM-DD) en début/fin de journée Unix
+                    // ── Pré-remplir le jour sélectionné ──────────────────────
                     const dayStart = Math.floor(new Date(dateVal + 'T00:00:00').getTime() / 1000);
                     const dayEnd   = dayStart + 86399;
-
-                    const entry = entries.find(e => {
-                        // task_date peut être un timestamp, ou une string YYYY-MM-DD
+                    const todayEntry = entries.find(e => {
                         const ts = parseInt(e.task_date || e.timespent_date || 0, 10);
                         if (ts > 0) return ts >= dayStart && ts <= dayEnd;
-                        // Fallback string
-                        const dateStr = (e.task_date_withtimezone || e.task_date || '').substring(0, 10);
-                        return dateStr === dateVal;
+                        return (e.task_date_withtimezone || '').substring(0, 10) === dateVal;
                     });
-
-                    if (entry) {
-                        // Durée en secondes → HH:MM
-                        const dur = parseInt(entry.task_duration || entry.timespent_duration || entry.duration || 0, 10);
-                        const h = Math.floor(dur / 3600);
-                        const m = Math.floor((dur % 3600) / 60);
-                        timeInput.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-
-                        // Remplir la note (tous les champs possibles Dolibarr)
-                        const note = entry.note || entry.note_private || entry.note_public
-                                  || entry.timespent_note || entry.task_note || '';
+                    if (todayEntry) {
+                        const dur = parseInt(todayEntry.task_duration || todayEntry.duration || 0, 10);
+                        timeInput.value = `${String(Math.floor(dur/3600)).padStart(2,'0')}:${String(Math.floor((dur%3600)/60)).padStart(2,'0')}`;
+                        const note = todayEntry.note || todayEntry.note_private || todayEntry.note_public || todayEntry.timespent_note || '';
                         noteInput.value = note;
-                        // Toujours montrer la zone note après un chargement
                         noteRow.classList.remove('hidden');
-
                         card.classList.add('ts-hr-card-active', 'ts-hr-card-done');
                         starBtn.classList.add('ts-star-active');
-                        statusDiv.classList.remove('hidden');
-                        statusDiv.style.color = '#3b82f6';
-                        statusDiv.textContent = chrome.i18n.getMessage('time_card_loaded') || '✓ Temps chargé';
-                        setTimeout(() => {
-                            statusDiv.classList.add('hidden');
-                            statusDiv.textContent = '';
-                        }, 2500);
                     } else {
-                        // Aucune entrée pour ce jour : montrer la zone note vide pour saisie
                         noteRow.classList.remove('hidden');
                     }
+
+                    // ── Tableau historique ────────────────────────────────────
+                    const table = document.createElement('table');
+                    table.className = 'ts-hr-history-table';
+
+                    // En-tête
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    ['Date', 'Par', 'Note', 'Durée'].forEach(h => {
+                        const th = document.createElement('th');
+                        th.textContent = h;
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+
+                    // Corps
+                    const tbody = document.createElement('tbody');
+                    let totalSec = 0;
+
+                    entries.forEach(e => {
+                        const tr = document.createElement('tr');
+
+                        // Date
+                        const ts = parseInt(e.task_date || 0, 10);
+                        const dateObj = ts > 0 ? new Date(ts * 1000) : null;
+                        const tdDate = document.createElement('td');
+                        tdDate.textContent = dateObj
+                            ? `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`
+                            : (e.task_date || '—');
+
+                        // Initiales user
+                        const fullname = e.task_fk_user_lastname || e.user_fullname || e.user_name || '';
+                        const initials = fullname.trim().split(/\s+/).map(w => w[0]).join('').substring(0,3).toUpperCase() || '—';
+                        const tdUser = document.createElement('td');
+                        tdUser.className = 'ts-hr-hist-user';
+                        tdUser.textContent = initials;
+                        tdUser.title = fullname;
+
+                        // Note (tronquée)
+                        const noteVal = e.note || e.note_private || e.timespent_note || '';
+                        const tdNote = document.createElement('td');
+                        tdNote.className = 'ts-hr-hist-note';
+                        tdNote.textContent = noteVal || '—';
+                        tdNote.title = noteVal;
+
+                        // Durée
+                        const dur = parseInt(e.task_duration || e.duration || 0, 10);
+                        totalSec += dur;
+                        const h = Math.floor(dur / 3600);
+                        const m = Math.floor((dur % 3600) / 60);
+                        const tdDur = document.createElement('td');
+                        tdDur.className = 'ts-hr-hist-dur';
+                        tdDur.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+
+                        tr.appendChild(tdDate);
+                        tr.appendChild(tdUser);
+                        tr.appendChild(tdNote);
+                        tr.appendChild(tdDur);
+                        tbody.appendChild(tr);
+                    });
+
+                    // Ligne total
+                    const trTotal = document.createElement('tr');
+                    trTotal.className = 'ts-hr-hist-total';
+                    const tdTotalLabel = document.createElement('td');
+                    tdTotalLabel.colSpan = 3;
+                    tdTotalLabel.textContent = 'Total';
+                    const hT = Math.floor(totalSec / 3600);
+                    const mT = Math.floor((totalSec % 3600) / 60);
+                    const tdTotalVal = document.createElement('td');
+                    tdTotalVal.className = 'ts-hr-hist-dur';
+                    tdTotalVal.textContent = `${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`;
+                    trTotal.appendChild(tdTotalLabel);
+                    trTotal.appendChild(tdTotalVal);
+                    tbody.appendChild(trTotal);
+
+                    table.appendChild(tbody);
+                    historyDiv.appendChild(table);
+                    card.dataset.historyLoaded = 'true';
                 } else {
-                    // Pas d'entrée du tout : montrer la note pour saisie
+                    const empty = document.createElement('p');
+                    empty.className = 'ts-hr-hist-empty';
+                    empty.textContent = 'Aucun temps enregistré pour cette tâche.';
+                    historyDiv.appendChild(empty);
                     noteRow.classList.remove('hidden');
+                    card.dataset.historyLoaded = 'true';
                 }
             }
         } catch(e) {
+            historyDiv.innerHTML = '';
+            const errMsg = document.createElement('p');
+            errMsg.className = 'ts-hr-hist-empty';
+            errMsg.textContent = 'Erreur de chargement.';
+            historyDiv.appendChild(errMsg);
             console.warn('[ReedCRM] Impossible de charger le temps existant:', e);
         } finally {
             card.dataset.loadingExisting = 'false';
