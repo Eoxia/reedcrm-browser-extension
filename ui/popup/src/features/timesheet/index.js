@@ -5,9 +5,107 @@ let doliUrl = '';
 let apiToken = '';
 let doliEntity = '';
 let profileConfig = null;
-let currentMode = 'standard'; // 'standard' or 'rh'
+let currentMode = 'rh'; // 'standard' or 'rh' — RH est le mode par défaut
 let selectedHrTask = null;
 let isTimesheetInitialized = false;
+let selectedDate = new Date(); // date courante sélectionnée dans le picker
+
+// ─── Utilitaire : formate une date en YYYY-MM-DD ────────────────────────────
+function toLocalDateStr(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+// ─── Sélecteur de semaine ────────────────────────────────────────────────────
+/**
+ * Retourne le lundi de la semaine contenant `date`.
+ * @param {Date} date
+ * @returns {Date}
+ */
+function getMondayOf(date) {
+    const d = new Date(date);
+    const day = d.getDay(); // 0=dim, 1=lun...
+    const diff = (day === 0 ? -6 : 1 - day);
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+/**
+ * Construit les boutons Lu-Ma-Me-Je-Ve de la semaine courante.
+ */
+function buildWeekPicker() {
+    const container = document.getElementById('ts-week-days');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const monday = getMondayOf(selectedDate);
+    const DAY_NAMES = ['LUN', 'MAR', 'MER', 'JEU', 'VEN'];
+
+    for (let i = 0; i < 5; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ts-day-btn';
+
+        const isActive = toLocalDateStr(d) === toLocalDateStr(selectedDate);
+        if (isActive) btn.classList.add('ts-day-active');
+
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+
+        btn.innerHTML = `
+            <span class="ts-day-name">${DAY_NAMES[i]}</span>
+            <span class="ts-day-num">${String(d.getDate()).padStart(2, '0')}</span>
+            <span class="ts-day-month">${month}/${year}</span>`;
+
+        btn.addEventListener('click', () => {
+            selectedDate = new Date(d);
+            // Synchronise l'input date caché
+            const dateInput = document.getElementById('time-date');
+            if (dateInput) dateInput.value = toLocalDateStr(selectedDate);
+            buildWeekPicker(); // re-render pour mettre à jour active
+        });
+
+        container.appendChild(btn);
+    }
+}
+
+/**
+ * Affiche les infos du projet RH et le compteur mensuel.
+ */
+function updateHrProjectInfo() {
+    const label = document.getElementById('ts-hr-project-label');
+    const monthName = document.getElementById('ts-month-name');
+    const monthlyHours = document.getElementById('ts-monthly-hours');
+    const infoBlock = document.getElementById('ts-hr-project-info');
+    const counterBlock = document.getElementById('ts-monthly-counter');
+
+    if (!profileConfig || !profileConfig.doliHrProject) {
+        if (infoBlock) infoBlock.style.display = 'none';
+        if (counterBlock) counterBlock.style.display = 'none';
+        return;
+    }
+
+    if (infoBlock) infoBlock.style.display = '';
+    if (counterBlock) counterBlock.style.display = '';
+
+    // Afficher la référence du projet RH
+    if (label) {
+        label.textContent = profileConfig.doliHrProjectRef
+            ? `${profileConfig.doliHrProjectRef} -  ${profileConfig.doliHrProjectTitle || ''}`
+            : `Projet RH #${profileConfig.doliHrProject}`;
+    }
+
+    // Mois courant en français
+    const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    if (monthName) monthName.textContent = `${months[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+    if (monthlyHours) monthlyHours.textContent = '—'; // sera mis à jour par fetchMonthlyHours
+}
 
 export function initTimesheet(url, token, entity, profile) {
     doliUrl = url;
@@ -26,7 +124,31 @@ export function initTimesheet(url, token, entity, profile) {
         if (setupContainer) setupContainer.classList.add('hidden');
         if (mainContainer) mainContainer.classList.remove('hidden');
         loadStandardProjects();
+        buildHrUi();
     }
+
+    // Initialiser la date d'aujourd'hui
+    selectedDate = new Date();
+    const dateInput = document.getElementById('time-date');
+    if (dateInput) dateInput.value = toLocalDateStr(selectedDate);
+
+    // Construire le picker de semaine
+    buildWeekPicker();
+    updateHrProjectInfo();
+
+    // Navigation semaine précédente / suivante
+    document.getElementById('ts-week-prev')?.addEventListener('click', () => {
+        selectedDate.setDate(selectedDate.getDate() - 7);
+        buildWeekPicker();
+        if (dateInput) dateInput.value = toLocalDateStr(selectedDate);
+        updateHrProjectInfo();
+    });
+    document.getElementById('ts-week-next')?.addEventListener('click', () => {
+        selectedDate.setDate(selectedDate.getDate() + 7);
+        buildWeekPicker();
+        if (dateInput) dateInput.value = toLocalDateStr(selectedDate);
+        updateHrProjectInfo();
+    });
 
     if (isTimesheetInitialized) return;
     isTimesheetInitialized = true;
@@ -43,43 +165,52 @@ export function initTimesheet(url, token, entity, profile) {
         saveBtn.addEventListener('click', saveSetup);
     }
 
+    // Tabs mode RH / Standard
     const btnStandard = document.getElementById('btn-mode-standard');
     const btnRh = document.getElementById('btn-mode-rh');
     const modeStandard = document.getElementById('timesheet-mode-standard');
     const modeRh = document.getElementById('timesheet-mode-rh');
-    
-    // Set today's date
-    const dateInput = document.getElementById('time-date');
-    if (dateInput) {
-        const today = new Date();
-        dateInput.value = today.toISOString().split('T')[0];
-    }
 
     if (btnStandard && btnRh) {
-        btnStandard.addEventListener('click', () => {
-            currentMode = 'standard';
-            btnStandard.style.background = '#3498db';
-            btnStandard.style.color = 'white';
-            btnRh.style.background = 'white';
-            btnRh.style.color = '#475569';
-            modeStandard.classList.remove('hidden');
-            modeRh.classList.add('hidden');
-            checkSubmitStatus();
-        });
-
         btnRh.addEventListener('click', () => {
             currentMode = 'rh';
-            btnRh.style.background = '#3498db';
-            btnRh.style.color = 'white';
-            btnStandard.style.background = 'white';
-            btnStandard.style.color = '#475569';
+            btnRh.classList.add('ts-tab-active');
+            btnStandard.classList.remove('ts-tab-active');
             modeRh.classList.remove('hidden');
             modeStandard.classList.add('hidden');
+            document.getElementById('ts-hr-project-info')?.style.setProperty('display', '');
+            document.getElementById('ts-monthly-counter')?.style.setProperty('display', '');
             checkSubmitStatus();
-            
-            // Build HR UI if not built
             buildHrUi();
         });
+
+        btnStandard.addEventListener('click', () => {
+            currentMode = 'standard';
+            btnStandard.classList.add('ts-tab-active');
+            btnRh.classList.remove('ts-tab-active');
+            modeStandard.classList.remove('hidden');
+            modeRh.classList.add('hidden');
+            document.getElementById('ts-hr-project-info')?.style.setProperty('display', 'none');
+            document.getElementById('ts-monthly-counter')?.style.setProperty('display', 'none');
+            checkSubmitStatus();
+        });
+    }
+
+    // Activer le mode RH par défaut si configuré
+    if (profileConfig && profileConfig.doliHrProject) {
+        currentMode = 'rh';
+        btnRh?.classList.add('ts-tab-active');
+        btnStandard?.classList.remove('ts-tab-active');
+        modeRh?.classList.remove('hidden');
+        modeStandard?.classList.add('hidden');
+    } else {
+        currentMode = 'standard';
+        btnStandard?.classList.add('ts-tab-active');
+        btnRh?.classList.remove('ts-tab-active');
+        modeStandard?.classList.remove('hidden');
+        modeRh?.classList.add('hidden');
+        document.getElementById('ts-hr-project-info')?.style.setProperty('display', 'none');
+        document.getElementById('ts-monthly-counter')?.style.setProperty('display', 'none');
     }
 
     const projSelect = document.getElementById('time-project');
@@ -91,20 +222,15 @@ export function initTimesheet(url, token, entity, profile) {
     }
 
     const taskSelect = document.getElementById('time-task');
-    if (taskSelect) {
-        taskSelect.addEventListener('change', checkSubmitStatus);
-    }
-    
+    if (taskSelect) taskSelect.addEventListener('change', checkSubmitStatus);
+
     const durationInput = document.getElementById('time-duration');
-    if (durationInput) {
-        durationInput.addEventListener('input', checkSubmitStatus);
-    }
+    if (durationInput) durationInput.addEventListener('input', checkSubmitStatus);
 
     const btnSubmit = document.getElementById('btn-submit-time');
-    if (btnSubmit) {
-        btnSubmit.addEventListener('click', submitTime);
-    }
+    if (btnSubmit) btnSubmit.addEventListener('click', submitTime);
 }
+
 
 function checkSubmitStatus() {
     const btnSubmit = document.getElementById('btn-submit-time');
@@ -507,6 +633,14 @@ function saveSetup() {
             profiles[pIdx].doliHrProject = projectId;
             profiles[pIdx].doliHrPresenceTasks = presTasks;
             profiles[pIdx].doliHrAbsenceTasks = absTasks;
+            // Sauvegarder aussi la ref et le titre pour l'affichage dans le bloc info
+            const projSelect = document.getElementById('time-setup-project');
+            const selectedOption = projSelect ? projSelect.options[projSelect.selectedIndex] : null;
+            if (selectedOption && selectedOption.text) {
+                const parts = selectedOption.text.split(' - ');
+                profiles[pIdx].doliHrProjectRef = parts[0] || '';
+                profiles[pIdx].doliHrProjectTitle = parts.slice(1).join(' - ') || '';
+            }
             
             chrome.storage.sync.set({ doliProfiles: profiles }, () => {
                 // Update local profileConfig
