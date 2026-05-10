@@ -18,6 +18,16 @@ function toLocalDateStr(d) {
     return `${y}-${m}-${day}`;
 }
 
+/**
+ * Retourne la clé de planning ('lun'|'mar'|...) pour une date donnée.
+ * @param {Date} date
+ * @returns {string}
+ */
+function getDayKeyFromDate(date) {
+    const keys = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+    return keys[date.getDay()];
+}
+
 // ─── Sélecteur de semaine ────────────────────────────────────────────────────
 /**
  * Retourne le lundi de la semaine contenant `date`.
@@ -35,6 +45,8 @@ function getMondayOf(date) {
 
 /**
  * Construit les boutons Lu-Ma-Me-Je-Ve de la semaine courante.
+ * Lors d'un changement de jour, met à jour les inputs time des cartes
+ * avec la valeur du planning pour ce jour.
  */
 function buildWeekPicker() {
     const container = document.getElementById('ts-week-days');
@@ -43,6 +55,7 @@ function buildWeekPicker() {
 
     const monday = getMondayOf(selectedDate);
     const DAY_NAMES = ['LUN', 'MAR', 'MER', 'JEU', 'VEN'];
+    const DAY_KEYS  = ['lun', 'mar', 'mer', 'jeu', 'ven'];
 
     for (let i = 0; i < 5; i++) {
         const d = new Date(monday);
@@ -58,21 +71,38 @@ function buildWeekPicker() {
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const year = d.getFullYear();
 
-        btn.innerHTML = `
-            <span class="ts-day-name">${DAY_NAMES[i]}</span>
-            <span class="ts-day-num">${String(d.getDate()).padStart(2, '0')}</span>
-            <span class="ts-day-month">${month}/${year}</span>`;
+        const nameSpan  = document.createElement('span'); nameSpan.className  = 'ts-day-name';  nameSpan.textContent = DAY_NAMES[i];
+        const numSpan   = document.createElement('span'); numSpan.className   = 'ts-day-num';   numSpan.textContent  = String(d.getDate()).padStart(2, '0');
+        const monthSpan = document.createElement('span'); monthSpan.className = 'ts-day-month'; monthSpan.textContent = `${month}/${year}`;
+        btn.appendChild(nameSpan); btn.appendChild(numSpan); btn.appendChild(monthSpan);
 
         btn.addEventListener('click', () => {
             selectedDate = new Date(d);
             // Synchronise l'input date caché
             const dateInput = document.getElementById('time-date');
             if (dateInput) dateInput.value = toLocalDateStr(selectedDate);
+            // Met à jour la valeur par défaut des cartes pour ce nouveau jour
+            updateCardsDefaultTime(DAY_KEYS[i]);
             buildWeekPicker(); // re-render pour mettre à jour active
         });
 
         container.appendChild(btn);
     }
+}
+
+/**
+ * Pré-remplit le champ temps des cartes RH avec la valeur du planning
+ * du profil pour le jour donné.
+ * @param {string} dayKey - 'lun'|'mar'|'mer'|'jeu'|'ven'|'sam'|'dim'
+ */
+function updateCardsDefaultTime(dayKey) {
+    const schedule = profileConfig?.doliHrSchedule || {};
+    const defaultTime = schedule[dayKey] || '00:00';
+    // Met à jour uniquement les cartes qui n'ont pas encore été enregistrées
+    document.querySelectorAll('.ts-hr-card:not(.ts-hr-card-done)').forEach(card => {
+        const inp = card.querySelector('.ts-hr-time-input');
+        if (inp) inp.value = defaultTime;
+    });
 }
 
 /**
@@ -433,11 +463,17 @@ function createHrCard(taskId, ref, label, type) {
     info.appendChild(refSpan);
     info.appendChild(labelSpan);
 
-    // -- Input temps ----------------------------------------------------------
+    // -- Input temps : pré-rempli avec la valeur du planning pour le jour courant ----
     const timeInput = document.createElement('input');
     timeInput.type      = 'time';
     timeInput.className = 'ts-hr-time-input';
     timeInput.title     = chrome.i18n.getMessage('time_card_duration_title');
+
+    // Pré-remplir avec la valeur du planning si disponible
+    const dayKey = getDayKeyFromDate(selectedDate);
+    const schedule = profileConfig?.doliHrSchedule || {};
+    const defaultTime = schedule[dayKey] || '';
+    if (defaultTime) timeInput.value = defaultTime;
 
     // -- Bouton étoile --------------------------------------------------------
     const starBtn = document.createElement('button');
@@ -480,7 +516,7 @@ function createHrCard(taskId, ref, label, type) {
 
     // ── Interactions ──────────────────────────────────────────────────────────
 
-    // Révéler la note quand une durée est saisie
+    // Révéler la note quand l'utilisateur MODIFIE manuellement la durée
     timeInput.addEventListener('change', () => {
         if (timeInput.value) {
             noteRow.classList.remove('hidden');
@@ -491,6 +527,12 @@ function createHrCard(taskId, ref, label, type) {
             starBtn.classList.remove('ts-star-active');
         }
     });
+
+    // Si le temps est pré-rempli : card active mais note cachée jusqu'à interaction
+    if (defaultTime) {
+        card.classList.add('ts-hr-card-active');
+        // La note reste cachée jusqu'à ce que l'utilisateur modifie le champ
+    }
 
     // Étoile = soumettre ce temps via l'API
     starBtn.addEventListener('click', async () => {
@@ -527,26 +569,45 @@ function createHrCard(taskId, ref, label, type) {
         if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
 
         try {
+            // L'API Dolibarr attend le timestamp Unix (en secondes) pour la date
+            const d = new Date(dateVal + 'T00:00:00');
+            const timestamp = Math.floor(d.getTime() / 1000);
+
             const res = await fetchDoli(`${doliUrl}/tasks/${taskId}/addtimespent`, {
                 method: 'POST',
                 headers: reqHeaders,
-                body: JSON.stringify({ date: dateStr, duration: durationInSeconds, note })
+                body: JSON.stringify({
+                    date:     timestamp,
+                    duration: durationInSeconds,
+                    note:     note,
+                    fk_user: 0
+                })
             });
 
             starBtn.classList.remove('ts-star-loading');
 
             if (res.ok) {
+                // État success : étoile pleine verte + message
                 card.classList.add('ts-hr-card-done');
                 starBtn.classList.add('ts-star-active');
+                starBtn.disabled = false;
                 statusDiv.classList.remove('hidden');
                 statusDiv.style.color = '#22c55e';
                 statusDiv.textContent = chrome.i18n.getMessage('time_card_saved');
                 if (note) noteRow.classList.remove('hidden');
+
+                // Après 3 secondes : masquer le statut, conserver l'état "noté"
+                setTimeout(() => {
+                    statusDiv.classList.add('hidden');
+                    statusDiv.textContent = '';
+                }, 3000);
             } else {
+                let errTxt = res.statusText;
+                try { const body = await res.json(); errTxt = body.error || body.message || errTxt; } catch(_) {}
                 starBtn.disabled = false;
                 statusDiv.classList.remove('hidden');
                 statusDiv.style.color = '#e74c3c';
-                statusDiv.textContent = chrome.i18n.getMessage('time_card_error_prefix') + ' ' + res.statusText;
+                statusDiv.textContent = chrome.i18n.getMessage('time_card_error_prefix') + ' ' + errTxt;
             }
         } catch(e) {
             starBtn.disabled = false;
