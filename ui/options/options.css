@@ -379,32 +379,42 @@ button:hover {
     color: #444;
 }
 
-/* ===== PLANNING HEBDOMADAIRE ===== */
+/* =========================================================================
+   PLANNING HEBDOMADAIRE & BOUTON SAVE RH
+   ========================================================================= */
+
 #hr-schedule-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 3px;
     margin-top: 6px;
     font-size: 12px;
+    table-layout: fixed;
 }
+
 #hr-schedule-table th {
     background: #f1f5f9;
     color: #475569;
     font-weight: 600;
     text-align: center;
-    padding: 5px 3px;
+    padding: 5px 2px;
     border: 1px solid #e2e8f0;
     border-radius: 4px 4px 0 0;
     font-size: 11px;
+    width: 14.28%;
 }
+
 #hr-schedule-table td {
     text-align: center;
-    padding: 3px;
-    border: 1px solid #e2e8f0;
+    padding: 2px 0;
+    border: none;
+    width: 14.28%;
 }
+
+/* Input durée HH:MM */
 .hr-schedule-input {
     width: 100%;
-    max-width: 52px;
-    padding: 4px 2px;
+    padding: 5px 2px;
     text-align: center;
     font-size: 12px;
     font-weight: 600;
@@ -413,22 +423,36 @@ button:hover {
     background: #f8fafc;
     color: #1e293b;
     box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: text;
 }
+
 .hr-schedule-input:focus {
     outline: none;
     border-color: #3b82f6;
     background: #eff6ff;
 }
-/* Sam et Dim grisés par défaut */
-#hr-schedule-sam, #hr-schedule-dim {
+
+/* Masquer l'icône horloge (Chrome / Edge) */
+.hr-schedule-input::-webkit-calendar-picker-indicator {
+    display: none;
+    opacity: 0;
+    width: 0;
+    padding: 0;
+}
+
+/* Sam et Dim : style discret */
+#hr-schedule-sam,
+#hr-schedule-dim {
     background: #f1f5f9;
     color: #94a3b8;
 }
 
-/* ===== BOUTON SAVE HR : états idle / dirty ===== */
+/* ===== BOUTON SAVE RH : états idle / dirty ===== */
 #btn-save-hr {
     width: 100%;
-    margin-top: 16px;
+    margin-top: 8px;
     padding: 10px;
     border: none;
     border-radius: 6px;
@@ -439,9 +463,9 @@ button:hover {
     justify-content: center;
     gap: 8px;
     transition: background 0.25s, box-shadow 0.25s, color 0.25s, opacity 0.2s;
-    cursor: pointer;
 }
-/* État par défaut : gris (aucune modification) */
+
+/* Idle : gris, désactivé */
 #btn-save-hr.btn-save-hr-idle,
 #btn-save-hr:disabled {
     background: #e2e8f0;
@@ -449,71 +473,15 @@ button:hover {
     box-shadow: none;
     cursor: default;
 }
-/* État dirty : vert (modifications non sauvegardées) */
+
+/* Dirty : vert, actif */
 #btn-save-hr.btn-save-hr-dirty {
     background: linear-gradient(135deg, #22c55e, #16a34a);
     color: #fff;
     box-shadow: 0 2px 8px rgba(34, 197, 94, 0.35);
     cursor: pointer;
 }
+
 #btn-save-hr.btn-save-hr-dirty:hover {
     opacity: 0.92;
-}
-
-/* Ajustement input time dans le planning */
-.hr-schedule-input[type="time"] {
-    max-width: none;
-    width: 72px;
-    padding: 4px 2px;
-    font-size: 11px;
-    -webkit-appearance: none;
-}
-
-/* ===== PLANNING : masquer l'icone horloge et ajustements layout ===== */
-
-/* Supprimer le picker indicator (horloge + X) sur Chrome/Edge */
-.hr-schedule-input::-webkit-calendar-picker-indicator {
-    display: none;
-    -webkit-appearance: none;
-    opacity: 0;
-    width: 0;
-    padding: 0;
-}
-/* Firefox */
-.hr-schedule-input::-moz-calendar-picker-indicator {
-    display: none;
-}
-
-/* Centrer le tableau dans son conteneur */
-#hr-schedule-table {
-    border-spacing: 2px;
-    border-collapse: separate;
-}
-
-/* Ajuster la largeur des colonnes */
-#hr-schedule-table th,
-#hr-schedule-table td {
-    width: 14.28%;
-    padding: 3px 2px;
-}
-
-/* Inputs plus propres sans spinner */
-.hr-schedule-input[type="time"] {
-    max-width: none;
-    width: 100%;
-    min-width: 58px;
-    padding: 5px 4px;
-    font-size: 12px;
-    font-weight: 600;
-    text-align: center;
-    -webkit-appearance: none;
-    appearance: none;
-    cursor: text;
-}
-
-/* Sam et Dim : style discret */
-#hr-schedule-sam,
-#hr-schedule-dim {
-    color: #94a3b8;
-    background: #f1f5f9;
 }
