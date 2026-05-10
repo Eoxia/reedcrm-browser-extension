@@ -160,6 +160,43 @@
                     </select>
                 </div>
             </div>
+
+            <!-- PLANNING HEBDOMADAIRE -->
+            <div class="form-group" style="margin-top: 18px;">
+                <label><span data-i18n="opt_hr_schedule">Temps de présence attendu par jour</span></label>
+                <table id="hr-schedule-table">
+                    <thead>
+                        <tr>
+                            <th data-i18n="opt_hr_day_lun">Lun</th>
+                            <th data-i18n="opt_hr_day_mar">Mar</th>
+                            <th data-i18n="opt_hr_day_mer">Mer</th>
+                            <th data-i18n="opt_hr_day_jeu">Jeu</th>
+                            <th data-i18n="opt_hr_day_ven">Ven</th>
+                            <th data-i18n="opt_hr_day_sam">Sam</th>
+                            <th data-i18n="opt_hr_day_dim">Dim</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="number" id="hr-schedule-lun" class="hr-schedule-input" min="0" max="24" step="0.5" value="8"></td>
+                            <td><input type="number" id="hr-schedule-mar" class="hr-schedule-input" min="0" max="24" step="0.5" value="8"></td>
+                            <td><input type="number" id="hr-schedule-mer" class="hr-schedule-input" min="0" max="24" step="0.5" value="8"></td>
+                            <td><input type="number" id="hr-schedule-jeu" class="hr-schedule-input" min="0" max="24" step="0.5" value="8"></td>
+                            <td><input type="number" id="hr-schedule-ven" class="hr-schedule-input" min="0" max="24" step="0.5" value="8"></td>
+                            <td><input type="number" id="hr-schedule-sam" class="hr-schedule-input" min="0" max="24" step="0.5" value="0"></td>
+                            <td><input type="number" id="hr-schedule-dim" class="hr-schedule-input" min="0" max="24" step="0.5" value="0"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p style="font-size: 10px; color: #94a3b8; margin-top: 4px;" data-i18n="opt_hr_schedule_hint">Heures décimales (ex: 7.5 = 7h30)</p>
+            </div>
+
+            <!-- BOUTON SAVE HR -->
+            <button type="button" id="btn-save-hr" style="width:100%;margin-top:16px;padding:10px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 8px rgba(34,197,94,0.3);transition:opacity .2s;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                <span id="btn-save-hr-text" data-i18n="opt_hr_save">Enregistrer la configuration RH</span>
+            </button>
+            <div id="hr-save-status" style="font-size:11px;text-align:center;margin-top:6px;font-weight:600;"></div>
         </fieldset>
 
         <fieldset class="settings-section">

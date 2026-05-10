@@ -1,4 +1,4 @@
-﻿
+
 import { MESSAGE_TYPES } from '../../src/utils/constants.js';
 import { CustomSelect } from '../components/custom-select.js';
 import { CustomMultiSelect } from '../components/custom-multiselect.js';
@@ -285,6 +285,25 @@ function loadProfileIntoForm(p) {
     window.optionsHrProjectSelect = null;
     window.optionsHrPresenceSelect = null;
     window.optionsHrAbsenceSelect = null;
+
+    // ── Injecter les IDs sauvegardés dans dataset pour que loadHrTasks les retrouve ──
+    if (_pSel && p.doliHrProject) {
+        _pSel.dataset.selectedValue = p.doliHrProject;
+    }
+    if (_prSel) {
+        _prSel.dataset.selectedValues = JSON.stringify(p.doliHrPresenceTasks || []);
+    }
+    if (_abSel) {
+        _abSel.dataset.selectedValues = JSON.stringify(p.doliHrAbsenceTasks || []);
+    }
+
+    // ── Restaurer le planning hebdomadaire ────────────────────────────────────
+    const schedule = p.doliHrSchedule || { lun: 8, mar: 8, mer: 8, jeu: 8, ven: 8, sam: 0, dim: 0 };
+    const days = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+    days.forEach(d => {
+        const inp = document.getElementById(`hr-schedule-${d}`);
+        if (inp) inp.value = schedule[d] !== undefined ? schedule[d] : 0;
+    });
 }
 
 // Met à jour la liste déroulante des profils
@@ -995,6 +1014,85 @@ document.addEventListener('DOMContentLoaded', () => {
             const presenceSelect = document.getElementById('doli-hr-presence-tasks');
             const absenceSelect = document.getElementById('doli-hr-absence-tasks');
             loadHrTasks(p, e.target.value, presenceSelect, absenceSelect);
+        });
+    }
+
+    // ── Bouton Save dédié au bloc Pointage RH ────────────────────────────────
+    const btnSaveHr = document.getElementById('btn-save-hr');
+    if (btnSaveHr) {
+        btnSaveHr.addEventListener('click', () => {
+            const p = getActiveProfile();
+            if (!p) return;
+
+            const statusDiv = document.getElementById('hr-save-status');
+            const btnText   = document.getElementById('btn-save-hr-text');
+
+            // Lire les valeurs du formulaire RH
+            const projectId = document.getElementById('doli-hr-project')?.value || '';
+            const presenceEl = document.getElementById('doli-hr-presence-tasks');
+            const absenceEl  = document.getElementById('doli-hr-absence-tasks');
+            const presenceTasks = presenceEl
+                ? Array.from(presenceEl.selectedOptions).map(o => o.value)
+                : (p.doliHrPresenceTasks || []);
+            const absenceTasks = absenceEl
+                ? Array.from(absenceEl.selectedOptions).map(o => o.value)
+                : (p.doliHrAbsenceTasks || []);
+
+            // Lire le planning hebdomadaire
+            const days = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+            const schedule = {};
+            days.forEach(d => {
+                const inp = document.getElementById(`hr-schedule-${d}`);
+                schedule[d] = inp ? parseFloat(inp.value) || 0 : 0;
+            });
+
+            // Mettre à jour le profil en mémoire
+            p.doliHrProject       = projectId;
+            p.doliHrPresenceTasks = presenceTasks;
+            p.doliHrAbsenceTasks  = absenceTasks;
+            p.doliHrSchedule      = schedule;
+
+            // Conserver aussi dataset pour la prochaine restauration
+            const presEl = document.getElementById('doli-hr-presence-tasks');
+            const absEl  = document.getElementById('doli-hr-absence-tasks');
+            if (presEl) presEl.dataset.selectedValues = JSON.stringify(presenceTasks);
+            if (absEl)  absEl.dataset.selectedValues  = JSON.stringify(absenceTasks);
+
+            // Feedback UI immédiat
+            if (btnText) btnText.textContent = '…';
+            btnSaveHr.disabled = true;
+
+            // Persister dans storage.sync
+            chrome.storage.sync.get(['doliProfiles'], (items) => {
+                if (chrome.runtime.lastError) {
+                    console.error('HR save error:', chrome.runtime.lastError.message);
+                    if (statusDiv) { statusDiv.style.color = '#e74c3c'; statusDiv.textContent = '✗ Erreur de lecture'; }
+                    btnSaveHr.disabled = false;
+                    if (btnText) btnText.textContent = chrome.i18n.getMessage('opt_hr_save') || 'Enregistrer la configuration RH';
+                    return;
+                }
+                let storedProfiles = items.doliProfiles || [];
+                const idx = storedProfiles.findIndex(prof => prof.id === p.id);
+                if (idx !== -1) {
+                    storedProfiles[idx] = Object.assign(storedProfiles[idx], {
+                        doliHrProject:       projectId,
+                        doliHrPresenceTasks: presenceTasks,
+                        doliHrAbsenceTasks:  absenceTasks,
+                        doliHrSchedule:      schedule
+                    });
+                }
+                chrome.storage.sync.set({ doliProfiles: storedProfiles }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error('HR save write error:', chrome.runtime.lastError.message);
+                        if (statusDiv) { statusDiv.style.color = '#e74c3c'; statusDiv.textContent = '✗ Erreur de sauvegarde'; }
+                    } else {
+                        if (statusDiv) { statusDiv.style.color = '#22c55e'; statusDiv.textContent = '✓ Configuration RH enregistrée !'; }
+                        setTimeout(() => { if (statusDiv) statusDiv.textContent = ''; }, 3000);
+                    }
+                    btnSaveHr.disabled = false;
+                    if (btnText) btnText.textContent = chrome.i18n.getMessage('opt_hr_save') || 'Enregistrer la configuration RH';
+                });
+            });
         });
     }
 

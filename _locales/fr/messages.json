@@ -1,4 +1,4 @@
-{
+﻿{
     "popup_1": {
         "message": "ReedCRM - Nouveau Ticket",
         "description": "Extracted string popup_1"
@@ -822,4 +822,15 @@
     "time_card_network_error_load": {
         "message": "Erreur réseau"
     }
+,
+    "opt_hr_schedule": { "message": "Temps de présence attendu par jour" },
+    "opt_hr_schedule_hint": { "message": "Heures décimales (ex: 7.5 = 7h30)" },
+    "opt_hr_save": { "message": "Enregistrer la configuration RH" },
+    "opt_hr_day_lun": { "message": "Lun" },
+    "opt_hr_day_mar": { "message": "Mar" },
+    "opt_hr_day_mer": { "message": "Mer" },
+    "opt_hr_day_jeu": { "message": "Jeu" },
+    "opt_hr_day_ven": { "message": "Ven" },
+    "opt_hr_day_sam": { "message": "Sam" },
+    "opt_hr_day_dim": { "message": "Dim" }
 }
