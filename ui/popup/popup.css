@@ -2267,15 +2267,3 @@ a.rt-ref:hover {
     flex: 1;
     min-width: 0;
 }
-
-/* Ligne du jour sélectionné : mise en avant */
-.ts-hr-hist-row-today {
-    background: rgba(99, 102, 241, 0.07);
-    border-radius: 4px;
-    padding: 2px 4px;
-    margin: 0 -4px;
-}
-.ts-hr-hist-row-today .ts-hr-hist-row-date {
-    color: #4f46e5;
-    font-weight: 700;
-}

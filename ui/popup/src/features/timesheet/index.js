@@ -638,20 +638,17 @@ function createHrCard(taskId, ref, label, type) {
 
             historyDiv.innerHTML = '';
 
-            // ── Fallback final : GET /tasks/{id} + cache local ───────────────
+            // ── Fallback final : GET /tasks/{id} pour le total global ────────
             if (!res.ok && res.statusText?.includes('404')) {
-                console.warn('[ReedCRM] endpoints timespent non disponibles, fallback GET /tasks/{id} + cache local');
-
-                // Lecture parallèle : total Dolibarr + historique local
-                const [taskRes, localItems] = await Promise.all([
-                    fetchDoli(`${doliUrl}/tasks/${taskId}`, { headers: reqHeaders }),
-                    new Promise(resolve => chrome.storage.local.get([`ts_entries_${taskId}`], resolve))
-                ]);
+                console.warn('[ReedCRM] endpoints timespent non disponibles, fallback GET /tasks/{id}');
+                res = await fetchDoli(`${doliUrl}/tasks/${taskId}`, { headers: reqHeaders });
                 historyDiv.innerHTML = '';
 
-                // ── Total global depuis Dolibarr ──────────────────────────────
-                if (taskRes.ok) {
-                    const task = await taskRes.json();
+                if (res.ok) {
+                    const task = await res.json();
+                    console.log('[ReedCRM] task fields (non-nuls):', JSON.stringify(Object.fromEntries(
+                        Object.entries(task).filter(([k, v]) => v !== null && v !== '' && v !== '0')
+                    )));
                     const totalSec = parseInt(
                         task.duration_effective ||
                         task.timespent_not_billed ||
@@ -660,73 +657,24 @@ function createHrCard(taskId, ref, label, type) {
                     );
                     const hT = Math.floor(totalSec / 3600);
                     const mT = Math.floor((totalSec % 3600) / 60);
+                    // Label "Σ" = total global (toutes dates, tous users)
                     totalVal.textContent = `Σ ${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`;
-                } else {
-                    totalVal.textContent = 'Σ ?';
-                }
+                    totalLabel.textContent = 'Total';
 
-                // ── Listing depuis le cache local (extension) ─────────────────
-                const cached = Array.isArray(localItems[`ts_entries_${taskId}`])
-                    ? localItems[`ts_entries_${taskId}`] : [];
-
-                if (cached.length > 0) {
-                    // En-tête
-                    const header = document.createElement('p');
-                    header.className = 'ts-hr-hist-empty';
-                    header.textContent = 'Mes saisies (via extension) :';
-                    historyDiv.appendChild(header);
-
-                    // Pré-remplir le jour sélectionné depuis le cache
-                    const todayCached = cached.find(e => e.date === dateVal);
-                    if (todayCached) {
-                        const dur = todayCached.duration;
-                        timeInput.value = `${String(Math.floor(dur/3600)).padStart(2,'0')}:${String(Math.floor((dur%3600)/60)).padStart(2,'0')}`;
-                        noteInput.value = todayCached.note || '';
-                        noteRow.classList.remove('hidden');
-                        card.classList.add('ts-hr-card-active', 'ts-hr-card-done');
-                        starBtn.classList.add('ts-star-active');
-                    } else {
-                        noteRow.classList.remove('hidden');
-                    }
-
-                    // Tri : plus récent en premier
-                    const sorted = [...cached].sort((a, b) => b.ts - a.ts);
-                    sorted.forEach(e => {
-                        const row = document.createElement('div');
-                        row.className = 'ts-hr-hist-row';
-                        if (e.date === dateVal) row.classList.add('ts-hr-hist-row-today');
-
-                        const [y, mo, d] = (e.date || '').split('-');
-                        const dateStr = `${d || '??'}/${mo || '??'}/${y || '????'}`;
-                        const hh = String(Math.floor(e.duration / 3600)).padStart(2, '0');
-                        const mm = String(Math.floor((e.duration % 3600) / 60)).padStart(2, '0');
-
-                        const dateSpan = document.createElement('span');
-                        dateSpan.className = 'ts-hr-hist-row-date';
-                        dateSpan.textContent = `${dateStr} — ${hh}:${mm}`;
-                        row.appendChild(dateSpan);
-
-                        if (e.note) {
-                            const sep = document.createElement('span');
-                            sep.className = 'ts-hr-hist-row-sep';
-                            sep.textContent = ' | ';
-                            const noteSpan = document.createElement('span');
-                            noteSpan.className = 'ts-hr-hist-row-note';
-                            noteSpan.textContent = e.note;
-                            noteSpan.title = e.note;
-                            row.appendChild(sep);
-                            row.appendChild(noteSpan);
-                        }
-                        historyDiv.appendChild(row);
-                    });
-                } else {
+                    const infoRow = document.createElement('p');
+                    infoRow.className = 'ts-hr-hist-empty';
+                    infoRow.textContent = totalSec > 0
+                        ? `Σ global : ${String(hT).padStart(2,'0')}h${String(mT).padStart(2,'0')} (tous utilisateurs, toutes dates)`
+                        : 'Aucun temps enregistré.';
+                    historyDiv.appendChild(infoRow);
                     noteRow.classList.remove('hidden');
-                    const info = document.createElement('p');
-                    info.className = 'ts-hr-hist-empty';
-                    info.textContent = 'Σ = total Dolibarr (tous utilisateurs). Aucune saisie via extension.';
-                    historyDiv.appendChild(info);
+                } else {
+                    totalVal.textContent = '!';
+                    const errMsg = document.createElement('p');
+                    errMsg.className = 'ts-hr-hist-empty';
+                    errMsg.textContent = `Erreur API : ${res.statusText}`;
+                    historyDiv.appendChild(errMsg);
                 }
-
                 card.dataset.historyLoaded = 'true';
                 return;
             }
@@ -906,17 +854,6 @@ function createHrCard(taskId, ref, label, type) {
                 statusDiv.style.color = '#22c55e';
                 statusDiv.textContent = chrome.i18n.getMessage('time_card_saved');
                 if (note) noteRow.classList.remove('hidden');
-
-                // ── Persistance locale : cache filtrable par user ─────────────
-                // Clé : ts_entries_{taskId}  (storage.local → cache éphémère conforme AGENTS.md)
-                const cacheKey = `ts_entries_${taskId}`;
-                chrome.storage.local.get([cacheKey], (items) => {
-                    const prev = Array.isArray(items[cacheKey]) ? items[cacheKey] : [];
-                    prev.push({ date: dateVal, duration: durationInSeconds, note, ts: Date.now() });
-                    chrome.storage.local.set({ [cacheKey]: prev });
-                    // Invalider le cache de l'historique pour forcer le rechargement
-                    card.dataset.historyLoaded = 'false';
-                });
 
                 // Après 3 secondes : masquer le statut, conserver l'état "noté"
                 setTimeout(() => {
