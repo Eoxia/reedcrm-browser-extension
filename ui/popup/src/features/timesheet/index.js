@@ -611,14 +611,22 @@ function createHrCard(taskId, ref, label, type) {
         const reqHeaders = { 'DOLAPIKEY': apiToken, 'Accept': 'application/json' };
         if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
 
-        console.log('[ReedCRM] Fetching timespent:', `${doliUrl}/tasks/${taskId}/timespent`, 'apiToken=', apiToken ? apiToken.substring(0,6)+'...' : 'EMPTY');
+        console.log('[ReedCRM] Fetching timespent:', `${doliUrl}/tasks/${taskId}/timespent`, 'taskId=', taskId, 'apiToken=', apiToken ? apiToken.substring(0,6)+'...' : 'EMPTY');
 
         try {
-            const res = await fetchDoli(`${doliUrl}/tasks/${taskId}/timespent`, { headers: reqHeaders });
-            console.log('[ReedCRM] timespent response ok=', res.ok, 'status=', res.status);
+            const res = await fetchDoli(`${doliUrl}/tasks/${taskId}/timespent?limit=500`, { headers: reqHeaders });
+            console.log('[ReedCRM] timespent response ok=', res.ok, 'status=', res.status, 'statusText=', res.statusText);
             historyDiv.innerHTML = '';
 
-            if (res.ok) {
+            if (!res.ok) {
+                totalVal.textContent = '!';
+                const errMsg = document.createElement('p');
+                errMsg.className = 'ts-hr-hist-empty';
+                errMsg.textContent = `Erreur API : ${res.statusText || res.status}`;
+                historyDiv.appendChild(errMsg);
+                card.dataset.historyLoaded = 'true';
+                console.warn('[ReedCRM] timespent endpoint error:', res.statusText);
+            } else if (res.ok) {
                 const entries = await res.json();
 
                 if (Array.isArray(entries) && entries.length > 0) {
