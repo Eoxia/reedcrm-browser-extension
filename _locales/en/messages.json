@@ -799,4 +799,7 @@
     "error_5003": { "message": "Network error while logging time. Please try again." },
     "error_5004": { "message": "No HR project configured. Go to options to set it up." },
     "error_5005": { "message": "Failed to load HR project tasks. Check your connection ($1)." }
+,
+    "time_card_load_title": { "message": "Click to load existing time logged for this day" },
+    "time_card_loaded": { "message": "✓ Existing time loaded" }
 }

@@ -839,4 +839,7 @@
     "error_5003": { "message": "Erreur réseau lors de l'enregistrement du pointage. Veuillez réessayer." },
     "error_5004": { "message": "Aucun projet RH configuré. Rendez-vous dans les options pour le définir." },
     "error_5005": { "message": "Impossible de charger les tâches du projet RH. Vérifiez votre connexion ($1)." }
+,
+    "time_card_load_title": { "message": "Cliquer pour charger le temps déjà saisi ce jour" },
+    "time_card_loaded": { "message": "✓ Temps existant chargé" }
 }

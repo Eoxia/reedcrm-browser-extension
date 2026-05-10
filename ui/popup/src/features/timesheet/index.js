@@ -534,6 +534,62 @@ function createHrCard(taskId, ref, label, type) {
         }
     });
 
+    // ── Clic sur la zone info : charge le temps déjà saisi pour ce jour ──────
+    info.style.cursor = 'pointer';
+    info.title = chrome.i18n.getMessage('time_card_load_title') || 'Cliquer pour charger les données existantes';
+
+    info.addEventListener('click', async () => {
+        if (card.dataset.loadingExisting === 'true') return;
+        card.dataset.loadingExisting = 'true';
+
+        const dateVal = document.getElementById('time-date')?.value || toLocalDateStr(selectedDate);
+        const reqHeaders = { 'DOLAPIKEY': apiToken, 'Accept': 'application/json' };
+        if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
+
+        try {
+            // Récupérer les entrées de temps pour cette tâche
+            const res = await fetchDoli(`${doliUrl}/tasks/${taskId}/timespent`, { headers: reqHeaders });
+            if (res.ok) {
+                const entries = await res.json();
+                if (Array.isArray(entries) && entries.length > 0) {
+                    // Filtrer par la date sélectionnée (task_date_withtimezone ou task_date au format YYYY-MM-DD)
+                    const entry = entries.find(e => {
+                        const entryDate = (e.task_date_withtimezone || e.task_date || '').substring(0, 10);
+                        return entryDate === dateVal;
+                    });
+                    if (entry) {
+                        // Durée en secondes → HH:MM
+                        const dur = parseInt(entry.task_duration || entry.timespent_duration || 0, 10);
+                        const h = Math.floor(dur / 3600);
+                        const m = Math.floor((dur % 3600) / 60);
+                        timeInput.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+
+                        // Remplir la note si présente
+                        const note = entry.note || entry.timespent_note || '';
+                        if (note) {
+                            noteInput.value = note;
+                            noteRow.classList.remove('hidden');
+                        }
+
+                        card.classList.add('ts-hr-card-active', 'ts-hr-card-done');
+                        starBtn.classList.add('ts-star-active');
+                        statusDiv.classList.remove('hidden');
+                        statusDiv.style.color = '#3b82f6';
+                        statusDiv.textContent = chrome.i18n.getMessage('time_card_loaded') || '✓ Temps chargé';
+                        setTimeout(() => {
+                            statusDiv.classList.add('hidden');
+                            statusDiv.textContent = '';
+                        }, 2500);
+                    }
+                }
+            }
+        } catch(e) {
+            console.warn('[ReedCRM] Impossible de charger le temps existant:', e);
+        } finally {
+            card.dataset.loadingExisting = 'false';
+        }
+    });
+
     // Si le temps est pré-rempli : card active mais note cachée jusqu'à interaction
     if (defaultTime) {
         card.classList.add('ts-hr-card-active');
