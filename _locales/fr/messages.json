@@ -842,4 +842,6 @@
 ,
     "time_card_load_title": { "message": "Cliquer pour charger le temps déjà saisi ce jour" },
     "time_card_loaded": { "message": "✓ Temps existant chargé" }
+,
+    "time_card_open_doli_title": { "message": "Ouvrir la tâche dans Dolibarr" }
 }

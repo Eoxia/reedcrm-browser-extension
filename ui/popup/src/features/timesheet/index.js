@@ -445,22 +445,40 @@ function createHrCard(taskId, ref, label, type) {
     const refSpan = document.createElement('span');
     refSpan.className = 'ts-hr-card-ref';
 
-    // Icône SVG (statique, aucune donnée utilisateur)
+    // Icône SVG tâche (checklist — statique, aucune donnée utilisateur)
     const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     iconSvg.setAttribute('width', '14'); iconSvg.setAttribute('height', '14');
     iconSvg.setAttribute('viewBox', '0 0 24 24'); iconSvg.setAttribute('fill', 'none');
     iconSvg.setAttribute('stroke', 'currentColor'); iconSvg.setAttribute('stroke-width', '2');
     iconSvg.setAttribute('stroke-linecap', 'round'); iconSvg.setAttribute('stroke-linejoin', 'round');
     iconSvg.classList.add('ts-card-icon');
-    const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path1.setAttribute('d', 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z');
-    const poly1 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-    poly1.setAttribute('points', '14 2 14 8 20 8');
-    iconSvg.appendChild(path1); iconSvg.appendChild(poly1);
+    // Icône "clipboard-check" (tâche validée)
+    const rectClip = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rectClip.setAttribute('x', '9'); rectClip.setAttribute('y', '2');
+    rectClip.setAttribute('width', '6'); rectClip.setAttribute('height', '4');
+    rectClip.setAttribute('rx', '1');
+    const pathClip = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathClip.setAttribute('d', 'M9 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-2');
+    const polyCheck = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    polyCheck.setAttribute('points', '9 12 11 14 15 10');
+    iconSvg.appendChild(rectClip); iconSvg.appendChild(pathClip); iconSvg.appendChild(polyCheck);
 
-    const refText = document.createTextNode('\u00a0' + (ref || ''));  // donnée API via textContent
+    // Ref cliquable → ouvre la tâche dans Dolibarr
+    const refLink = document.createElement('a');
+    refLink.className = 'ts-hr-card-ref-link';
+    refLink.textContent = '\u00a0' + (ref || '');
+    refLink.title = chrome.i18n.getMessage('time_card_open_doli_title') || 'Ouvrir dans Dolibarr';
+    refLink.href = '#';
+    refLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // Ne pas déclencher le click "charger timespent"
+        const baseUrl = doliUrl.replace('/api/index.php', '');
+        const taskUrl = `${baseUrl}/projet/tasks/task.php?id=${taskId}`;
+        chrome.tabs.create({ url: taskUrl });
+    });
+
     refSpan.appendChild(iconSvg);
-    refSpan.appendChild(refText);
+    refSpan.appendChild(refLink);
 
     const labelSpan = document.createElement('span');
     labelSpan.className = 'ts-hr-card-label';

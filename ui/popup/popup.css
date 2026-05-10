@@ -2006,3 +2006,16 @@ a.rt-ref:hover {
     font-size: 11px;
     font-weight: 600;
 }
+
+/* Lien ref de carte tâche RH */
+.ts-hr-card-ref-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 12px;
+    transition: color 0.15s;
+}
+.ts-hr-card-ref-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}

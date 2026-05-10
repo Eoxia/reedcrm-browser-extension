@@ -802,4 +802,6 @@
 ,
     "time_card_load_title": { "message": "Click to load existing time logged for this day" },
     "time_card_loaded": { "message": "✓ Existing time loaded" }
+,
+    "time_card_open_doli_title": { "message": "Open task in Dolibarr" }
 }
