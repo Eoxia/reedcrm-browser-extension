@@ -1,6 +1,6 @@
 import { fetchDoli } from '../../api/dolibarr.js';
 import { CustomSelect } from '../../../../components/custom-select.js';
-import { DoliError, showDoliError } from '../../../../src/utils/errors.js';
+// DoliError et showDoliError sont des globales chargées via <script src="errors.js"> dans popup.html
 
 let doliUrl = '';
 let apiToken = '';
@@ -575,18 +575,19 @@ function createHrCard(taskId, ref, label, type) {
         if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
 
         try {
-            // L'API Dolibarr attend le timestamp Unix (en secondes) pour la date
+            // L'API Dolibarr attend la date au format string "YYYY-MM-DD HH:MM:SS"
             const dateObj = new Date(dateVal + 'T00:00:00');
-            const timestamp = Math.floor(dateObj.getTime() / 1000);
+            const pad = n => String(n).padStart(2, '0');
+            const dateStr = `${dateObj.getFullYear()}-${pad(dateObj.getMonth()+1)}-${pad(dateObj.getDate())} 00:00:00`;
 
             const res = await fetchDoli(`${doliUrl}/tasks/${taskId}/addtimespent`, {
                 method: 'POST',
                 headers: reqHeaders,
                 body: JSON.stringify({
-                    date:     timestamp,
+                    date:     dateStr,
                     duration: durationInSeconds,
                     note:     note,
-                    fk_user: 0
+                    user_id:  0
                 })
             });
 
