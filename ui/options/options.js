@@ -298,11 +298,29 @@ function loadProfileIntoForm(p) {
     }
 
     // ── Restaurer le planning hebdomadaire ────────────────────────────────────
-    const schedule = p.doliHrSchedule || { lun: '07:00', mar: '07:00', mer: '07:00', jeu: '07:00', ven: '07:00', sam: '00:00', dim: '00:00' };
+    // Migre les anciennes valeurs décimales (ex: 8) vers HH:MM (ex: "08:00")
+    /**
+     * Convertit un nombre décimal ou une string HH:MM en string HH:MM.
+     * @param {number|string} val
+     * @returns {string}
+     */
+    function toHHMM(val) {
+        if (typeof val === 'string' && /^\d{1,2}:\d{2}$/.test(val)) return val;
+        const num = parseFloat(val) || 0;
+        const h = Math.floor(num);
+        const m = Math.round((num - h) * 60);
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+    const weekendDefault = '00:00';
+    const weekdayDefault = '07:00';
+    const schedule = p.doliHrSchedule || {};
     const days = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
     days.forEach(d => {
         const inp = document.getElementById(`hr-schedule-${d}`);
-        if (inp) inp.value = schedule[d] !== undefined ? schedule[d] : (d === 'sam' || d === 'dim' ? '00:00' : '07:00');
+        if (!inp) return;
+        const isWeekend = (d === 'sam' || d === 'dim');
+        const raw = schedule[d];
+        inp.value = raw !== undefined ? toHHMM(raw) : (isWeekend ? weekendDefault : weekdayDefault);
     });
 }
 
@@ -1001,6 +1019,8 @@ async function loadHrTasks(profile, projectId, presenceSelect, absenceSelect) {
     } catch(e) {
         console.error("Error fetching HR tasks", e);
     }
+    // Fin du chargement : remettre le bouton en état idle
+    if (window.markHrClean) window.markHrClean();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1143,10 +1163,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Chargement automatique des données RH au démarrage de la page options
     // On attend un court délai pour que le profil actif soit bien chargé depuis storage.sync
-    setTimeout(() => {
+    setTimeout(async () => {
         const p = getActiveProfile();
         if (p && p.doliUrl && p.doliApiToken) {
-            loadHrData(p, false);
+            await loadHrData(p, false);
         }
+        // Toujours remettre le bouton en gris après le chargement initial
+        markHrClean();
     }, 800);
 });
