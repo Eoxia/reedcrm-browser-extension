@@ -468,3 +468,52 @@ button:hover {
     font-size: 11px;
     -webkit-appearance: none;
 }
+
+/* ===== PLANNING : masquer l'icone horloge et ajustements layout ===== */
+
+/* Supprimer le picker indicator (horloge + X) sur Chrome/Edge */
+.hr-schedule-input::-webkit-calendar-picker-indicator {
+    display: none;
+    -webkit-appearance: none;
+    opacity: 0;
+    width: 0;
+    padding: 0;
+}
+/* Firefox */
+.hr-schedule-input::-moz-calendar-picker-indicator {
+    display: none;
+}
+
+/* Centrer le tableau dans son conteneur */
+#hr-schedule-table {
+    border-spacing: 2px;
+    border-collapse: separate;
+}
+
+/* Ajuster la largeur des colonnes */
+#hr-schedule-table th,
+#hr-schedule-table td {
+    width: 14.28%;
+    padding: 3px 2px;
+}
+
+/* Inputs plus propres sans spinner */
+.hr-schedule-input[type="time"] {
+    max-width: none;
+    width: 100%;
+    min-width: 58px;
+    padding: 5px 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: text;
+}
+
+/* Sam et Dim : style discret */
+#hr-schedule-sam,
+#hr-schedule-dim {
+    color: #94a3b8;
+    background: #f1f5f9;
+}
