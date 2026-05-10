@@ -326,17 +326,18 @@ async function loadStandardTasks(projectId) {
 
 async function buildHrUi() {
     const presContainer = document.getElementById('hr-presence-container');
-    const absContainer = document.getElementById('hr-absence-container');
-    
+    const absContainer  = document.getElementById('hr-absence-container');
+    if (!presContainer || !absContainer) return;
+
     if (presContainer.dataset.loaded === 'true') return;
-    
+
     presContainer.innerHTML = '<span style="font-size:11px;color:#999;">Chargement...</span>';
-    absContainer.innerHTML = '<span style="font-size:11px;color:#999;">Chargement...</span>';
-    
+    absContainer.innerHTML  = '<span style="font-size:11px;color:#999;">Chargement...</span>';
+
     const projectId = profileConfig?.doliHrProject;
     if (!projectId) {
         presContainer.innerHTML = '<span style="font-size:11px;color:#e74c3c;">Projet RH non configuré. Allez dans les options.</span>';
-        absContainer.innerHTML = '';
+        absContainer.innerHTML  = '';
         return;
     }
 
@@ -348,76 +349,217 @@ async function buildHrUi() {
         if (res.ok) {
             const tasks = await res.json();
             presContainer.innerHTML = '';
-            absContainer.innerHTML = '';
-            
+            absContainer.innerHTML  = '';
+
             const presIds = profileConfig.doliHrPresenceTasks || [];
-            const absIds = profileConfig.doliHrAbsenceTasks || [];
-            
+            const absIds  = profileConfig.doliHrAbsenceTasks  || [];
+
             let presFound = false;
-            let absFound = false;
+            let absFound  = false;
 
             if (Array.isArray(tasks)) {
                 tasks.forEach(t => {
                     const idStr = String(t.id);
                     if (presIds.includes(idStr)) {
-                        presContainer.appendChild(createHrBtn(t.id, t.label, 'presence'));
+                        presContainer.appendChild(createHrCard(t.id, t.ref, t.label, 'presence'));
                         presFound = true;
                     }
                     if (absIds.includes(idStr)) {
-                        absContainer.appendChild(createHrBtn(t.id, t.label, 'absence'));
+                        absContainer.appendChild(createHrCard(t.id, t.ref, t.label, 'absence'));
                         absFound = true;
                     }
                 });
             }
-            
-            if (!presFound) presContainer.innerHTML = '<span style="font-size:11px;color:#999;">Aucune tâche configurée</span>';
-            if (!absFound) absContainer.innerHTML = '<span style="font-size:11px;color:#999;">Aucune tâche configurée</span>';
-            
+
+            if (!presFound) presContainer.innerHTML = '<span style="font-size:11px;color:#94a3b8;font-style:italic;">Aucune tâche configurée</span>';
+            if (!absFound)  absContainer.innerHTML  = '<span style="font-size:11px;color:#94a3b8;font-style:italic;">Aucune tâche configurée</span>';
+
             presContainer.dataset.loaded = 'true';
         }
     } catch(e) {
-        presContainer.innerHTML = '<span style="font-size:11px;color:#e74c3c;">Erreur</span>';
-        absContainer.innerHTML = '';
+        presContainer.innerHTML = '<span style="font-size:11px;color:#e74c3c;">Erreur réseau</span>';
+        absContainer.innerHTML  = '';
     }
 }
 
-function createHrBtn(taskId, label, type) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = label;
-    // Styling
-    btn.style.padding = '6px';
-    btn.style.fontSize = '12px';
-    btn.style.borderRadius = '4px';
-    btn.style.border = '1px solid ' + (type === 'presence' ? '#2ecc71' : '#f39c12');
-    btn.style.background = 'white';
-    btn.style.color = '#333';
-    btn.style.cursor = 'pointer';
-    btn.style.textAlign = 'left';
-    btn.style.transition = 'all 0.2s';
-    
-    btn.className = 'hr-task-btn';
-    btn.dataset.taskId = taskId;
-    btn.dataset.label = label;
-    btn.dataset.type = type;
+/**
+ * Crée une carte de tâche RH avec input durée, bouton étoile, et note inline.
+ * Conforme AGENTS.md : createElement/textContent uniquement, pas d'innerHTML avec données API.
+ * @param {string|number} taskId
+ * @param {string} ref   - Référence Dolibarr ex: "TK2301-0268"
+ * @param {string} label - Libellé de la tâche ex: "Formation externe"
+ * @param {'presence'|'absence'} type
+ * @returns {HTMLElement}
+ */
+function createHrCard(taskId, ref, label, type) {
+    // ── Carte racine ──────────────────────────────────────────────────────────
+    const card = document.createElement('div');
+    card.className = 'ts-hr-card';
+    card.dataset.taskId = String(taskId);
+    card.dataset.type   = type;
 
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.hr-task-btn').forEach(b => {
-            b.style.background = 'white';
-            b.style.color = '#333';
-        });
-        btn.style.background = type === 'presence' ? '#2ecc71' : '#f39c12';
-        btn.style.color = 'white';
-        
-        selectedHrTask = taskId;
-        const labelEl = document.getElementById('time-hr-selected-label');
-        if(labelEl) labelEl.textContent = `Sélectionné : ${label}`;
-        
-        checkSubmitStatus();
+    // ── Ligne principale ──────────────────────────────────────────────────────
+    const mainRow = document.createElement('div');
+    mainRow.className = 'ts-hr-card-main';
+
+    // -- Info (icône + ref + label) -------------------------------------------
+    const info = document.createElement('div');
+    info.className = 'ts-hr-card-info';
+
+    const refSpan = document.createElement('span');
+    refSpan.className = 'ts-hr-card-ref';
+
+    // Icône SVG (statique, aucune donnée utilisateur)
+    const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    iconSvg.setAttribute('width', '14'); iconSvg.setAttribute('height', '14');
+    iconSvg.setAttribute('viewBox', '0 0 24 24'); iconSvg.setAttribute('fill', 'none');
+    iconSvg.setAttribute('stroke', 'currentColor'); iconSvg.setAttribute('stroke-width', '2');
+    iconSvg.setAttribute('stroke-linecap', 'round'); iconSvg.setAttribute('stroke-linejoin', 'round');
+    iconSvg.classList.add('ts-card-icon');
+    const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path1.setAttribute('d', 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z');
+    const poly1 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    poly1.setAttribute('points', '14 2 14 8 20 8');
+    iconSvg.appendChild(path1); iconSvg.appendChild(poly1);
+
+    const refText = document.createTextNode('\u00a0' + (ref || ''));  // donnée API via textContent
+    refSpan.appendChild(iconSvg);
+    refSpan.appendChild(refText);
+
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'ts-hr-card-label';
+    labelSpan.textContent = label;  // donnée API via textContent
+
+    info.appendChild(refSpan);
+    info.appendChild(labelSpan);
+
+    // -- Input temps ----------------------------------------------------------
+    const timeInput = document.createElement('input');
+    timeInput.type      = 'time';
+    timeInput.className = 'ts-hr-time-input';
+    timeInput.title     = chrome.i18n.getMessage('time_card_duration_title');
+
+    // -- Bouton étoile --------------------------------------------------------
+    const starBtn = document.createElement('button');
+    starBtn.type      = 'button';
+    starBtn.className = 'ts-hr-star-btn';
+    starBtn.title     = chrome.i18n.getMessage('time_card_save_title');
+
+    // SVG étoile (statique)
+    const starSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    starSvg.setAttribute('width', '16'); starSvg.setAttribute('height', '16');
+    starSvg.setAttribute('viewBox', '0 0 24 24'); starSvg.setAttribute('fill', 'none');
+    starSvg.setAttribute('stroke', 'currentColor'); starSvg.setAttribute('stroke-width', '1.5');
+    starSvg.setAttribute('stroke-linecap', 'round'); starSvg.setAttribute('stroke-linejoin', 'round');
+    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    polygon.setAttribute('points', '12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2');
+    starSvg.appendChild(polygon);
+    starBtn.appendChild(starSvg);
+
+    mainRow.appendChild(info);
+    mainRow.appendChild(timeInput);
+    mainRow.appendChild(starBtn);
+
+    // ── Zone note (cachée par défaut) ─────────────────────────────────────────
+    const noteRow = document.createElement('div');
+    noteRow.className = 'ts-hr-card-note-row hidden';
+
+    const noteInput = document.createElement('textarea');
+    noteInput.className   = 'ts-hr-note-input';
+    noteInput.rows        = 2;
+    noteInput.placeholder = chrome.i18n.getMessage('time_card_note_placeholder');
+    noteRow.appendChild(noteInput);
+
+    // ── Div statut par carte ──────────────────────────────────────────────────
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'ts-hr-card-status hidden';
+
+    card.appendChild(mainRow);
+    card.appendChild(noteRow);
+    card.appendChild(statusDiv);
+
+    // ── Interactions ──────────────────────────────────────────────────────────
+
+    // Révéler la note quand une durée est saisie
+    timeInput.addEventListener('change', () => {
+        if (timeInput.value) {
+            noteRow.classList.remove('hidden');
+            card.classList.add('ts-hr-card-active');
+        } else {
+            noteRow.classList.add('hidden');
+            card.classList.remove('ts-hr-card-active', 'ts-hr-card-done');
+            starBtn.classList.remove('ts-star-active');
+        }
     });
 
-    return btn;
+    // Étoile = soumettre ce temps via l'API
+    starBtn.addEventListener('click', async () => {
+        const duration = timeInput.value;
+        if (!duration) {
+            timeInput.focus();
+            timeInput.style.borderColor = '#e74c3c';
+            setTimeout(() => { timeInput.style.borderColor = ''; }, 1500);
+            return;
+        }
+
+        const dateVal = document.getElementById('time-date')?.value || toLocalDateStr(selectedDate);
+        const note    = noteInput.value || '';
+
+        // Parse HH:MM → secondes
+        const [h, m] = duration.split(':').map(Number);
+        const durationInSeconds = (h * 3600) + (m * 60);
+
+        // Format date Dolibarr "YYYY-MM-DD HH:MM:SS"
+        const d = new Date(dateVal + 'T00:00:00');
+        const pad = n => String(n).padStart(2, '0');
+        const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} 00:00:00`;
+
+        // Feedback UI
+        starBtn.disabled = true;
+        starBtn.classList.add('ts-star-loading');
+        statusDiv.classList.add('hidden');
+
+        const reqHeaders = {
+            'DOLAPIKEY': apiToken,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        };
+        if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
+
+        try {
+            const res = await fetchDoli(`${doliUrl}/tasks/${taskId}/addtimespent`, {
+                method: 'POST',
+                headers: reqHeaders,
+                body: JSON.stringify({ date: dateStr, duration: durationInSeconds, note })
+            });
+
+            starBtn.classList.remove('ts-star-loading');
+
+            if (res.ok) {
+                card.classList.add('ts-hr-card-done');
+                starBtn.classList.add('ts-star-active');
+                statusDiv.classList.remove('hidden');
+                statusDiv.style.color = '#22c55e';
+                statusDiv.textContent = chrome.i18n.getMessage('time_card_saved');
+                if (note) noteRow.classList.remove('hidden');
+            } else {
+                starBtn.disabled = false;
+                statusDiv.classList.remove('hidden');
+                statusDiv.style.color = '#e74c3c';
+                statusDiv.textContent = chrome.i18n.getMessage('time_card_error_prefix') + ' ' + res.statusText;
+            }
+        } catch(e) {
+            starBtn.disabled = false;
+            starBtn.classList.remove('ts-star-loading');
+            statusDiv.classList.remove('hidden');
+            statusDiv.style.color = '#e74c3c';
+            statusDiv.textContent = chrome.i18n.getMessage('time_card_error_network');
+        }
+    });
+
+    return card;
 }
+
 
 async function submitTime() {
     const btn = document.getElementById('btn-submit-time');

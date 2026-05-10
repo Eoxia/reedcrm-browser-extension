@@ -1,4 +1,4 @@
-{
+﻿{
     "popup_1": {
         "message": "ReedCRM - New Ticket",
         "description": "Extracted string popup_1"
@@ -771,4 +771,15 @@
     "popup_title_timesheet": {
         "message": "Time Tracking"
     }
+,
+    "time_card_loading": { "message": "Loading..." },
+    "time_card_no_task": { "message": "No task configured" },
+    "time_card_hr_not_configured": { "message": "HR Project not configured. Go to settings." },
+    "time_card_note_placeholder": { "message": "Note / Comment..." },
+    "time_card_save_title": { "message": "Save this time" },
+    "time_card_duration_title": { "message": "Duration (HH:MM)" },
+    "time_card_saved": { "message": "\u2713 Saved" },
+    "time_card_error_network": { "message": "\u2717 Network error" },
+    "time_card_error_prefix": { "message": "\u2717 Error:" },
+    "time_card_network_error_load": { "message": "Network error" }
 }

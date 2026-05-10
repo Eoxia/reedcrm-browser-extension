@@ -791,5 +791,35 @@
     },
     "popup_title_timesheet": {
         "message": "Pointage Temps"
+    },
+    "time_card_loading": {
+        "message": "Chargement..."
+    },
+    "time_card_no_task": {
+        "message": "Aucune tâche configurée"
+    },
+    "time_card_hr_not_configured": {
+        "message": "Projet RH non configuré. Rendez-vous dans les options."
+    },
+    "time_card_note_placeholder": {
+        "message": "Note / Commentaire..."
+    },
+    "time_card_save_title": {
+        "message": "Enregistrer ce temps"
+    },
+    "time_card_duration_title": {
+        "message": "Durée (HH:MM)"
+    },
+    "time_card_saved": {
+        "message": "✓ Enregistré"
+    },
+    "time_card_error_network": {
+        "message": "✗ Erreur réseau"
+    },
+    "time_card_error_prefix": {
+        "message": "✗ Erreur :"
+    },
+    "time_card_network_error_load": {
+        "message": "Erreur réseau"
     }
 }
