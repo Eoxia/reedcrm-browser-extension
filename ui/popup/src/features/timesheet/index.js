@@ -580,24 +580,33 @@ function createHrCard(taskId, ref, label, type) {
             if (res.ok) {
                 const entries = await res.json();
                 if (Array.isArray(entries) && entries.length > 0) {
-                    // Filtrer par la date sélectionnée (task_date_withtimezone ou task_date au format YYYY-MM-DD)
+                    // Dolibarr retourne task_date en timestamp Unix (secondes)
+                    // On convertit dateVal (YYYY-MM-DD) en début/fin de journée Unix
+                    const dayStart = Math.floor(new Date(dateVal + 'T00:00:00').getTime() / 1000);
+                    const dayEnd   = dayStart + 86399;
+
                     const entry = entries.find(e => {
-                        const entryDate = (e.task_date_withtimezone || e.task_date || '').substring(0, 10);
-                        return entryDate === dateVal;
+                        // task_date peut être un timestamp, ou une string YYYY-MM-DD
+                        const ts = parseInt(e.task_date || e.timespent_date || 0, 10);
+                        if (ts > 0) return ts >= dayStart && ts <= dayEnd;
+                        // Fallback string
+                        const dateStr = (e.task_date_withtimezone || e.task_date || '').substring(0, 10);
+                        return dateStr === dateVal;
                     });
+
                     if (entry) {
                         // Durée en secondes → HH:MM
-                        const dur = parseInt(entry.task_duration || entry.timespent_duration || 0, 10);
+                        const dur = parseInt(entry.task_duration || entry.timespent_duration || entry.duration || 0, 10);
                         const h = Math.floor(dur / 3600);
                         const m = Math.floor((dur % 3600) / 60);
                         timeInput.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 
-                        // Remplir la note si présente
-                        const note = entry.note || entry.timespent_note || '';
-                        if (note) {
-                            noteInput.value = note;
-                            noteRow.classList.remove('hidden');
-                        }
+                        // Remplir la note (tous les champs possibles Dolibarr)
+                        const note = entry.note || entry.note_private || entry.note_public
+                                  || entry.timespent_note || entry.task_note || '';
+                        noteInput.value = note;
+                        // Toujours montrer la zone note après un chargement
+                        noteRow.classList.remove('hidden');
 
                         card.classList.add('ts-hr-card-active', 'ts-hr-card-done');
                         starBtn.classList.add('ts-star-active');
@@ -608,7 +617,13 @@ function createHrCard(taskId, ref, label, type) {
                             statusDiv.classList.add('hidden');
                             statusDiv.textContent = '';
                         }, 2500);
+                    } else {
+                        // Aucune entrée pour ce jour : montrer la zone note vide pour saisie
+                        noteRow.classList.remove('hidden');
                     }
+                } else {
+                    // Pas d'entrée du tout : montrer la note pour saisie
+                    noteRow.classList.remove('hidden');
                 }
             }
         } catch(e) {
