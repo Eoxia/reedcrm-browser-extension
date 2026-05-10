@@ -804,4 +804,7 @@
     "time_card_loaded": { "message": "✓ Existing time loaded" }
 ,
     "time_card_open_doli_title": { "message": "Open task in Dolibarr" }
+,
+    "opt_hr_start_label": { "message": "Start" },
+    "opt_hr_duration_label": { "message": "Duration" }
 }

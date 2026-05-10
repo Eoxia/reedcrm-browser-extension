@@ -167,6 +167,7 @@
                 <table id="hr-schedule-table">
                     <thead>
                         <tr>
+                            <th style="width:90px;"></th>
                             <th data-i18n="opt_hr_day_lun">Lun</th>
                             <th data-i18n="opt_hr_day_mar">Mar</th>
                             <th data-i18n="opt_hr_day_mer">Mer</th>
@@ -178,6 +179,17 @@
                     </thead>
                     <tbody>
                         <tr>
+                            <td class="hr-schedule-row-label"><span data-i18n="opt_hr_start_label">Début</span></td>
+                            <td><input type="time" id="hr-start-lun" class="hr-schedule-input" value="09:00"></td>
+                            <td><input type="time" id="hr-start-mar" class="hr-schedule-input" value="09:00"></td>
+                            <td><input type="time" id="hr-start-mer" class="hr-schedule-input" value="09:00"></td>
+                            <td><input type="time" id="hr-start-jeu" class="hr-schedule-input" value="09:00"></td>
+                            <td><input type="time" id="hr-start-ven" class="hr-schedule-input" value="09:00"></td>
+                            <td><input type="time" id="hr-start-sam" class="hr-schedule-input" value="00:00"></td>
+                            <td><input type="time" id="hr-start-dim" class="hr-schedule-input" value="00:00"></td>
+                        </tr>
+                        <tr>
+                            <td class="hr-schedule-row-label"><span data-i18n="opt_hr_duration_label">Durée</span></td>
                             <td><input type="time" id="hr-schedule-lun" class="hr-schedule-input" value="07:00"></td>
                             <td><input type="time" id="hr-schedule-mar" class="hr-schedule-input" value="07:00"></td>
                             <td><input type="time" id="hr-schedule-mer" class="hr-schedule-input" value="07:00"></td>

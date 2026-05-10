@@ -844,4 +844,7 @@
     "time_card_loaded": { "message": "✓ Temps existant chargé" }
 ,
     "time_card_open_doli_title": { "message": "Ouvrir la tâche dans Dolibarr" }
+,
+    "opt_hr_start_label": { "message": "Début" },
+    "opt_hr_duration_label": { "message": "Durée" }
 }

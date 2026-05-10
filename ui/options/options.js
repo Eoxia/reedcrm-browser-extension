@@ -313,14 +313,23 @@ function loadProfileIntoForm(p) {
     }
     const weekendDefault = '00:00';
     const weekdayDefault = '07:00';
-    const schedule = p.doliHrSchedule || {};
+    const startDefault   = '09:00';
+    const schedule  = p.doliHrSchedule  || {};
+    const startTime = p.doliHrStartTime || {};
     const days = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
     days.forEach(d => {
         const inp = document.getElementById(`hr-schedule-${d}`);
-        if (!inp) return;
-        const isWeekend = (d === 'sam' || d === 'dim');
-        const raw = schedule[d];
-        inp.value = raw !== undefined ? toHHMM(raw) : (isWeekend ? weekendDefault : weekdayDefault);
+        if (inp) {
+            const isWeekend = (d === 'sam' || d === 'dim');
+            const raw = schedule[d];
+            inp.value = raw !== undefined ? toHHMM(raw) : (isWeekend ? weekendDefault : weekdayDefault);
+        }
+        const startInp = document.getElementById(`hr-start-${d}`);
+        if (startInp) {
+            const isWeekend = (d === 'sam' || d === 'dim');
+            const rawStart = startTime[d];
+            startInp.value = rawStart !== undefined ? toHHMM(rawStart) : (isWeekend ? weekendDefault : startDefault);
+        }
     });
 }
 
@@ -1067,10 +1076,12 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.classList.add('btn-save-hr-idle');
     };
 
-    // Écouter tous les champs du bloc HR (schedule Lun-Dim)
+    // Écouter tous les champs du bloc HR (schedule + start Lun-Dim)
     ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'].forEach(d => {
-        const inp = document.getElementById(`hr-schedule-${d}`);
-        if (inp) inp.addEventListener('input', markHrDirty);
+        const inp      = document.getElementById(`hr-schedule-${d}`);
+        const startInp = document.getElementById(`hr-start-${d}`);
+        if (inp)      inp.addEventListener('input', markHrDirty);
+        if (startInp) startInp.addEventListener('input', markHrDirty);
     });
 
     // Les selects tâches (présence / absence) déclenchent aussi dirty via leur
@@ -1101,10 +1112,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Lire le planning hebdomadaire (format HH:MM)
             const days = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
-            const schedule = {};
+            const schedule  = {};
+            const startTime = {};
             days.forEach(d => {
-                const inp = document.getElementById(`hr-schedule-${d}`);
-                schedule[d] = inp ? (inp.value || '00:00') : '00:00';
+                const inp      = document.getElementById(`hr-schedule-${d}`);
+                const startInp = document.getElementById(`hr-start-${d}`);
+                schedule[d]  = inp      ? (inp.value      || '00:00') : '00:00';
+                startTime[d] = startInp ? (startInp.value || '00:00') : '00:00';
             });
 
             // Mettre à jour le profil en mémoire
@@ -1112,6 +1126,7 @@ document.addEventListener('DOMContentLoaded', () => {
             p.doliHrPresenceTasks = presenceTasks;
             p.doliHrAbsenceTasks  = absenceTasks;
             p.doliHrSchedule      = schedule;
+            p.doliHrStartTime     = startTime;
 
             // Conserver aussi dataset pour la prochaine restauration
             const presEl = document.getElementById('doli-hr-presence-tasks');
