@@ -590,7 +590,7 @@ function createHrCard(taskId, ref, label, type) {
         }
     });
 
-    // ── Clic sur "Total" : charge l'historique + pré-remplit le jour ──────────
+    // ── Clic sur "Total" : charge l'historique via GET /tasks/{id}?includetimespent=2 ──
     totalDiv.addEventListener('click', async () => {
         console.log('[ReedCRM] totalDiv clicked, loadingExisting=', card.dataset.loadingExisting, 'historyLoaded=', card.dataset.historyLoaded);
         if (card.dataset.loadingExisting === 'true') return;
@@ -611,73 +611,30 @@ function createHrCard(taskId, ref, label, type) {
         const reqHeaders = { 'DOLAPIKEY': apiToken, 'Accept': 'application/json' };
         if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
 
-        // ── Récupération de l'ID utilisateur courant pour filtrage ────────────
+        // ── Récupération de l'ID utilisateur courant pour filtrage ───────────
         let currentUserId = null;
         try {
             const userRes = await fetchDoli(`${doliUrl}/users/info`, { headers: reqHeaders });
             if (userRes.ok) {
                 const userInfo = await userRes.json();
-                currentUserId = userInfo.id || userInfo.rowid || null;
+                currentUserId = String(userInfo.id || userInfo.rowid || '');
                 console.log('[ReedCRM] currentUserId=', currentUserId);
             }
         } catch(_) {}
 
-        console.log('[ReedCRM] Fetching timespent for task', taskId, 'date=', dateVal);
+        console.log('[ReedCRM] Fetching timespent task', taskId, 'date=', dateVal);
+
 
         try {
-            // ── Tentative 1 : /tasks/{id}/timespent ──────────────────────────
-            let res = await fetchDoli(`${doliUrl}/tasks/${taskId}/timespent`, { headers: reqHeaders });
-            console.log('[ReedCRM] /timespent ok=', res.ok, 'statusText=', res.statusText);
-
-            // ── Tentative 2 : /tasks/{id}/timespentlines (variante Dolibarr) ─
-            if (!res.ok && res.statusText?.includes('404')) {
-                console.warn('[ReedCRM] /timespent 404, essai /timespentlines');
-                res = await fetchDoli(`${doliUrl}/tasks/${taskId}/timespentlines`, { headers: reqHeaders });
-                console.log('[ReedCRM] /timespentlines ok=', res.ok, 'statusText=', res.statusText);
-            }
-
+            /**
+             * Route correcte Dolibarr 22 : GET /tasks/{id}?includetimespent=2
+             * → appelle fetchTimeSpentOnTask() → task.lines[] avec champs :
+             *   timespent_line_id, timespent_line_date (Unix ts), timespent_line_datehour,
+             *   timespent_line_duration (secondes), timespent_line_fk_user, timespent_line_note
+             */
+            const res = await fetchDoli(`${doliUrl}/tasks/${taskId}?includetimespent=2`, { headers: reqHeaders });
+            console.log('[ReedCRM] includetimespent=2 ok=', res.ok, 'statusText=', res.statusText);
             historyDiv.innerHTML = '';
-
-            // ── Fallback final : GET /tasks/{id} pour le total global ────────
-            if (!res.ok && res.statusText?.includes('404')) {
-                console.warn('[ReedCRM] endpoints timespent non disponibles, fallback GET /tasks/{id}');
-                res = await fetchDoli(`${doliUrl}/tasks/${taskId}`, { headers: reqHeaders });
-                historyDiv.innerHTML = '';
-
-                if (res.ok) {
-                    const task = await res.json();
-                    console.log('[ReedCRM] task fields (non-nuls):', JSON.stringify(Object.fromEntries(
-                        Object.entries(task).filter(([k, v]) => v !== null && v !== '' && v !== '0')
-                    )));
-                    const totalSec = parseInt(
-                        task.duration_effective ||
-                        task.timespent_not_billed ||
-                        task.timespent_billed ||
-                        task.timespent_declare || 0, 10
-                    );
-                    const hT = Math.floor(totalSec / 3600);
-                    const mT = Math.floor((totalSec % 3600) / 60);
-                    // Label "Σ" = total global (toutes dates, tous users)
-                    totalVal.textContent = `Σ ${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`;
-                    totalLabel.textContent = 'Total';
-
-                    const infoRow = document.createElement('p');
-                    infoRow.className = 'ts-hr-hist-empty';
-                    infoRow.textContent = totalSec > 0
-                        ? `Σ global : ${String(hT).padStart(2,'0')}h${String(mT).padStart(2,'0')} (tous utilisateurs, toutes dates)`
-                        : 'Aucun temps enregistré.';
-                    historyDiv.appendChild(infoRow);
-                    noteRow.classList.remove('hidden');
-                } else {
-                    totalVal.textContent = '!';
-                    const errMsg = document.createElement('p');
-                    errMsg.className = 'ts-hr-hist-empty';
-                    errMsg.textContent = `Erreur API : ${res.statusText}`;
-                    historyDiv.appendChild(errMsg);
-                }
-                card.dataset.historyLoaded = 'true';
-                return;
-            }
 
             if (!res.ok) {
                 totalVal.textContent = '!';
@@ -686,93 +643,96 @@ function createHrCard(taskId, ref, label, type) {
                 errMsg.textContent = `Erreur API : ${res.statusText || res.status}`;
                 historyDiv.appendChild(errMsg);
                 card.dataset.historyLoaded = 'true';
-                console.warn('[ReedCRM] timespent endpoint error:', res.statusText);
-            } else {
-                const entries = await res.json();
-                console.log('[ReedCRM] timespent entries:', Array.isArray(entries) ? entries.length : typeof entries, entries);
-
-                if (Array.isArray(entries) && entries.length > 0) {
-                    // ── Filtrer les entrées par utilisateur courant si connu ──
-                    const myEntries = currentUserId
-                        ? entries.filter(e => String(e.fk_user || e.user_id || '') === String(currentUserId))
-                        : entries;
-
-                    // ── Pré-remplir le jour sélectionné (user courant) ────────
-                    const dayStart = Math.floor(new Date(dateVal + 'T00:00:00').getTime() / 1000);
-                    const dayEnd   = dayStart + 86399;
-                    const todayEntry = myEntries.find(e => {
-                        const ts = parseInt(e.task_date || e.timespent_date || 0, 10);
-                        if (ts > 0) return ts >= dayStart && ts <= dayEnd;
-                        return (e.task_date_withtimezone || '').substring(0, 10) === dateVal;
-                    });
-                    if (todayEntry) {
-                        const dur = parseInt(todayEntry.task_duration || todayEntry.duration || 0, 10);
-                        timeInput.value = `${String(Math.floor(dur/3600)).padStart(2,'0')}:${String(Math.floor((dur%3600)/60)).padStart(2,'0')}`;
-                        const note = todayEntry.note || todayEntry.note_private || todayEntry.note_public || todayEntry.timespent_note || '';
-                        noteInput.value = note;
-                        noteRow.classList.remove('hidden');
-                        card.classList.add('ts-hr-card-active', 'ts-hr-card-done');
-                        starBtn.classList.add('ts-star-active');
-                    } else {
-                        noteRow.classList.remove('hidden');
-                    }
-
-                    // ── Total : uniquement les entrées du user courant ────────
-                    let totalSec = 0;
-                    myEntries.forEach(e => {
-                        totalSec += parseInt(e.task_duration || e.duration || 0, 10);
-                    });
-                    const hT = Math.floor(totalSec / 3600);
-                    const mT = Math.floor((totalSec % 3600) / 60);
-                    totalVal.textContent = `${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`;
-
-                    // ── Listing : toutes les entrées (toutes dates, user courant) ─
-                    entries.forEach(e => {
-                        const row = document.createElement('div');
-                        row.className = 'ts-hr-hist-row';
-
-                        const ts = parseInt(e.task_date || 0, 10);
-                        const dateObj = ts > 0 ? new Date(ts * 1000) : null;
-                        const dateStr = dateObj
-                            ? `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()} ${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`
-                            : (e.task_date || '—');
-
-                        const noteVal = e.note || e.note_private || e.timespent_note || '';
-
-                        const dateSpan = document.createElement('span');
-                        dateSpan.className = 'ts-hr-hist-row-date';
-                        dateSpan.textContent = dateStr;
-
-                        row.appendChild(dateSpan);
-
-                        if (noteVal) {
-                            const sep = document.createElement('span');
-                            sep.className = 'ts-hr-hist-row-sep';
-                            sep.textContent = ' | ';
-
-                            const noteSpan = document.createElement('span');
-                            noteSpan.className = 'ts-hr-hist-row-note';
-                            noteSpan.textContent = noteVal;
-                            noteSpan.title = noteVal;
-
-                            row.appendChild(sep);
-                            row.appendChild(noteSpan);
-                        }
-
-                        historyDiv.appendChild(row);
-                    });
-
-                    card.dataset.historyLoaded = 'true';
-                } else {
-                    totalVal.textContent = '00:00';
-                    const empty = document.createElement('p');
-                    empty.className = 'ts-hr-hist-empty';
-                    empty.textContent = 'Aucun temps enregistré.';
-                    historyDiv.appendChild(empty);
-                    noteRow.classList.remove('hidden');
-                    card.dataset.historyLoaded = 'true';
-                }
+                console.warn('[ReedCRM] task fetch error:', res.statusText);
+                return;
             }
+
+            const task = await res.json();
+            const allLines = Array.isArray(task.lines) ? task.lines : [];
+            console.log('[ReedCRM] timespent lines total=', allLines.length, 'sample=', allLines[0]);
+
+            // ── Filtrer par utilisateur courant ───────────────────────────────
+            const myLines = currentUserId
+                ? allLines.filter(e => String(e.timespent_line_fk_user || '') === currentUserId)
+                : allLines;
+
+            // ── Calcul bornes du jour sélectionné ─────────────────────────────
+            const dayStart = Math.floor(new Date(dateVal + 'T00:00:00').getTime() / 1000);
+            const dayEnd   = dayStart + 86399;
+
+            // ── Pré-remplir l'entrée du jour (user courant) ───────────────────
+            const todayEntry = myLines.find(e => {
+                const ts = parseInt(e.timespent_line_datehour || e.timespent_line_date || 0, 10);
+                return ts >= dayStart && ts <= dayEnd;
+            });
+            if (todayEntry) {
+                const dur = parseInt(todayEntry.timespent_line_duration || 0, 10);
+                timeInput.value = `${String(Math.floor(dur/3600)).padStart(2,'0')}:${String(Math.floor((dur%3600)/60)).padStart(2,'0')}`;
+                noteInput.value = todayEntry.timespent_line_note || '';
+                noteRow.classList.remove('hidden');
+                card.classList.add('ts-hr-card-active', 'ts-hr-card-done');
+                starBtn.classList.add('ts-star-active');
+            } else {
+                noteRow.classList.remove('hidden');
+            }
+
+            // ── Total : cumul de l'utilisateur courant ────────────────────────
+            let totalSec = 0;
+            myLines.forEach(e => { totalSec += parseInt(e.timespent_line_duration || 0, 10); });
+            const hT = Math.floor(totalSec / 3600);
+            const mT = Math.floor((totalSec % 3600) / 60);
+            totalVal.textContent = myLines.length > 0
+                ? `${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`
+                : '00:00';
+
+            if (myLines.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = 'ts-hr-hist-empty';
+                empty.textContent = 'Aucun temps enregistré.';
+                historyDiv.appendChild(empty);
+            } else {
+                // ── Listing JJ/MM/AAAA HH:MM — HH:MM | Note ──────────────────
+                // Tri décroissant par date
+                const sorted = [...myLines].sort((a, b) =>
+                    (parseInt(b.timespent_line_datehour || b.timespent_line_date || 0, 10)) -
+                    (parseInt(a.timespent_line_datehour || a.timespent_line_date || 0, 10))
+                );
+                sorted.forEach(e => {
+                    const ts = parseInt(e.timespent_line_datehour || e.timespent_line_date || 0, 10);
+                    const dateObj = ts > 0 ? new Date(ts * 1000) : null;
+                    const dateStr = dateObj
+                        ? `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`
+                        : '—';
+                    const dur = parseInt(e.timespent_line_duration || 0, 10);
+                    const hh = String(Math.floor(dur/3600)).padStart(2,'0');
+                    const mm = String(Math.floor((dur%3600)/60)).padStart(2,'0');
+                    const noteVal = e.timespent_line_note || '';
+                    const isToday = ts >= dayStart && ts <= dayEnd;
+
+                    const row = document.createElement('div');
+                    row.className = 'ts-hr-hist-row' + (isToday ? ' ts-hr-hist-row-today' : '');
+
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'ts-hr-hist-row-date';
+                    dateSpan.textContent = `${dateStr} — ${hh}:${mm}`;
+                    row.appendChild(dateSpan);
+
+                    if (noteVal) {
+                        const sep = document.createElement('span');
+                        sep.className = 'ts-hr-hist-row-sep';
+                        sep.textContent = ' | ';
+                        const noteSpan = document.createElement('span');
+                        noteSpan.className = 'ts-hr-hist-row-note';
+                        noteSpan.textContent = noteVal;
+                        noteSpan.title = noteVal;
+                        row.appendChild(sep);
+                        row.appendChild(noteSpan);
+                    }
+                    historyDiv.appendChild(row);
+                });
+            }
+
+            card.dataset.historyLoaded = 'true';
         } catch(e) {
             totalVal.textContent = '!';
             historyDiv.innerHTML = '';
