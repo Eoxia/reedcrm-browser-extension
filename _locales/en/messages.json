@@ -1,4 +1,4 @@
-﻿{
+{
     "popup_1": {
         "message": "ReedCRM - New Ticket",
         "description": "Extracted string popup_1"
@@ -645,13 +645,19 @@
     "btn_fix_logo": {
         "message": "Click here to add it"
     },
-    "error_5001": {
+    "error_capture_timeout": {
         "message": "The capture request timed out. Please try again."
     },
-    "error_5002": {
-        "message": "Cannot capture this special page (Chrome blocks extensions). Please navigate to a standard website."
+    "error_capture_forbidden": {
+        "message": "Page capture forbidden"
     },
-    "error_5003": {
+    "error_capture_forbidden_hover": {
+        "message": "Forbidden pages: chrome://, chrome-extension://, edge://, google.com, webstore"
+    },
+    "error_capture_forbidden_link": {
+        "message": "(See forbidden pages)"
+    },
+    "error_capture_refresh": {
         "message": "Please refresh the target page (F5) and try the capture again."
     },
     "error_5099": {

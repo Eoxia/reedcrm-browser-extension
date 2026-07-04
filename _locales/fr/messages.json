@@ -1,4 +1,4 @@
-﻿{
+{
     "popup_1": {
         "message": "ReedCRM - Nouveau Ticket",
         "description": "Extracted string popup_1"
@@ -666,13 +666,19 @@
     "opt_api_limit": {
         "message": "Limite de projets à récupérer via l'API (Défaut: 5000)"
     },
-    "error_5001": {
+    "error_capture_timeout": {
         "message": "Le délai d'attente pour la capture a expiré. Veuillez réessayer."
     },
-    "error_5002": {
-        "message": "Impossible de capturer cette page spéciale (Chrome bloque l'extension). Naviguez sur un site web classique."
+    "error_capture_forbidden": {
+        "message": "Page interdite pour la capture"
     },
-    "error_5003": {
+    "error_capture_forbidden_hover": {
+        "message": "Pages interdites : chrome://, chrome-extension://, edge://, google.com, webstore"
+    },
+    "error_capture_forbidden_link": {
+        "message": "(Voir les pages interdites)"
+    },
+    "error_capture_refresh": {
         "message": "Veuillez rafraîchir la page cible (F5) puis réessayer la capture."
     },
     "error_5099": {

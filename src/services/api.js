@@ -121,6 +121,21 @@ export const apiService = {
     },
 
     /**
+     * @param {string} doliUrl 
+     * @param {string} apiKey 
+     * @param {string} endpoint 
+     */
+    del: async (doliUrl, apiKey, endpoint) => {
+        return await apiCall(`${doliUrl}/api/index.php${endpoint}`, {
+            method: 'DELETE',
+            headers: {
+                'DOLAPIKEY': apiKey,
+                'Accept': 'application/json'
+            }
+        });
+    },
+
+    /**
      * Utilitaire pour le téléversement de documents
      */
     upload: async (doliUrl, apiKey, endpoint, formData) => {

@@ -10,6 +10,7 @@ let currentMode = 'rh'; // 'standard' or 'rh' — RH est le mode par défaut
 let selectedHrTask = null;
 let isTimesheetInitialized = false;
 let selectedDate = new Date(); // date courante sélectionnée dans le picker
+let globalCurrentUserId = null;
 
 // ─── Utilitaire : formate une date en YYYY-MM-DD ────────────────────────────
 function toLocalDateStr(d) {
@@ -85,6 +86,7 @@ function buildWeekPicker() {
             // Met à jour la valeur par défaut des cartes pour ce nouveau jour
             updateCardsDefaultTime(DAY_KEYS[i]);
             buildWeekPicker(); // re-render pour mettre à jour active
+            updateDailyTimespentStats(); // Recalcul des totaux
         });
 
         container.appendChild(btn);
@@ -138,11 +140,303 @@ function updateHrProjectInfo() {
     if (monthlyHours) monthlyHours.textContent = '—'; // sera mis à jour par fetchMonthlyHours
 }
 
+async function updateDailyTimespentStats() {
+    const presSpan = document.getElementById('ts-pres-stats');
+    const absSpan = document.getElementById('ts-abs-stats');
+    if (!presSpan && !absSpan) return;
+
+    if (!globalCurrentUserId || !profileConfig) {
+        return;
+    }
+
+    if (presSpan) presSpan.textContent = 'Calcul en cours...';
+    if (absSpan) absSpan.textContent = 'Calcul en cours...';
+
+    const dayKey = getDayKeyFromDate(selectedDate);
+    const schedule = profileConfig?.doliHrSchedule || {};
+    const defaultTimeStr = schedule[dayKey] || '0:00';
+
+    const presIds = profileConfig.doliHrPresenceTasks || [];
+    const absIds  = profileConfig.doliHrAbsenceTasks  || [];
+    const allIds = [...new Set([...presIds, ...absIds])];
+
+    const renderStats = (span, defaultTime, logged, stateLabel, stateVal, status) => {
+        if (!span) return;
+        span.innerHTML = '';
+        span.appendChild(document.createTextNode(`attendue : ${defaultTime} | Pointé : ${logged} | ${stateLabel} : ${stateVal} - `));
+        const stSpan = document.createElement('span');
+        stSpan.textContent = status;
+        if (status === 'KO') stSpan.style.color = '#ef4444';
+        else if (status === 'OK') stSpan.style.color = '#10b981';
+        else stSpan.style.color = '#f59e0b';
+        span.appendChild(stSpan);
+    };
+
+    if (allIds.length === 0) {
+        if (defaultTimeStr === '0:00' || defaultTimeStr === '00:00') {
+            renderStats(presSpan, defaultTimeStr, '0:00', 'Etat', '00:00', 'OK');
+            renderStats(absSpan, defaultTimeStr, '0:00', 'Etat', '00:00', 'OK');
+        } else {
+            // Check if defaultTimeStr has 1 or 2 digit hour for padding
+            let pTime = defaultTimeStr.split(':');
+            let padTime = `${String(pTime[0]).padStart(2,'0')}:${pTime[1]}`;
+            renderStats(presSpan, defaultTimeStr, '0:00', 'Manque', `- ${padTime}`, 'KO');
+            renderStats(absSpan, defaultTimeStr, '0:00', 'Manque', `- ${padTime}`, 'KO');
+        }
+        return;
+    }
+
+    const dateVal = document.getElementById('time-date')?.value || toLocalDateStr(selectedDate);
+    const dayStart = Math.floor(new Date(dateVal + 'T00:00:00').getTime() / 1000);
+    const dayEnd   = dayStart + 86399;
+
+    const reqHeaders = { 'DOLAPIKEY': apiToken, 'Accept': 'application/json' };
+    if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
+
+    let totalSec = 0;
+
+    try {
+        const fetchPromises = allIds.map(async (taskId) => {
+            try {
+                const res = await fetchDoli(`${doliUrl}/tasks/${taskId}?includetimespent=2`, { headers: reqHeaders });
+                if (res.ok) {
+                    const task = await res.json();
+                    const allLines = Array.isArray(task.lines) ? task.lines : [];
+                    const myLines = allLines.filter(e => String(e.timespent_line_fk_user || '') === globalCurrentUserId);
+                    
+                    let taskTodaySec = 0;
+                    let lastNote = '';
+                    myLines.forEach(e => {
+                        const ts = parseInt(e.timespent_line_datehour || e.timespent_line_date || 0, 10);
+                        if (ts >= dayStart && ts <= dayEnd) {
+                            taskTodaySec += parseInt(e.timespent_line_duration || 0, 10);
+                            if (e.timespent_line_note) lastNote = e.timespent_line_note;
+                        }
+                    });
+                    totalSec += taskTodaySec;
+
+                    // Mettre à jour la carte dans le DOM
+                    const card = document.querySelector(`.ts-hr-card[data-task-id="${taskId}"]`);
+                    if (card) {
+                        const noteInput = card.querySelector('.ts-hr-note-input');
+                        if (noteInput && !noteInput.value && lastNote) noteInput.value = lastNote;
+                        
+                        if (taskTodaySec > 0) {
+                            card.classList.add('ts-hr-card-active', 'ts-hr-card-done');
+                            const starBtn = card.querySelector('.ts-hr-star-btn');
+                            if (starBtn) starBtn.classList.add('ts-star-active');
+                        } else {
+                            card.classList.remove('ts-hr-card-done');
+                            const starBtn = card.querySelector('.ts-hr-star-btn');
+                            if (starBtn) starBtn.classList.remove('ts-star-active');
+                            if (!defaultTimeStr) card.classList.remove('ts-hr-card-active');
+                        }
+
+                        // Champ Total supprimé à la demande de l'utilisateur
+
+                        // Remplir historyDiv avec Ligne 3..X
+                        const historyDiv = card.querySelector('.ts-hr-hist-container');
+                        if (historyDiv) {
+                            historyDiv.innerHTML = '';
+                            if (myLines.length === 0) {
+                                // Aucun historique
+                            } else {
+                                // Tri décroissant et filtrage sur le jour sélectionné
+                                const sorted = [...myLines]
+                                    .filter(e => {
+                                        const ts = parseInt(e.timespent_line_datehour || e.timespent_line_date || 0, 10);
+                                        return ts >= dayStart && ts <= dayEnd;
+                                    })
+                                    .sort((a, b) =>
+                                        (parseInt(b.timespent_line_datehour || b.timespent_line_date || 0, 10)) -
+                                        (parseInt(a.timespent_line_datehour || a.timespent_line_date || 0, 10))
+                                    );
+                                sorted.forEach(e => {
+                                    const ts = parseInt(e.timespent_line_datehour || e.timespent_line_date || 0, 10);
+                                    const dateObj = ts > 0 ? new Date(ts * 1000) : null;
+                                    const dateStr = dateObj
+                                        ? `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`
+                                        : '—';
+                                    const dur = parseInt(e.timespent_line_duration || 0, 10);
+                                    const hh = String(Math.floor(dur/3600)).padStart(2,'0');
+                                    const mm = String(Math.floor((dur%3600)/60)).padStart(2,'0');
+                                    const noteVal = e.timespent_line_note || '';
+
+                                    const row = document.createElement('div');
+                                    row.className = 'ts-hr-hist-row';
+                                    row.style.fontSize = '12px';
+                                    row.style.color = '#475569';
+                                    row.style.padding = '4px 10px';
+                                    row.style.borderTop = '1px solid #e2e8f0';
+                                    row.style.display = 'grid';
+                                    row.style.gridTemplateColumns = '1fr auto';
+                                    row.style.gap = '8px';
+                                    row.style.alignItems = 'center';
+                                    row.style.width = '100%';
+                                    row.style.boxSizing = 'border-box';
+
+                                    let text = `${dateStr}`;
+                                    if (noteVal) text += ` - ${noteVal}`;
+                                    text += ` - ${hh}:${mm}`;
+                                    
+                                    const textSpan = document.createElement('span');
+                                    textSpan.textContent = text;
+                                    textSpan.style.wordBreak = 'break-word';
+                                    row.appendChild(textSpan);
+
+                                    // Trash icon
+                                    const lineId = e.timespent_line_id || e.id;
+                                    if (lineId) {
+                                        const trashBtn = document.createElement('button');
+                                        trashBtn.type = 'button';
+                                        trashBtn.title = 'Supprimer ce temps';
+                                        trashBtn.style.background = 'none';
+                                        trashBtn.style.border = 'none';
+                                        trashBtn.style.color = '#ef4444';
+                                        trashBtn.style.cursor = 'pointer';
+                                        trashBtn.style.padding = '2px';
+                                        
+                                        const trashSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                                        trashSvg.setAttribute('width', '14'); trashSvg.setAttribute('height', '14');
+                                        trashSvg.setAttribute('viewBox', '0 0 24 24'); trashSvg.setAttribute('fill', 'none');
+                                        trashSvg.setAttribute('stroke', 'currentColor'); trashSvg.setAttribute('stroke-width', '2');
+                                        trashSvg.setAttribute('stroke-linecap', 'round'); trashSvg.setAttribute('stroke-linejoin', 'round');
+                                        const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                                        polyline.setAttribute('points', '3 6 5 6 21 6');
+                                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                                        path.setAttribute('d', 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2');
+                                        trashSvg.appendChild(polyline);
+                                        trashSvg.appendChild(path);
+                                        trashBtn.appendChild(trashSvg);
+
+                                        trashBtn.addEventListener('click', async (evt) => {
+                                            evt.stopPropagation();
+                                            trashBtn.style.opacity = '0.5';
+                                            trashBtn.disabled = true;
+                                            try {
+                                                const endpoints = [
+                                                    `${doliUrl}/tasks/${taskId}/timespent/${lineId}`,
+                                                    `${doliUrl}/tasks/timespent/${lineId}`,
+                                                    `${doliUrl}/timespents/${lineId}`,
+                                                    `${doliUrl}/timespent/${lineId}`
+                                                ];
+                                                let success = false;
+                                                for (const ep of endpoints) {
+                                                    const delRes = await fetchDoli(ep, { method: 'DELETE', headers: reqHeaders });
+                                                    if (delRes.ok) {
+                                                        success = true;
+                                                        break;
+                                                    }
+                                                }
+
+                                                if (success) {
+                                                    updateDailyTimespentStats(); // Recharge
+                                                } else {
+                                                    console.warn('Echec suppression sur tous les endpoints');
+                                                    trashBtn.style.opacity = '1';
+                                                    trashBtn.disabled = false;
+                                                }
+                                            } catch(err) {
+                                                console.error('Erreur suppression', err);
+                                                trashBtn.style.opacity = '1';
+                                                trashBtn.disabled = false;
+                                            }
+                                        });
+                                        row.appendChild(trashBtn);
+                                    }
+
+                                    historyDiv.appendChild(row);
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch(e) {
+                console.warn('[ReedCRM] Erreur stat task', taskId, e);
+            }
+        });
+
+        await Promise.all(fetchPromises);
+
+        const hT = Math.floor(totalSec / 3600);
+        const mT = Math.floor((totalSec % 3600) / 60);
+        const loggedStr = `${hT}:${String(mT).padStart(2,'0')}`;
+
+        // Calcul status
+        const parts = defaultTimeStr.split(':');
+        const expectedSec = ((parseInt(parts[0], 10) || 0) * 3600) + ((parseInt(parts[1], 10) || 0) * 60);
+
+        // Calcul du temps restant pour les inputs
+        const remainingSec = Math.max(0, expectedSec - totalSec);
+        const rH = Math.floor(remainingSec / 3600);
+        const rM = Math.floor((remainingSec % 3600) / 60);
+        const remainingStr = `${String(rH).padStart(2,'0')}:${String(rM).padStart(2,'0')}`;
+
+        // Calcul du status formaté
+        const diffSec = totalSec - expectedSec;
+        const absDiff = Math.abs(diffSec);
+        const diffH = Math.floor(absDiff / 3600);
+        const diffM = Math.floor((absDiff % 3600) / 60);
+        const diffStr = `${String(diffH).padStart(2,'0')}:${String(diffM).padStart(2,'0')}`;
+
+        let status = "OK";
+        let stateLabel = "Etat";
+        let stateVal = "00:00";
+
+        if (diffSec > 0) {
+            status = "KO";
+            stateLabel = "Etat";
+            stateVal = `+ ${diffStr}`;
+        } else if (diffSec < 0) {
+            status = "KO";
+            stateLabel = "Manque";
+            stateVal = `- ${diffStr}`;
+        } else {
+            status = "OK";
+            stateLabel = "Etat";
+            stateVal = "00:00";
+        }
+
+        renderStats(presSpan, defaultTimeStr, loggedStr, stateLabel, stateVal, status);
+        renderStats(absSpan, defaultTimeStr, loggedStr, stateLabel, stateVal, status);
+
+        allIds.forEach(taskId => {
+            const card = document.querySelector(`.ts-hr-card[data-task-id="${taskId}"]`);
+            if (card) {
+                const timeInput = card.querySelector('.ts-hr-time-input');
+                if (timeInput && document.activeElement !== timeInput) {
+                    timeInput.value = remainingStr;
+                }
+            }
+        });
+    } catch(e) {
+        if (presSpan) presSpan.textContent = "Erreur de calcul";
+        if (absSpan) absSpan.textContent = "Erreur de calcul";
+    }
+}
+
 export function initTimesheet(url, token, entity, profile) {
     doliUrl = url;
     apiToken = token;
     doliEntity = entity;
     profileConfig = profile;
+
+    if (!globalCurrentUserId) {
+        (async () => {
+            try {
+                const reqHeaders = { 'DOLAPIKEY': apiToken, 'Accept': 'application/json' };
+                if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
+                const userRes = await fetchDoli(`${doliUrl}/users/info`, { headers: reqHeaders });
+                if (userRes.ok) {
+                    const userInfo = await userRes.json();
+                    globalCurrentUserId = String(userInfo.id || userInfo.rowid || '');
+                    updateDailyTimespentStats();
+                }
+            } catch(_) {}
+        })();
+    } else {
+        updateDailyTimespentStats();
+    }
 
     const setupContainer = document.getElementById('timesheet-setup-container');
     const mainContainer = document.getElementById('timesheet-main-container');
@@ -506,70 +800,63 @@ function createHrCard(taskId, ref, label, type) {
     const defaultTime = schedule[dayKey] || '';
     if (defaultTime) timeInput.value = defaultTime;
 
-    // ── Colonne droite : timeInput + total ────────────────────────────────────
+    // ── Colonne droite : timeInput uniquement ──────────────────────────────
     const rightCol = document.createElement('div');
     rightCol.className = 'ts-hr-right-col';
-
-    // Zone "Total" (cliquable → charge l'historique)
-    const totalDiv = document.createElement('div');
-    totalDiv.className = 'ts-hr-total hidden';
-    totalDiv.title = chrome.i18n.getMessage('time_card_load_title') || 'Cliquer pour voir l\'historique';
-    totalDiv.style.cursor = 'pointer';
-
-    const totalLabel = document.createElement('span');
-    totalLabel.className = 'ts-hr-total-label';
-    totalLabel.textContent = 'Total';
-
-    const totalVal = document.createElement('span');
-    totalVal.className = 'ts-hr-total-val';
-    totalVal.textContent = '—';
-
-    totalDiv.appendChild(totalLabel);
-    totalDiv.appendChild(totalVal);
-
     rightCol.appendChild(timeInput);
-    rightCol.appendChild(totalDiv);
 
-    // -- Bouton étoile --------------------------------------------------------
+    // -- Bouton étoile (disquette) --------------------------------------------
     const starBtn = document.createElement('button');
     starBtn.type      = 'button';
     starBtn.className = 'ts-hr-star-btn';
     starBtn.title     = chrome.i18n.getMessage('time_card_save_title');
 
-    // SVG étoile (statique)
+    // SVG disquette (sauvegarde)
     const starSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    starSvg.setAttribute('width', '16'); starSvg.setAttribute('height', '16');
+    starSvg.setAttribute('width', '24'); starSvg.setAttribute('height', '24');
     starSvg.setAttribute('viewBox', '0 0 24 24'); starSvg.setAttribute('fill', 'none');
     starSvg.setAttribute('stroke', 'currentColor'); starSvg.setAttribute('stroke-width', '1.5');
     starSvg.setAttribute('stroke-linecap', 'round'); starSvg.setAttribute('stroke-linejoin', 'round');
-    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    polygon.setAttribute('points', '12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2');
-    starSvg.appendChild(polygon);
+    const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path1.setAttribute('d', 'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z');
+    const polyline1 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    polyline1.setAttribute('points', '17 21 17 13 7 13 7 21');
+    const polyline2 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    polyline2.setAttribute('points', '7 3 7 8 15 8');
+    starSvg.appendChild(path1);
+    starSvg.appendChild(polyline1);
+    starSvg.appendChild(polyline2);
     starBtn.appendChild(starSvg);
 
     mainRow.appendChild(info);
     mainRow.appendChild(rightCol);
-    mainRow.appendChild(starBtn);
 
-    // ── Zone note (toujours éditable, cachée par défaut) ──────────────────────
+    // ── Zone note (Ligne 2) ───────────────────────────────────────────────────
     const noteRow = document.createElement('div');
-    noteRow.className = 'ts-hr-card-note-row hidden';
+    noteRow.className = 'ts-hr-card-note-row'; // Toujours visible selon la demande
+    noteRow.style.display = 'flex';
+    noteRow.style.alignItems = 'center';
+    noteRow.style.gap = '8px';
+    noteRow.style.padding = '0 10px 10px 10px';
 
     const noteInput = document.createElement('textarea');
     noteInput.className   = 'ts-hr-note-input';
-    noteInput.rows        = 2;
+    noteInput.rows        = 1;
     noteInput.placeholder = chrome.i18n.getMessage('time_card_note_placeholder');
     noteInput.removeAttribute('readonly');
     noteInput.removeAttribute('disabled');
+    noteInput.style.flex = '1';
+    
     noteRow.appendChild(noteInput);
+    noteRow.appendChild(starBtn); // Disquette à droite du commentaire
 
     // ── Div statut par carte ──────────────────────────────────────────────────
     const statusDiv = document.createElement('div');
     statusDiv.className = 'ts-hr-card-status hidden';
 
-    // ── Historique timespent (affiché au clic sur "Total") ────────────────────
+    // ── Historique timespent (affiché automatiquement sous la note) ───────────────
     const historyDiv = document.createElement('div');
-    historyDiv.className = 'ts-hr-history hidden';
+    historyDiv.className = 'ts-hr-hist-container'; // Plus de hidden, et utilise la bonne classe
 
     card.appendChild(mainRow);
     card.appendChild(noteRow);
@@ -590,166 +877,10 @@ function createHrCard(taskId, ref, label, type) {
         }
     });
 
-    // ── Clic sur "Total" : charge l'historique via GET /tasks/{id}?includetimespent=2 ──
-    totalDiv.addEventListener('click', async () => {
-        console.log('[ReedCRM] totalDiv clicked, loadingExisting=', card.dataset.loadingExisting, 'historyLoaded=', card.dataset.historyLoaded);
-        if (card.dataset.loadingExisting === 'true') return;
-
-        // Toggle : si déjà chargé, masquer/afficher le listing
-        if (card.dataset.historyLoaded === 'true') {
-            historyDiv.classList.toggle('hidden');
-            return;
-        }
-
-        card.dataset.loadingExisting = 'true';
-        totalVal.textContent = '…';
-        totalDiv.classList.remove('hidden');
-        historyDiv.innerHTML = '';
-        historyDiv.classList.remove('hidden');
-
-        const dateVal = document.getElementById('time-date')?.value || toLocalDateStr(selectedDate);
-        const reqHeaders = { 'DOLAPIKEY': apiToken, 'Accept': 'application/json' };
-        if (doliEntity) reqHeaders['DOLAPIENTITY'] = doliEntity;
-
-        // ── Récupération de l'ID utilisateur courant pour filtrage ───────────
-        let currentUserId = null;
-        try {
-            const userRes = await fetchDoli(`${doliUrl}/users/info`, { headers: reqHeaders });
-            if (userRes.ok) {
-                const userInfo = await userRes.json();
-                currentUserId = String(userInfo.id || userInfo.rowid || '');
-                console.log('[ReedCRM] currentUserId=', currentUserId);
-            }
-        } catch(_) {}
-
-        console.log('[ReedCRM] Fetching timespent task', taskId, 'date=', dateVal);
-
-
-        try {
-            /**
-             * Route correcte Dolibarr 22 : GET /tasks/{id}?includetimespent=2
-             * → appelle fetchTimeSpentOnTask() → task.lines[] avec champs :
-             *   timespent_line_id, timespent_line_date (Unix ts), timespent_line_datehour,
-             *   timespent_line_duration (secondes), timespent_line_fk_user, timespent_line_note
-             */
-            const res = await fetchDoli(`${doliUrl}/tasks/${taskId}?includetimespent=2`, { headers: reqHeaders });
-            console.log('[ReedCRM] includetimespent=2 ok=', res.ok, 'statusText=', res.statusText);
-            historyDiv.innerHTML = '';
-
-            if (!res.ok) {
-                totalVal.textContent = '!';
-                const errMsg = document.createElement('p');
-                errMsg.className = 'ts-hr-hist-empty';
-                errMsg.textContent = `Erreur API : ${res.statusText || res.status}`;
-                historyDiv.appendChild(errMsg);
-                card.dataset.historyLoaded = 'true';
-                console.warn('[ReedCRM] task fetch error:', res.statusText);
-                return;
-            }
-
-            const task = await res.json();
-            const allLines = Array.isArray(task.lines) ? task.lines : [];
-            console.log('[ReedCRM] timespent lines total=', allLines.length, 'sample=', allLines[0]);
-
-            // ── Filtrer par utilisateur courant ───────────────────────────────
-            const myLines = currentUserId
-                ? allLines.filter(e => String(e.timespent_line_fk_user || '') === currentUserId)
-                : allLines;
-
-            // ── Calcul bornes du jour sélectionné ─────────────────────────────
-            const dayStart = Math.floor(new Date(dateVal + 'T00:00:00').getTime() / 1000);
-            const dayEnd   = dayStart + 86399;
-
-            // ── Pré-remplir l'entrée du jour (user courant) ───────────────────
-            const todayEntry = myLines.find(e => {
-                const ts = parseInt(e.timespent_line_datehour || e.timespent_line_date || 0, 10);
-                return ts >= dayStart && ts <= dayEnd;
-            });
-            if (todayEntry) {
-                const dur = parseInt(todayEntry.timespent_line_duration || 0, 10);
-                timeInput.value = `${String(Math.floor(dur/3600)).padStart(2,'0')}:${String(Math.floor((dur%3600)/60)).padStart(2,'0')}`;
-                noteInput.value = todayEntry.timespent_line_note || '';
-                noteRow.classList.remove('hidden');
-                card.classList.add('ts-hr-card-active', 'ts-hr-card-done');
-                starBtn.classList.add('ts-star-active');
-            } else {
-                noteRow.classList.remove('hidden');
-            }
-
-            // ── Total : cumul de l'utilisateur courant ────────────────────────
-            let totalSec = 0;
-            myLines.forEach(e => { totalSec += parseInt(e.timespent_line_duration || 0, 10); });
-            const hT = Math.floor(totalSec / 3600);
-            const mT = Math.floor((totalSec % 3600) / 60);
-            totalVal.textContent = myLines.length > 0
-                ? `${String(hT).padStart(2,'0')}:${String(mT).padStart(2,'0')}`
-                : '00:00';
-
-            if (myLines.length === 0) {
-                const empty = document.createElement('p');
-                empty.className = 'ts-hr-hist-empty';
-                empty.textContent = 'Aucun temps enregistré.';
-                historyDiv.appendChild(empty);
-            } else {
-                // ── Listing JJ/MM/AAAA HH:MM — HH:MM | Note ──────────────────
-                // Tri décroissant par date
-                const sorted = [...myLines].sort((a, b) =>
-                    (parseInt(b.timespent_line_datehour || b.timespent_line_date || 0, 10)) -
-                    (parseInt(a.timespent_line_datehour || a.timespent_line_date || 0, 10))
-                );
-                sorted.forEach(e => {
-                    const ts = parseInt(e.timespent_line_datehour || e.timespent_line_date || 0, 10);
-                    const dateObj = ts > 0 ? new Date(ts * 1000) : null;
-                    const dateStr = dateObj
-                        ? `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`
-                        : '—';
-                    const dur = parseInt(e.timespent_line_duration || 0, 10);
-                    const hh = String(Math.floor(dur/3600)).padStart(2,'0');
-                    const mm = String(Math.floor((dur%3600)/60)).padStart(2,'0');
-                    const noteVal = e.timespent_line_note || '';
-                    const isToday = ts >= dayStart && ts <= dayEnd;
-
-                    const row = document.createElement('div');
-                    row.className = 'ts-hr-hist-row' + (isToday ? ' ts-hr-hist-row-today' : '');
-
-                    const dateSpan = document.createElement('span');
-                    dateSpan.className = 'ts-hr-hist-row-date';
-                    dateSpan.textContent = `${dateStr} — ${hh}:${mm}`;
-                    row.appendChild(dateSpan);
-
-                    if (noteVal) {
-                        const sep = document.createElement('span');
-                        sep.className = 'ts-hr-hist-row-sep';
-                        sep.textContent = ' | ';
-                        const noteSpan = document.createElement('span');
-                        noteSpan.className = 'ts-hr-hist-row-note';
-                        noteSpan.textContent = noteVal;
-                        noteSpan.title = noteVal;
-                        row.appendChild(sep);
-                        row.appendChild(noteSpan);
-                    }
-                    historyDiv.appendChild(row);
-                });
-            }
-
-            card.dataset.historyLoaded = 'true';
-        } catch(e) {
-            totalVal.textContent = '!';
-            historyDiv.innerHTML = '';
-            const errMsg = document.createElement('p');
-            errMsg.className = 'ts-hr-hist-empty';
-            errMsg.textContent = 'Erreur de chargement.';
-            historyDiv.appendChild(errMsg);
-            console.warn('[ReedCRM] Impossible de charger le temps existant:', e);
-        } finally {
-            card.dataset.loadingExisting = 'false';
-        }
-    });
 
     // Si le temps est pré-rempli : card active mais note cachée jusqu'à interaction
     if (defaultTime) {
         card.classList.add('ts-hr-card-active');
-        totalDiv.classList.remove('hidden');
     }
 
     // Étoile = soumettre ce temps via l'API
@@ -806,14 +937,26 @@ function createHrCard(taskId, ref, label, type) {
             starBtn.classList.remove('ts-star-loading');
 
             if (res.ok) {
-                // État success : étoile pleine verte + message
+                // État success : étoile pleine bleue (présence de donnée)
                 card.classList.add('ts-hr-card-done');
                 starBtn.classList.add('ts-star-active');
+                
+                // Animation temporaire verte pour confirmer l'enregistrement
+                card.classList.add('ts-hr-card-success');
+                starBtn.classList.add('ts-star-success');
+                setTimeout(() => {
+                    card.classList.remove('ts-hr-card-success');
+                    starBtn.classList.remove('ts-star-success');
+                }, 2000);
+
                 starBtn.disabled = false;
                 statusDiv.classList.remove('hidden');
                 statusDiv.style.color = '#22c55e';
                 statusDiv.textContent = chrome.i18n.getMessage('time_card_saved');
                 if (note) noteRow.classList.remove('hidden');
+
+                // Mettre à jour l'historique de la carte et les statistiques globales
+                updateDailyTimespentStats();
 
                 // Après 3 secondes : masquer le statut, conserver l'état "noté"
                 setTimeout(() => {
@@ -904,6 +1047,7 @@ async function submitTime() {
         if (res.ok) {
             statusDiv.style.color = '#2ecc71';
             statusDiv.textContent = 'Temps enregistré avec succès !';
+            updateDailyTimespentStats(); // Recalcul des totaux après ajout
             setTimeout(() => {
                 statusDiv.textContent = '';
                 document.getElementById('time-note').value = '';

@@ -1875,8 +1875,14 @@ a.rt-ref:hover {
 }
 
 .ts-hr-card.ts-hr-card-done {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.ts-hr-card.ts-hr-card-success {
     border-color: #22c55e;
     background: #f0fdf4;
+    transition: all 0.3s ease;
 }
 
 .ts-hr-card-main {
@@ -1955,32 +1961,47 @@ a.rt-ref:hover {
 
 /* Bouton étoile */
 .ts-hr-star-btn {
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
+    padding: 6px;
     border: none;
-    background: none;
+    background-color: #f1f5f9;
+    color: #475569;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
+    border-radius: 8px;
     flex-shrink: 0;
-    transition: background 0.15s;
-    color: #94a3b8;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ts-hr-star-btn:hover {
-    background: #f1f5f9;
-    color: #f59e0b;
+    background-color: #22c55e;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.3);
 }
 
 .ts-hr-star-btn.ts-star-active {
-    color: #16a34a;
+    background-color: #3b82f6;
+    color: white;
 }
 
 .ts-hr-star-btn.ts-star-active svg {
-    fill: #16a34a;
-    stroke: #16a34a;
+    fill: none;
+    stroke: white;
+}
+
+.ts-hr-star-btn.ts-star-success {
+    background-color: #22c55e !important;
+    color: white !important;
+    transform: scale(1.05);
+    transition: all 0.2s ease;
+}
+
+.ts-hr-star-btn.ts-star-success svg {
+    stroke: white !important;
 }
 
 .ts-hr-star-btn.ts-star-loading {
