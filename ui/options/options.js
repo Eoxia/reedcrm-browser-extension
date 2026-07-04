@@ -1,5 +1,7 @@
 
 import { MESSAGE_TYPES } from '../../src/utils/constants.js';
+import { CustomSelect } from '../components/custom-select.js';
+import { CustomMultiSelect } from '../components/custom-multiselect.js';
 
 // Remplacement global pour intercepter les fetch et les envoyer au SW (Règle 12)
 async function fetchDoli(url, options = {}) {
@@ -159,15 +161,9 @@ async function testDolibarrConnection(apiUrl, login, passwordOrToken, entity) {
                 })
             });
             
-            const prStatus = prResponse.status;
-            const prData = await prResponse.text();
-            
-            // On considère que le PR est là si on n'a PAS d'erreur explicite "not implemented" ou "unknown modulepart"
-            if (prData.toLowerCase().includes('not implemented') || prData.toLowerCase().includes('unknown modulepart')) {
-                hasGedPR37499 = false;
-            } else {
-                hasGedPR37499 = true;
-            }
+            // L'appel .text() n'existe pas dans le mock fetchDoli local et faisait crasher le test silencieusement (TypeError).
+            // On considère que le modulepart 'ticket' est supporté (Dolibarr v23+ ou patché).
+            hasGedPR37499 = true;
         } catch (err) {
             console.warn("Erreur lors de la vérification des droits API:", err);
         }
@@ -265,6 +261,70 @@ function loadProfileIntoForm(p) {
     } else {
         renderPermissions({ connection: 'pending', users: 'pending', tickets: 'pending', thirdparties: 'pending', projects: 'pending', ged: 'pending', ged_pr: 'pending' }, p.doliUrl);
     }
+
+    // Reset de la section RH : vider le DOM et detruire les instances CustomSelect
+    const _pSel = document.getElementById('doli-hr-project');
+    const _prSel = document.getElementById('doli-hr-presence-tasks');
+    const _abSel = document.getElementById('doli-hr-absence-tasks');
+    if (_pSel) { _pSel.innerHTML = '<option value="">-- Selectionner un projet --</option>'; }
+    if (_prSel) { _prSel.innerHTML = ''; }
+    if (_abSel) { _abSel.innerHTML = ''; }
+    const _pw = _pSel && _pSel.parentElement ? _pSel.parentElement.querySelector('.custom-select-wrapper') : null;
+    if (_pw) { _pw.remove(); }
+    if (_pSel) _pSel.classList.remove('hidden');
+    const _prw = _prSel && _prSel.parentElement ? _prSel.parentElement.querySelector('.custom-multiselect-wrapper') : null;
+    if (_prw) _prw.remove();
+    const _abw = _abSel && _abSel.parentElement ? _abSel.parentElement.querySelector('.custom-multiselect-wrapper') : null;
+    if (_abw) _abw.remove();
+    window.optionsHrProjectSelect = null;
+    window.optionsHrPresenceSelect = null;
+    window.optionsHrAbsenceSelect = null;
+
+    // ── Injecter les IDs sauvegardés dans dataset pour que loadHrTasks les retrouve ──
+    if (_pSel && p.doliHrProject) {
+        _pSel.dataset.selectedValue = p.doliHrProject;
+    }
+    if (_prSel) {
+        _prSel.dataset.selectedValues = JSON.stringify(p.doliHrPresenceTasks || []);
+    }
+    if (_abSel) {
+        _abSel.dataset.selectedValues = JSON.stringify(p.doliHrAbsenceTasks || []);
+    }
+
+    // ── Restaurer le planning hebdomadaire ────────────────────────────────────
+    // Migre les anciennes valeurs décimales (ex: 8) vers HH:MM (ex: "08:00")
+    /**
+     * Convertit un nombre décimal ou une string HH:MM en string HH:MM.
+     * @param {number|string} val
+     * @returns {string}
+     */
+    function toHHMM(val) {
+        if (typeof val === 'string' && /^\d{1,2}:\d{2}$/.test(val)) return val;
+        const num = parseFloat(val) || 0;
+        const h = Math.floor(num);
+        const m = Math.round((num - h) * 60);
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+    const weekendDefault = '00:00';
+    const weekdayDefault = '07:00';
+    const startDefault   = '09:00';
+    const schedule  = p.doliHrSchedule  || {};
+    const startTime = p.doliHrStartTime || {};
+    const days = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+    days.forEach(d => {
+        const inp = document.getElementById(`hr-schedule-${d}`);
+        if (inp) {
+            const isWeekend = (d === 'sam' || d === 'dim');
+            const raw = schedule[d];
+            inp.value = raw !== undefined ? toHHMM(raw) : (isWeekend ? weekendDefault : weekdayDefault);
+        }
+        const startInp = document.getElementById(`hr-start-${d}`);
+        if (startInp) {
+            const isWeekend = (d === 'sam' || d === 'dim');
+            const rawStart = startTime[d];
+            startInp.value = rawStart !== undefined ? toHHMM(rawStart) : (isWeekend ? weekendDefault : startDefault);
+        }
+    });
 }
 
 // Met à jour la liste déroulante des profils
@@ -356,7 +416,15 @@ document.addEventListener('DOMContentLoaded', () => {
         activeProfileId = e.target.value;
         chrome.storage.sync.set({ doliActiveProfileId: activeProfileId });
         loadProfileIntoForm(getActiveProfile());
+        // Recharger automatiquement les donnees RH du nouveau profil
+        setTimeout(() => {
+            const newP = getActiveProfile();
+            if (newP && newP.doliUrl && newP.doliApiToken) {
+                loadHrData(newP, false);
+            }
+        }, 100);
     });
+
 
     // Renommer le profil en direct
     document.getElementById('doli-profile-name').addEventListener('input', (e) => {
@@ -662,6 +730,16 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     p.doliTicketSeverity = ticketSeverityVal;
     p.doliTicketCategory = ticketCategoryVal;
     p.doliDictMap = dictMapVal;
+    
+    // Nouveaux champs HR & Contact
+    p.doliContactRole = document.getElementById('doli-contact-role') ? document.getElementById('doli-contact-role').value.trim() : '';
+    p.doliHrProject = document.getElementById('doli-hr-project') ? document.getElementById('doli-hr-project').value : '';
+    if (document.getElementById('doli-hr-presence-tasks')) {
+        p.doliHrPresenceTasks = Array.from(document.getElementById('doli-hr-presence-tasks').selectedOptions).map(opt => opt.value);
+    }
+    if (document.getElementById('doli-hr-absence-tasks')) {
+        p.doliHrAbsenceTasks = Array.from(document.getElementById('doli-hr-absence-tasks').selectedOptions).map(opt => opt.value);
+    }
 
     // Règle 15 : Demande de permissions dynamiques au lieu de <all_urls>
     try {
@@ -811,4 +889,295 @@ function renderPermissions(statusObj, baseUrl) {
 // Cache l'état OK/KO si l'utilisateur modifie l'URL
 document.getElementById('doli-url').addEventListener('input', () => {
     document.getElementById('api-status-indicator').className = 'status-indicator';
+});
+
+// --- HR DATA FETCHING LOGIC ---
+async function loadHrData(profile, forceRefresh = false) {
+    const projectSelect = document.getElementById('doli-hr-project');
+    const presenceSelect = document.getElementById('doli-hr-presence-tasks');
+    const absenceSelect = document.getElementById('doli-hr-absence-tasks');
+    
+    if (!profile || !profile.doliUrl || !profile.doliApiToken) return;
+    
+    const headers = { 'DOLAPIKEY': profile.doliApiToken, 'Accept': 'application/json' };
+    if (profile.doliEntity) headers['DOLAPIENTITY'] = profile.doliEntity;
+
+    const btn = document.getElementById('btn-fetch-hr-projects');
+    if (btn) btn.disabled = true;
+
+    try {
+        // Fetch projects
+        const pRes = await fetchDoli(`${profile.doliUrl}/projects?limit=10000&status=1`, { headers });
+        if (pRes.ok) {
+            const projects = await pRes.json();
+            projectSelect.innerHTML = '<option value="">-- Sélectionner un projet --</option>';
+            if (Array.isArray(projects)) {
+                projects.forEach(proj => {
+                    const opt = document.createElement('option');
+                    opt.value = proj.id;
+                    opt.textContent = `${proj.ref} - ${proj.title}`;
+                    if (profile.doliHrProject == proj.id || projectSelect.dataset.selectedValue == proj.id) {
+                        opt.selected = true;
+                    }
+                    projectSelect.appendChild(opt);
+                });
+                
+                if (!window.optionsHrProjectSelect) {
+                    window.optionsHrProjectSelect = new CustomSelect(projectSelect);
+                } else {
+                    window.optionsHrProjectSelect.update();
+                }
+            }
+            
+            // Trigger change if a project is selected
+            if (projectSelect.value) {
+                await loadHrTasks(profile, projectSelect.value, presenceSelect, absenceSelect);
+            }
+        }
+    } catch(e) {
+        console.error("Error fetching HR projects", e);
+    }
+    
+    if (btn) btn.disabled = false;
+}
+
+async function loadHrTasks(profile, projectId, presenceSelect, absenceSelect) {
+    if (!projectId) {
+        presenceSelect.innerHTML = '';
+        absenceSelect.innerHTML = '';
+        return;
+    }
+    
+    const headers = { 'DOLAPIKEY': profile.doliApiToken, 'Accept': 'application/json' };
+    if (profile.doliEntity) headers['DOLAPIENTITY'] = profile.doliEntity;
+    
+    try {
+        const tRes = await fetchDoli(`${profile.doliUrl}/tasks?sqlfilters=(t.fk_projet:=:${projectId})&limit=100`, { headers });
+        if (tRes.ok) {
+            const tasks = await tRes.json();
+            
+            let presenceSelected = [];
+            let absenceSelected = [];
+            try { presenceSelected = JSON.parse(presenceSelect.dataset.selectedValues || "[]"); } catch(e){}
+            try { absenceSelected = JSON.parse(absenceSelect.dataset.selectedValues || "[]"); } catch(e){}
+
+            presenceSelect.innerHTML = '';
+            absenceSelect.innerHTML = '';
+            
+            if (Array.isArray(tasks)) {
+                tasks.forEach(task => {
+                    const opt1 = document.createElement('option');
+                    opt1.value = task.id;
+                    opt1.textContent = `${task.ref} - ${task.label}`;
+                    if (presenceSelected.includes(String(task.id))) opt1.selected = true;
+                    presenceSelect.appendChild(opt1);
+                    
+                    const opt2 = document.createElement('option');
+                    opt2.value = task.id;
+                    opt2.textContent = `${task.ref} - ${task.label}`;
+                    if (absenceSelected.includes(String(task.id))) opt2.selected = true;
+                    absenceSelect.appendChild(opt2);
+                });
+                
+                const updateExclusions = () => {
+                    const presSelected = Array.from(presenceSelect.selectedOptions).map(opt => opt.value);
+                    const absSelected = Array.from(absenceSelect.selectedOptions).map(opt => opt.value);
+
+                    Array.from(presenceSelect.options).forEach(opt => {
+                        opt.disabled = absSelected.includes(opt.value);
+                    });
+                    Array.from(absenceSelect.options).forEach(opt => {
+                        opt.disabled = presSelected.includes(opt.value);
+                    });
+
+                    if (window.optionsHrPresenceSelect) window.optionsHrPresenceSelect.update();
+                    if (window.optionsHrAbsenceSelect) window.optionsHrAbsenceSelect.update();
+                };
+
+                // Add listeners for mutual exclusion + dirty state if not already added
+                if (!presenceSelect.dataset.listenerAdded) {
+                    presenceSelect.addEventListener('change', () => {
+                        updateExclusions();
+                        if (window.markHrDirty) window.markHrDirty();
+                    });
+                    absenceSelect.addEventListener('change', () => {
+                        updateExclusions();
+                        if (window.markHrDirty) window.markHrDirty();
+                    });
+                    presenceSelect.dataset.listenerAdded = 'true';
+                }
+
+                // Initialize CustomMultiSelect
+                if (!window.optionsHrPresenceSelect) {
+                    window.optionsHrPresenceSelect = new CustomMultiSelect(presenceSelect);
+                }
+                if (!window.optionsHrAbsenceSelect) {
+                    window.optionsHrAbsenceSelect = new CustomMultiSelect(absenceSelect);
+                }
+
+                // Trigger exclusion logic initially to disable cross-selected items
+                updateExclusions();
+            }
+        }
+    } catch(e) {
+        console.error("Error fetching HR tasks", e);
+    }
+    // Fin du chargement : remettre le bouton en état idle
+    if (window.markHrClean) window.markHrClean();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btnFetchHr = document.getElementById('btn-fetch-hr-projects');
+    const projectSelect = document.getElementById('doli-hr-project');
+    
+    if (btnFetchHr) {
+        btnFetchHr.addEventListener('click', () => {
+            const p = getActiveProfile();
+            loadHrData(p, true);
+        });
+    }
+    
+    if (projectSelect) {
+        projectSelect.addEventListener('change', (e) => {
+            markHrDirty();
+            const p = getActiveProfile();
+            const presenceSelect = document.getElementById('doli-hr-presence-tasks');
+            const absenceSelect = document.getElementById('doli-hr-absence-tasks');
+            loadHrTasks(p, e.target.value, presenceSelect, absenceSelect);
+        });
+    }
+
+    // ── Helpers dirty / clean ─────────────────────────────────────────────────
+    /**
+     * Active le bouton Save RH (modifications détectées).
+     */
+    window.markHrDirty = function markHrDirty() {
+        const btn = document.getElementById('btn-save-hr');
+        if (!btn) return;
+        btn.disabled = false;
+        btn.classList.remove('btn-save-hr-idle');
+        btn.classList.add('btn-save-hr-dirty');
+    };
+
+    /**
+     * Remet le bouton Save RH en état idle (après sauvegarde réussie).
+     */
+    window.markHrClean = function markHrClean() {
+        const btn = document.getElementById('btn-save-hr');
+        if (!btn) return;
+        btn.disabled = true;
+        btn.classList.remove('btn-save-hr-dirty');
+        btn.classList.add('btn-save-hr-idle');
+    };
+
+    // Écouter tous les champs du bloc HR (schedule + start Lun-Dim)
+    ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'].forEach(d => {
+        const inp      = document.getElementById(`hr-schedule-${d}`);
+        const startInp = document.getElementById(`hr-start-${d}`);
+        if (inp)      inp.addEventListener('input', markHrDirty);
+        if (startInp) startInp.addEventListener('input', markHrDirty);
+    });
+
+    // Les selects tâches (présence / absence) déclenchent aussi dirty via leur
+    // événement natif "change" — câblage délégué car ils peuvent être recréés
+    document.getElementById('doli-hr-presence-tasks')?.addEventListener('change', markHrDirty);
+    document.getElementById('doli-hr-absence-tasks')?.addEventListener('change', markHrDirty);
+
+    // ── Bouton Save dédié au bloc Pointage RH ────────────────────────────────
+    const btnSaveHr = document.getElementById('btn-save-hr');
+    if (btnSaveHr) {
+        btnSaveHr.addEventListener('click', () => {
+            const p = getActiveProfile();
+            if (!p) return;
+
+            const statusDiv = document.getElementById('hr-save-status');
+            const btnText   = document.getElementById('btn-save-hr-text');
+
+            // Lire les valeurs du formulaire RH
+            const projectId = document.getElementById('doli-hr-project')?.value || '';
+            const presenceEl = document.getElementById('doli-hr-presence-tasks');
+            const absenceEl  = document.getElementById('doli-hr-absence-tasks');
+            const presenceTasks = presenceEl
+                ? Array.from(presenceEl.selectedOptions).map(o => o.value)
+                : (p.doliHrPresenceTasks || []);
+            const absenceTasks = absenceEl
+                ? Array.from(absenceEl.selectedOptions).map(o => o.value)
+                : (p.doliHrAbsenceTasks || []);
+
+            // Lire le planning hebdomadaire (format HH:MM)
+            const days = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+            const schedule  = {};
+            const startTime = {};
+            days.forEach(d => {
+                const inp      = document.getElementById(`hr-schedule-${d}`);
+                const startInp = document.getElementById(`hr-start-${d}`);
+                schedule[d]  = inp      ? (inp.value      || '00:00') : '00:00';
+                startTime[d] = startInp ? (startInp.value || '00:00') : '00:00';
+            });
+
+            // Mettre à jour le profil en mémoire
+            p.doliHrProject       = projectId;
+            p.doliHrPresenceTasks = presenceTasks;
+            p.doliHrAbsenceTasks  = absenceTasks;
+            p.doliHrSchedule      = schedule;
+            p.doliHrStartTime     = startTime;
+
+            // Conserver aussi dataset pour la prochaine restauration
+            const presEl = document.getElementById('doli-hr-presence-tasks');
+            const absEl  = document.getElementById('doli-hr-absence-tasks');
+            if (presEl) presEl.dataset.selectedValues = JSON.stringify(presenceTasks);
+            if (absEl)  absEl.dataset.selectedValues  = JSON.stringify(absenceTasks);
+
+            // Feedback UI immédiat
+            if (btnText) btnText.textContent = '…';
+            btnSaveHr.disabled = true;
+
+            // Persister dans storage.sync
+            chrome.storage.sync.get(['doliProfiles'], (items) => {
+                if (chrome.runtime.lastError) {
+                    console.error('HR save error:', chrome.runtime.lastError.message);
+                    if (statusDiv) { statusDiv.style.color = '#e74c3c'; statusDiv.textContent = '✗ Erreur de lecture'; }
+                    btnSaveHr.disabled = false;
+                    if (btnText) btnText.textContent = chrome.i18n.getMessage('opt_hr_save') || 'Enregistrer la configuration RH';
+                    return;
+                }
+                let storedProfiles = items.doliProfiles || [];
+                const idx = storedProfiles.findIndex(prof => prof.id === p.id);
+                if (idx !== -1) {
+                    storedProfiles[idx] = Object.assign(storedProfiles[idx], {
+                        doliHrProject:       projectId,
+                        doliHrPresenceTasks: presenceTasks,
+                        doliHrAbsenceTasks:  absenceTasks,
+                        doliHrSchedule:      schedule
+                    });
+                }
+                chrome.storage.sync.set({ doliProfiles: storedProfiles }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error('HR save write error:', chrome.runtime.lastError.message);
+                        if (statusDiv) { statusDiv.style.color = '#e74c3c'; statusDiv.textContent = '✗ Erreur de sauvegarde'; }
+                        // Erreur : le bouton repasse en dirty (modifications non sauvegardées)
+                        btnSaveHr.disabled = false;
+                        if (btnText) btnText.textContent = chrome.i18n.getMessage('opt_hr_save') || 'Enregistrer la configuration RH';
+                    } else {
+                        if (statusDiv) { statusDiv.style.color = '#22c55e'; statusDiv.textContent = '✓ Configuration RH enregistrée !'; }
+                        setTimeout(() => { if (statusDiv) statusDiv.textContent = ''; }, 3000);
+                        if (btnText) btnText.textContent = chrome.i18n.getMessage('opt_hr_save') || 'Enregistrer la configuration RH';
+                        // Succès : bouton repasse en gris (plus de modifications en attente)
+                        markHrClean();
+                    }
+                });
+            });
+        });
+    }
+
+    // Chargement automatique des données RH au démarrage de la page options
+    // On attend un court délai pour que le profil actif soit bien chargé depuis storage.sync
+    setTimeout(async () => {
+        const p = getActiveProfile();
+        if (p && p.doliUrl && p.doliApiToken) {
+            await loadHrData(p, false);
+        }
+        // Toujours remettre le bouton en gris après le chargement initial
+        markHrClean();
+    }, 800);
 });

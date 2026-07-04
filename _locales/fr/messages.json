@@ -666,13 +666,19 @@
     "opt_api_limit": {
         "message": "Limite de projets à récupérer via l'API (Défaut: 5000)"
     },
-    "error_5001": {
+    "error_capture_timeout": {
         "message": "Le délai d'attente pour la capture a expiré. Veuillez réessayer."
     },
-    "error_5002": {
-        "message": "Impossible de capturer cette page spéciale (Chrome bloque l'extension). Naviguez sur un site web classique."
+    "error_capture_forbidden": {
+        "message": "Page interdite pour la capture"
     },
-    "error_5003": {
+    "error_capture_forbidden_hover": {
+        "message": "Pages interdites : chrome://, chrome-extension://, edge://, google.com, webstore"
+    },
+    "error_capture_forbidden_link": {
+        "message": "(Voir les pages interdites)"
+    },
+    "error_capture_refresh": {
         "message": "Veuillez rafraîchir la page cible (F5) puis réessayer la capture."
     },
     "error_5099": {
@@ -734,5 +740,117 @@
     },
     "popup_title_ticket_list": {
         "message": "Liste des tickets"
+    },
+    "opt_pointage_rh": {
+        "message": "Pointage & Ressources Humaines"
+    },
+    "opt_pointage_desc": {
+        "message": "Configuration du projet utilisé pour le suivi des présences et des absences."
+    },
+    "opt_hr_project": {
+        "message": "Projet Ressources Humaines"
+    },
+    "opt_hr_presence_tasks": {
+        "message": "Tâches de Présence (WORK_TIME)"
+    },
+    "opt_hr_absence_tasks": {
+        "message": "Tâches d'Absence (NON_WORK_TIME)"
+    },
+    "time_standard_project": {
+        "message": "Projet Standard"
+    },
+    "time_hr_mode": {
+        "message": "Présence / Absence"
+    },
+    "time_project": {
+        "message": "Projet"
+    },
+    "time_task": {
+        "message": "Tâche"
+    },
+    "time_select_project": {
+        "message": "Sélectionner un projet"
+    },
+    "time_select_task": {
+        "message": "Sélectionner une tâche"
+    },
+    "time_presence": {
+        "message": "Présence (Travail)"
+    },
+    "time_absence": {
+        "message": "Absence"
+    },
+    "time_date": {
+        "message": "Date"
+    },
+    "time_duration": {
+        "message": "Durée (HH:MM)"
+    },
+    "time_note": {
+        "message": "Note / Commentaire"
+    },
+    "time_note_placeholder": {
+        "message": "Ex: Réunion d'avancement..."
+    },
+    "time_save": {
+        "message": "Enregistrer le temps"
+    },
+    "popup_title_timesheet": {
+        "message": "Pointage Temps"
+    },
+    "time_card_loading": {
+        "message": "Chargement..."
+    },
+    "time_card_no_task": {
+        "message": "Aucune tâche configurée"
+    },
+    "time_card_hr_not_configured": {
+        "message": "Projet RH non configuré. Rendez-vous dans les options."
+    },
+    "time_card_note_placeholder": {
+        "message": "Note / Commentaire..."
+    },
+    "time_card_save_title": {
+        "message": "Enregistrer ce temps"
+    },
+    "time_card_duration_title": {
+        "message": "Durée (HH:MM)"
+    },
+    "time_card_saved": {
+        "message": "✓ Enregistré"
+    },
+    "time_card_error_network": {
+        "message": "✗ Erreur réseau"
+    },
+    "time_card_error_prefix": {
+        "message": "✗ Erreur :"
+    },
+    "time_card_network_error_load": {
+        "message": "Erreur réseau"
     }
+,
+    "opt_hr_schedule": { "message": "Temps de présence attendu par jour" },
+    "opt_hr_schedule_hint": { "message": "Format HH:MM (ex: 07:30)" },
+    "opt_hr_save": { "message": "Enregistrer la configuration RH" },
+    "opt_hr_day_lun": { "message": "Lun" },
+    "opt_hr_day_mar": { "message": "Mar" },
+    "opt_hr_day_mer": { "message": "Mer" },
+    "opt_hr_day_jeu": { "message": "Jeu" },
+    "opt_hr_day_ven": { "message": "Ven" },
+    "opt_hr_day_sam": { "message": "Sam" },
+    "opt_hr_day_dim": { "message": "Dim" }
+,
+    "error_5001": { "message": "Durée invalide. Veuillez renseigner une durée avant d'enregistrer." },
+    "error_5002": { "message": "Impossible d'enregistrer le temps pointé. Vérifiez votre connexion et les droits API ($1)." },
+    "error_5003": { "message": "Erreur réseau lors de l'enregistrement du pointage. Veuillez réessayer." },
+    "error_5004": { "message": "Aucun projet RH configuré. Rendez-vous dans les options pour le définir." },
+    "error_5005": { "message": "Impossible de charger les tâches du projet RH. Vérifiez votre connexion ($1)." }
+,
+    "time_card_load_title": { "message": "Cliquer pour charger le temps déjà saisi ce jour" },
+    "time_card_loaded": { "message": "✓ Temps existant chargé" }
+,
+    "time_card_open_doli_title": { "message": "Ouvrir la tâche dans Dolibarr" }
+,
+    "opt_hr_start_label": { "message": "Début" },
+    "opt_hr_duration_label": { "message": "Durée" }
 }

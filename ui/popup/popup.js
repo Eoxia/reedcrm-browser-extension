@@ -12,6 +12,7 @@ import { initInlineEdit } from './src/features/inline-edit/index.js';
 import { initAttachments } from './src/features/attachments/index.js';
 import { uploadFileToDoli } from './src/features/attachments/api.js';
 import { attachmentsState, clearTicketFiles, clearOppFiles } from './src/features/attachments/state.js';
+import { initTimesheet } from './src/features/timesheet/index.js';
 class CustomSelect {
     constructor(selectElement) {
         this.selectElement = selectElement;
@@ -187,6 +188,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabTicketList = document.getElementById('tab-ticket-list');
         const viewTicketList = document.getElementById('view-ticket-list');
         
+        const tabTimesheet = document.getElementById('tab-timesheet');
+        const viewTimesheet = document.getElementById('view-timesheet');
+        
         const oppTelInput = document.getElementById('opp-tel');
         if (oppTelInput) {
             oppTelInput.addEventListener('input', function() {
@@ -203,7 +207,8 @@ document.addEventListener('DOMContentLoaded', () => {
         function switchTab(view) {
             viewTitle.classList.add('hidden'); // On masque le h2 "Nouveau Ticket/Opp" dans tous les cas
             const ticketActions = document.getElementById('ticket-top-actions');
-            if (ticketActions) ticketActions.style.display = 'flex'; // On affiche le bloc Tiers/Contact/Projet dans tous les cas
+            // On réinitialise la visibilité — chaque cas ci-dessous la définit précisément
+            if (ticketActions) ticketActions.style.display = 'none';
 
             const projectContainer = document.getElementById('ticket-project-container');
 
@@ -212,15 +217,20 @@ document.addEventListener('DOMContentLoaded', () => {
             tabOpportunite.classList.remove('active');
             if (tabOppList) tabOppList.classList.remove('active');
             if (tabTicketList) tabTicketList.classList.remove('active');
+            if (tabTimesheet) tabTimesheet.classList.remove('active');
             
             viewTicket.classList.add('hidden');
             viewOpportunity.classList.add('hidden');
             if (viewOppList) viewOppList.classList.add('hidden');
             if (viewTicketList) viewTicketList.classList.add('hidden');
+            if (viewTimesheet) viewTimesheet.classList.add('hidden');
 
             if (view === 'opportunite') {
                 tabOpportunite.classList.add('active');
                 viewOpportunity.classList.remove('hidden');
+                viewTitle.classList.remove('hidden');
+                viewTitle.textContent = "Nouvelle Opportunité";
+                if (ticketActions) ticketActions.style.display = 'flex';
                 if (projectContainer) projectContainer.style.display = 'none'; // Pas de projet dans une opportunité
                 const mainHeader = document.getElementById('main-header-container');
                 if(mainHeader) mainHeader.style.display = '';
@@ -230,15 +240,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (ticketActions) ticketActions.style.display = 'none'; // Masquer top-actions
                 const mainHeader = document.getElementById('main-header-container');
                 if(mainHeader) mainHeader.style.display = 'none';
-            } else if (view === 'ticket-list') {
+            } else if (view === 'ticketList') {
                 if (tabTicketList) tabTicketList.classList.add('active');
                 if (viewTicketList) viewTicketList.classList.remove('hidden');
-                if (ticketActions) ticketActions.style.display = 'none'; // Masquer top-actions
-                const mainHeader = document.getElementById('main-header-container');
-                if(mainHeader) mainHeader.style.display = 'none';
+                if (ticketActions) ticketActions.style.display = 'none';
+            } else if (view === 'timesheet') {
+                if (tabTimesheet) tabTimesheet.classList.add('active');
+                if (viewTimesheet) viewTimesheet.classList.remove('hidden');
+                if (ticketActions) ticketActions.style.display = 'none'; // hide top actions
             } else {
                 tabTicket.classList.add('active');
                 viewTicket.classList.remove('hidden');
+                viewTitle.classList.remove('hidden');
+                viewTitle.textContent = chrome.i18n.getMessage("popup_title_39") || "Nouveau Ticket";
+                if (ticketActions) ticketActions.style.display = 'flex';
                 if (projectContainer) projectContainer.style.display = ''; // On réaffiche pour les tickets
                 const mainHeader = document.getElementById('main-header-container');
                 if(mainHeader) mainHeader.style.display = '';
@@ -251,7 +266,10 @@ document.addEventListener('DOMContentLoaded', () => {
             tabOppList.addEventListener('click', () => switchTab('opp-list'));
         }
         if (tabTicketList) {
-            tabTicketList.addEventListener('click', () => switchTab('ticket-list'));
+            tabTicketList.addEventListener('click', () => switchTab('ticketList'));
+        }
+        if (tabTimesheet) {
+            tabTimesheet.addEventListener('click', () => switchTab('timesheet'));
         }
 
         // Ouvre la page d'options
@@ -1018,6 +1036,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 ticketForm.classList.remove('hidden');
                 btnSubmit.disabled = false;
                 btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_111');
+
+                if (typeof initTimesheet === 'function') {
+                    initTimesheet(p.doliUrl, p.doliApiToken, p.doliEntity, p);
+                }
 
                 if (oppForm) {
                     oppForm.classList.remove('hidden');
@@ -2069,5 +2091,3 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>`;
     }
 });
-
-    initInlineEdit();

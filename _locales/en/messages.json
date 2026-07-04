@@ -645,13 +645,19 @@
     "btn_fix_logo": {
         "message": "Click here to add it"
     },
-    "error_5001": {
+    "error_capture_timeout": {
         "message": "The capture request timed out. Please try again."
     },
-    "error_5002": {
-        "message": "Cannot capture this special page (Chrome blocks extensions). Please navigate to a standard website."
+    "error_capture_forbidden": {
+        "message": "Page capture forbidden"
     },
-    "error_5003": {
+    "error_capture_forbidden_hover": {
+        "message": "Forbidden pages: chrome://, chrome-extension://, edge://, google.com, webstore"
+    },
+    "error_capture_forbidden_link": {
+        "message": "(See forbidden pages)"
+    },
+    "error_capture_refresh": {
         "message": "Please refresh the target page (F5) and try the capture again."
     },
     "error_5099": {
@@ -713,5 +719,98 @@
     },
     "popup_title_ticket_list": {
         "message": "Liste des tickets"
+    },
+    "opt_pointage_rh": {
+        "message": "Time Tracking & Human Resources"
+    },
+    "opt_pointage_desc": {
+        "message": "Configuration of the project used for tracking presence and absence."
+    },
+    "opt_hr_project": {
+        "message": "Human Resources Project"
+    },
+    "opt_hr_presence_tasks": {
+        "message": "Presence Tasks (WORK_TIME)"
+    },
+    "opt_hr_absence_tasks": {
+        "message": "Absence Tasks (NON_WORK_TIME)"
+    },
+    "time_standard_project": {
+        "message": "Standard Project"
+    },
+    "time_hr_mode": {
+        "message": "Presence / Absence"
+    },
+    "time_project": {
+        "message": "Project"
+    },
+    "time_task": {
+        "message": "Task"
+    },
+    "time_select_project": {
+        "message": "Select a project"
+    },
+    "time_select_task": {
+        "message": "Select a task"
+    },
+    "time_presence": {
+        "message": "Presence (Work)"
+    },
+    "time_absence": {
+        "message": "Absence"
+    },
+    "time_date": {
+        "message": "Date"
+    },
+    "time_duration": {
+        "message": "Duration (HH:MM)"
+    },
+    "time_note": {
+        "message": "Note / Comment"
+    },
+    "time_note_placeholder": {
+        "message": "Ex: Progress meeting..."
+    },
+    "time_save": {
+        "message": "Save Time"
+    },
+    "popup_title_timesheet": {
+        "message": "Time Tracking"
     }
+,
+    "time_card_loading": { "message": "Loading..." },
+    "time_card_no_task": { "message": "No task configured" },
+    "time_card_hr_not_configured": { "message": "HR Project not configured. Go to settings." },
+    "time_card_note_placeholder": { "message": "Note / Comment..." },
+    "time_card_save_title": { "message": "Save this time" },
+    "time_card_duration_title": { "message": "Duration (HH:MM)" },
+    "time_card_saved": { "message": "\u2713 Saved" },
+    "time_card_error_network": { "message": "\u2717 Network error" },
+    "time_card_error_prefix": { "message": "\u2717 Error:" },
+    "time_card_network_error_load": { "message": "Network error" }
+,
+    "opt_hr_schedule": { "message": "Expected attendance per day" },
+    "opt_hr_schedule_hint": { "message": "Format HH:MM (e.g. 07:30)" },
+    "opt_hr_save": { "message": "Save HR configuration" },
+    "opt_hr_day_lun": { "message": "Mon" },
+    "opt_hr_day_mar": { "message": "Tue" },
+    "opt_hr_day_mer": { "message": "Wed" },
+    "opt_hr_day_jeu": { "message": "Thu" },
+    "opt_hr_day_ven": { "message": "Fri" },
+    "opt_hr_day_sam": { "message": "Sat" },
+    "opt_hr_day_dim": { "message": "Sun" }
+,
+    "error_5001": { "message": "Invalid duration. Please enter a duration before saving." },
+    "error_5002": { "message": "Failed to log time. Check your connection and API permissions ($1)." },
+    "error_5003": { "message": "Network error while logging time. Please try again." },
+    "error_5004": { "message": "No HR project configured. Go to options to set it up." },
+    "error_5005": { "message": "Failed to load HR project tasks. Check your connection ($1)." }
+,
+    "time_card_load_title": { "message": "Click to load existing time logged for this day" },
+    "time_card_loaded": { "message": "✓ Existing time loaded" }
+,
+    "time_card_open_doli_title": { "message": "Open task in Dolibarr" }
+,
+    "opt_hr_start_label": { "message": "Start" },
+    "opt_hr_duration_label": { "message": "Duration" }
 }

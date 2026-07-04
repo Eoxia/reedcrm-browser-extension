@@ -125,18 +125,35 @@ export const triggerCapture = async (btnElement, statusElementId, { ticketSubjec
                         if (statusMessage) {
                             let errorKey = 'error_5099';
                             if (isTimeout) {
-                                errorKey = 'error_5001';
+                                errorKey = 'error_capture_timeout';
                             } else if (specificError === "FORBIDDEN_URL") {
-                                errorKey = 'error_5002';
+                                errorKey = 'error_capture_forbidden';
                             } else if (specificError.includes("Receiving end does not exist")) {
-                                errorKey = 'error_5003';
+                                errorKey = 'error_capture_refresh';
                             }
 
-                            if (typeof ErrorManager !== 'undefined') {
-                                statusMessage.textContent = ErrorManager.getMessage(errorKey, specificError);
+                            if (errorKey === 'error_capture_forbidden') {
+                                statusMessage.textContent = chrome.i18n.getMessage('error_capture_forbidden');
+                                statusMessage.appendChild(document.createElement('br'));
+                                
+                                let helpLink = document.createElement('a');
+                                helpLink.href = "#";
+                                helpLink.style.textDecoration = "underline";
+                                helpLink.style.color = "#e74c3c";
+                                helpLink.style.cursor = "help";
+                                helpLink.style.fontSize = "0.9em";
+                                helpLink.textContent = chrome.i18n.getMessage('error_capture_forbidden_link') || "(Voir les pages interdites)";
+                                helpLink.title = chrome.i18n.getMessage('error_capture_forbidden_hover') || "Pages interdites";
+                                statusMessage.appendChild(helpLink);
                             } else {
-                                statusMessage.textContent = "Erreur de capture : " + specificError;
+                                if (typeof ErrorManager !== 'undefined') {
+                                    statusMessage.textContent = ErrorManager.getMessage(errorKey, specificError);
+                                } else {
+                                    statusMessage.textContent = "Erreur de capture : " + specificError;
+                                }
+                                statusMessage.title = "";
                             }
+                            
                             statusMessage.style.color = "#e74c3c";
                         }
                         resetCaptureButton(btnElement);
