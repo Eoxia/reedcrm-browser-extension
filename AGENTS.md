@@ -29,3 +29,4 @@ Ce fichier est la référence absolue pour toute IA intervenant sur le dépôt `
 - **JAMAIS** de variables globales d'état persistantes dans le Service Worker (il s'éteint après 30s).
 - **JAMAIS** de permissions globales (`*://*/*`) si des host_permissions ciblées suffisent.
 - **JAMAIS** de credentials stockés en clair en local storage (utiliser `sync`).
+- **JAMAIS** de `alert()` pour l'affichage d'erreurs UI. Utiliser des notifications inline discrètes (ex: `showErrorInline`).

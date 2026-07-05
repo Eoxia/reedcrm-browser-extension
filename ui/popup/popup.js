@@ -653,6 +653,79 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Fonction pour charger les dernières opportunités (Projets)
         
+        async function loadProjectCommercials(apiUrl, token, entity, projects) {
+            const headers = { 'DOLAPIKEY': token, 'Accept': 'application/json' };
+            if (entity) headers['DOLAPIENTITY'] = entity;
+
+            // Traitement asynchrone (pas de await pour ne pas bloquer le thread appelant)
+            setTimeout(async () => {
+                for (let i = 0; i < projects.length; i++) {
+                    const p = projects[i];
+                    try {
+                        const res = await fetchDoli(`${apiUrl}/projects/${p.id}/contacts`, { headers });
+                        if (res.ok) {
+                            const contacts = await res.json();
+                            const comms = contacts.filter(c => {
+                                const st = c.statut !== undefined && c.statut !== null ? String(c.statut) : null;
+                                const isActive = st === null || st === '1' || st === '4' || st === '5';
+                                const codeVal = (c.code || c.type_code || c.type || '').toUpperCase();
+                                const isSalesRep = codeVal === 'SALESREP' || codeVal === 'SALESREPINTERNAL';
+                                return isActive && isSalesRep;
+                            });
+                            const badges = document.querySelectorAll(`.user-commercial-select[data-pid="${p.id}"]`);
+                            const userSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+                            badges.forEach(badge => {
+                                if (comms.length > 0) {
+                                    const userIds = comms.map(c => c.fk_user || c.userid || c.user_id || c.fk_socpeople || c.id);
+                                    badge.dataset.val = userIds.join(',');
+                                    
+                                    const allInitials = [];
+                                    const allNames = [];
+                                    if (window.usersList && Array.isArray(window.usersList)) {
+                                        for (const userId of userIds) {
+                                            const u = window.usersList.find(user => String(user.id) === String(userId));
+                                            if (u) {
+                                                const parts = [u.firstname, u.lastname].filter(Boolean);
+                                                allNames.push(parts.join(' ') || u.login);
+                                                if (parts.length >= 2) allInitials.push(parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase());
+                                                else if (parts.length === 1) allInitials.push(parts[0].substring(0, 2).toUpperCase());
+                                                else if (u.login) allInitials.push(u.login.substring(0, 2).toUpperCase());
+                                            } else {
+                                                allInitials.push('?' + userId);
+                                                allNames.push('?' + userId);
+                                            }
+                                        }
+                                    }
+                                    
+                                    badge.innerHTML = userSvg + (allInitials.length > 0 ? allInitials.join(', ') : 'X');
+                                    badge.title = (chrome.i18n.getMessage('commercial_assigned', allNames.join(', ')) || `Commerciaux: ${allNames.join(', ')}`);
+                                } else {
+                                    badge.innerHTML = userSvg + (chrome.i18n.getMessage('commercial_none') || 'C-??');
+                                    badge.title = chrome.i18n.getMessage('commercial_assign') || 'Assigner un commercial';
+                                }
+                            });
+                        } else {
+                            const badges = document.querySelectorAll(`.user-commercial-select[data-pid="${p.id}"]`);
+                            const userSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+                            badges.forEach(badge => {
+                                badge.innerHTML = userSvg + (chrome.i18n.getMessage('commercial_none') || 'C-??');
+                                badge.title = chrome.i18n.getMessage('commercial_assign') || 'Assigner un commercial';
+                            });
+                        }
+                    } catch(e) {
+                        const badges = document.querySelectorAll(`.user-commercial-select[data-pid="${p.id}"]`);
+                        const userSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+                        badges.forEach(badge => {
+                            badge.innerHTML = userSvg + (e.message && e.message.includes('404') ? (chrome.i18n.getMessage('commercial_none') || 'C-??') : 'E');
+                            badge.title = e.message || chrome.i18n.getMessage('error_unknown') || 'Erreur inconnue';
+                        });
+                    }
+                    // Pause légère pour ne pas surcharger l'extension et le serveur
+                    await new Promise(r => setTimeout(r, 50));
+                }
+            }, 100);
+        }
+
         async function loadRecentOpportunities(apiUrl, token, limit = 10, entity, doliOppOnly = true, usersPromise = null, customDictMapStr = "") {
             recentOppContainer.classList.remove('hidden');
             recentOppList.innerHTML = `
@@ -876,6 +949,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (typeof initInlineEdit === 'function') {
                             initInlineEdit(apiUrl, token, entity);
                         }
+
+                        // Lancer le chargement asynchrone des commerciaux
+                        loadProjectCommercials(apiUrl, token, entity, sortedProjects);
 
                         if (typeof window.applyOppFilters === 'function') {
                             window.applyOppFilters();

@@ -45,7 +45,15 @@ const apiCall = async (url, options = {}, retries = 0) => {
                 await new Promise(res => setTimeout(res, 1000 * (retries + 1))); // backoff
                 return await apiCall(url, options, retries + 1);
             }
-            throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+            
+            let errDetail = "";
+            try {
+                const errJson = await response.json();
+                errDetail = errJson.error ? errJson.error.message : JSON.stringify(errJson);
+            } catch(e) {}
+            
+            const errMsg = errDetail ? `Erreur HTTP ${response.status}: ${errDetail}` : `Erreur HTTP ${response.status}: ${response.statusText}`;
+            throw new Error(errMsg);
         }
         
         const contentType = response.headers.get('content-type');

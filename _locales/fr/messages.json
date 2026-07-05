@@ -852,5 +852,10 @@
     "time_card_open_doli_title": { "message": "Ouvrir la tâche dans Dolibarr" }
 ,
     "opt_hr_start_label": { "message": "Début" },
-    "opt_hr_duration_label": { "message": "Durée" }
+    "opt_hr_duration_label": { "message": "Durée" },
+    "error_5006": { "message": "Erreur assignation commercial" },
+    "commercial_assign": { "message": "Assigner un commercial" },
+    "commercial_assigned": { "message": "Commerciaux: $1", "placeholders": { "names": { "content": "$1" } } },
+    "commercial_none": { "message": "C-??" },
+    "error_unknown": { "message": "Erreur inconnue" }
 }
