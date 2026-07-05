@@ -812,5 +812,10 @@
     "time_card_open_doli_title": { "message": "Open task in Dolibarr" }
 ,
     "opt_hr_start_label": { "message": "Start" },
-    "opt_hr_duration_label": { "message": "Duration" }
+    "opt_hr_duration_label": { "message": "Duration" },
+    "error_5006": { "message": "Sales rep assignment error" },
+    "commercial_assign": { "message": "Assign a sales rep" },
+    "commercial_assigned": { "message": "Sales reps: $1", "placeholders": { "names": { "content": "$1" } } },
+    "commercial_none": { "message": "C-??" },
+    "error_unknown": { "message": "Unknown error" }
 }

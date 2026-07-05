@@ -32,6 +32,7 @@ const ERROR_DICTIONARY = {
     'ReedCRM-5003': { category: 'Pointage RH - Erreur Réseau', key: 'error_5003', file: 'timesheet/index.js', line: 'auto' },
     'ReedCRM-5004': { category: 'Pointage RH - Projet Non Configuré', key: 'error_5004', file: 'timesheet/index.js', line: 'auto' },
     'ReedCRM-5005': { category: 'Pointage RH - Chargement Tâches', key: 'error_5005', file: 'timesheet/index.js', line: 'auto' },
+    'ReedCRM-5006': { category: 'Assignation Commercial', key: 'error_5006', file: 'inline-edit/index.js', line: 'auto' },
 
     // ---- Défaut ----
     'ReedCRM-9999': { category: 'Erreur Inconnue', key: 'error_9999', file: 'Partout', line: 'auto' }

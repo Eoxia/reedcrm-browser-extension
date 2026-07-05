@@ -55,10 +55,20 @@ export function initInlineEdit() {
             }
             
             let input;
-            if (fieldName === 'fk_statut' || fieldName === 'severity_code' || fieldName === 'fk_user_assign') {
+            if (fieldName === 'fk_statut' || fieldName === 'severity_code' || fieldName === 'fk_user_assign' || fieldName === 'commercial_id') {
                 input = document.createElement('select');
                 input.id = 'inline_edit_' + fieldName + '_' + projectId;
                 input.className = 'inline-edit-input inline-edit-select';
+                
+                if (fieldName === 'commercial_id') {
+                    input.style.position = 'absolute';
+                    input.style.left = '0';
+                    input.style.top = '-2px';
+                    input.style.minWidth = '80px';
+                    input.style.maxWidth = '120px';
+                    input.style.zIndex = '100';
+                    editable.style.position = 'relative';
+                }
                 
                 if (fieldName === 'fk_statut') {
                     const statuses = {
@@ -92,7 +102,7 @@ export function initInlineEdit() {
                         if (String(val) === String(currentValue)) opt.selected = true;
                         input.appendChild(opt);
                     }
-                } else if (fieldName === 'fk_user_assign') {
+                } else if (fieldName === 'fk_user_assign' || fieldName === 'commercial_id') {
                     const optEmpty = document.createElement('option');
                     optEmpty.value = "";
                     optEmpty.textContent = "Non assigné";
@@ -148,18 +158,54 @@ export function initInlineEdit() {
                 
                 let newValue = input.value.trim();
                 
-                const showErrorInline = (msg) => {
+                const showErrorInline = (msgOrError) => {
                     editable.style.transition = 'color 0.3s ease';
-                    editable.style.color = '#ef4444'; // Rouge vif
-                    editable.innerHTML = msg;
+                    editable.style.color = '#ef4444';
+                    
+                    const errBox = document.createElement('div');
+                    errBox.style.marginBottom = '8px';
+                    errBox.style.width = '100%';
+                    
+                    if (typeof DoliError !== 'undefined' && msgOrError instanceof DoliError) {
+                        // Utilise l'affichage standard des erreurs
+                        if (typeof showDoliError === 'function') {
+                            showDoliError(msgOrError, errBox);
+                        } else {
+                            errBox.innerHTML = msgOrError.toHTML();
+                        }
+                    } else {
+                        // Style personnalisé (fallback pour les strings simples)
+                        errBox.style.background = '#fef2f2';
+                        errBox.style.color = '#ef4444';
+                        errBox.style.border = '1px solid #f87171';
+                        errBox.style.padding = '8px 12px';
+                        errBox.style.borderRadius = '6px';
+                        errBox.style.fontSize = '12px';
+                        errBox.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                        errBox.style.display = 'flex';
+                        errBox.style.alignItems = 'center';
+                        errBox.style.gap = '6px';
+                        
+                        let textMsg = typeof msgOrError === 'string' ? msgOrError : (msgOrError.message || "Erreur");
+                        errBox.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> <span>${textMsg}</span>`;
+                    }
+                    
+                    const parentItem = editable.closest('.rt-item, .opp-list-item, .ticket-card');
+                    if (parentItem && parentItem.parentNode) {
+                        parentItem.parentNode.insertBefore(errBox, parentItem);
+                    } else {
+                        errBox.style.marginTop = '4px';
+                        editable.parentNode.insertBefore(errBox, editable.nextSibling);
+                    }
+                    
                     setTimeout(() => {
+                        if (errBox.parentNode) errBox.parentNode.removeChild(errBox);
                         editable.style.color = '';
                         editable.style.transition = '';
                         restoreOriginal(editable);
                         editable.className = originalClass;
                         editable.classList.remove('is-editing');
-                        // On ne remet pas isSaving à false car on a restauré l'état initial (plus d'input)
-                    }, 3000);
+                    }, 8000); // Increased timeout to 8s for DoliError so user can read details
                 };
     
                 if (fieldName === 'options_projectphone' && newValue !== '') {
@@ -274,6 +320,102 @@ export function initInlineEdit() {
                         }
                     }
                     
+                    if (fieldName === 'commercial_id') {
+                        // Ajouter le nouveau commercial SANS supprimer les existants
+                        if (newValue && newValue !== '') {
+                            const resPost = await fetchDoli(`${apiUrl}/projects/${projectId}/contacts`, {
+                                method: 'POST',
+                                headers: { 'DOLAPIKEY': token, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contactid: parseInt(newValue, 10),
+                                    fk_socpeople: parseInt(newValue, 10),
+                                    userid: parseInt(newValue, 10),
+                                    type: "SALESREPINTERNAL",
+                                    type_contact: "SALESREPINTERNAL",
+                                    source: "internal"
+                                })
+                            });
+                            if (!resPost.ok) {
+                                let techMsg = resPost.statusText;
+                                try {
+                                    const errJson = await resPost.json();
+                                    techMsg = errJson.error?.message || JSON.stringify(errJson);
+                                } catch(e) {}
+                                
+                                // "result :0" = contact déjà affecté, c'est un succès pour nous
+                                if (techMsg && typeof techMsg === 'string' && techMsg.includes('result :0')) {
+                                    // Déjà affecté, on continue normalement
+                                } else {
+                                    if (typeof DoliError !== 'undefined') {
+                                        throw new DoliError('ReedCRM-5006', techMsg);
+                                    } else {
+                                        throw new Error("(Erreur 5006) " + (chrome.i18n.getMessage('error_5006') || "Erreur assignation commercial"));
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Recharger la liste complète des commerciaux depuis l'API pour afficher les noms
+                        const userSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+                        try {
+                            const resRefresh = await fetchDoli(`${apiUrl}/projects/${projectId}/contacts`, { headers: { 'DOLAPIKEY': token } });
+                            if (resRefresh.ok) {
+                                const allContacts = await resRefresh.json();
+                                const comms = allContacts.filter(c => {
+                                    const codeVal = (c.code || c.type_code || c.type || '').toUpperCase();
+                                    return codeVal === 'SALESREP' || codeVal === 'SALESREPINTERNAL';
+                                });
+                                // Mettre à jour tous les badges de ce projet
+                                const allBadges = document.querySelectorAll(`.user-commercial-select[data-pid="${projectId}"]`);
+                                allBadges.forEach(b => {
+                                    if (comms.length > 0) {
+                                        const initials = [];
+                                        const names = [];
+                                        for (const c of comms) {
+                                            const uid = c.fk_user || c.userid || c.user_id || c.fk_socpeople || c.id;
+                                            if (window.usersList && Array.isArray(window.usersList)) {
+                                                const u = window.usersList.find(user => String(user.id) === String(uid));
+                                                if (u) {
+                                                    const parts = [u.firstname, u.lastname].filter(Boolean);
+                                                    names.push(parts.join(' ') || u.login);
+                                                    if (parts.length >= 2) initials.push(parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase());
+                                                    else if (parts.length === 1) initials.push(parts[0].substring(0, 2).toUpperCase());
+                                                    else if (u.login) initials.push(u.login.substring(0, 2).toUpperCase());
+                                                    continue;
+                                                }
+                                            }
+                                            const fallback = ((c.firstname || '') + ' ' + (c.lastname || '')).trim();
+                                            names.push(fallback || '?' + uid);
+                                            initials.push(fallback ? fallback.substring(0, 2).toUpperCase() : '?' + uid);
+                                        }
+                                        b.innerHTML = userSvg + initials.join(', ');
+                                        b.title = chrome.i18n.getMessage('commercial_assigned', names.join(', ')) || `Commerciaux: ${names.join(', ')}`;
+                                        b.dataset.val = comms.map(c => c.fk_user || c.userid || c.user_id || c.fk_socpeople || c.id).join(',');
+                                    } else {
+                                        b.innerHTML = userSvg + (chrome.i18n.getMessage('commercial_none') || 'C-??');
+                                        b.title = chrome.i18n.getMessage('commercial_assign') || 'Assigner un commercial';
+                                        b.dataset.val = '';
+                                    }
+                                });
+                            }
+                        } catch(e) { console.warn("Erreur rechargement contacts", e); }
+                        
+                        editable.className = originalClass;
+                        editable.classList.remove('is-editing');
+                        
+                        // Animation : passage au vert puis retour à la normale
+                        editable.style.transition = 'color 0.5s ease-out';
+                        editable.style.color = '#10b981';
+                        setTimeout(() => {
+                            editable.style.color = '';
+                            setTimeout(() => {
+                                editable.style.transition = '';
+                            }, 500);
+                        }, 1000);
+                        
+                        return;
+                    }
+
                     let endpointUrl = `${apiUrl}/projects/${projectId}`;
                     if (['fk_statut', 'severity_code', 'progress', 'fk_user_assign', 'subject', 'message'].includes(fieldName)) {
                         endpointUrl = `${apiUrl}/tickets/${projectId}`;
@@ -347,6 +489,17 @@ export function initInlineEdit() {
                                     editable.textContent = initials;
                                 }
                             }
+                        } else if (fieldName === 'commercial_id') {
+                            const users = window.usersList || [];
+                            const matchedUser = users.find(u => String(u.id) === String(newValue));
+                            if (matchedUser) {
+                                let initials = (matchedUser.firstname ? matchedUser.firstname.charAt(0) : '') + 
+                                               (matchedUser.lastname ? matchedUser.lastname.charAt(0) : '');
+                                displayValue = initials.toUpperCase() || '...';
+                            } else {
+                                displayValue = '...';
+                            }
+                            editable.dataset.val = newValue;
                         } else if (fieldName === 'severity_code') {
                             editable.textContent = displayValue;
                         } else if (fieldName === 'progress') {
@@ -450,12 +603,16 @@ export function initInlineEdit() {
                     }
                 } catch (err) {
                     console.error(err);
-                    alert(chrome.i18n.getMessage('popup_js_err_save') + err.message);
-                    restoreOriginal(editable);
-                    editable.className = originalClass;
-                    editable.classList.remove('is-editing');
+                    if (typeof DoliError !== 'undefined' && err instanceof DoliError) {
+                        showErrorInline(err);
+                    } else {
+                        showErrorInline((chrome.i18n.getMessage('popup_js_err_save') || "Erreur de sauvegarde : ") + err.message);
+                    }
                 } finally {
-                    editable.classList.remove('is-editing');
+                    // We shouldn't remove is-editing immediately if showErrorInline is displaying the error
+                    if (!editable.style.color) {
+                        editable.classList.remove('is-editing');
+                    }
                 }
             };
             
