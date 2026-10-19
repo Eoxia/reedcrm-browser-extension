@@ -26,7 +26,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const payload = request.payload || {};
         const { method, doliUrl, apiKey, endpoint, body } = payload;
 
-        if (!doliUrl || !apiKey || !endpoint) {
+        if (!doliUrl || (!apiKey && !endpoint.startsWith('/login')) || !endpoint) {
             sendResponse({ error: "Configuration API incomplète reçue par le worker." });
             return true;
         }

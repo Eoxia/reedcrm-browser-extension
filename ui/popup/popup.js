@@ -12,7 +12,6 @@ import { initInlineEdit } from './src/features/inline-edit/index.js';
 import { initAttachments } from './src/features/attachments/index.js';
 import { uploadFileToDoli } from './src/features/attachments/api.js';
 import { attachmentsState, clearTicketFiles, clearOppFiles } from './src/features/attachments/state.js';
-import { initTimesheet } from './src/features/timesheet/index.js';
 class CustomSelect {
     constructor(selectElement) {
         this.selectElement = selectElement;
@@ -188,9 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabTicketList = document.getElementById('tab-ticket-list');
         const viewTicketList = document.getElementById('view-ticket-list');
         
-        const tabTimesheet = document.getElementById('tab-timesheet');
-        const viewTimesheet = document.getElementById('view-timesheet');
-        
         const oppTelInput = document.getElementById('opp-tel');
         if (oppTelInput) {
             oppTelInput.addEventListener('input', function() {
@@ -217,13 +213,11 @@ document.addEventListener('DOMContentLoaded', () => {
             tabOpportunite.classList.remove('active');
             if (tabOppList) tabOppList.classList.remove('active');
             if (tabTicketList) tabTicketList.classList.remove('active');
-            if (tabTimesheet) tabTimesheet.classList.remove('active');
             
             viewTicket.classList.add('hidden');
             viewOpportunity.classList.add('hidden');
             if (viewOppList) viewOppList.classList.add('hidden');
             if (viewTicketList) viewTicketList.classList.add('hidden');
-            if (viewTimesheet) viewTimesheet.classList.add('hidden');
 
             if (view === 'opportunite') {
                 tabOpportunite.classList.add('active');
@@ -244,10 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tabTicketList) tabTicketList.classList.add('active');
                 if (viewTicketList) viewTicketList.classList.remove('hidden');
                 if (ticketActions) ticketActions.style.display = 'none';
-            } else if (view === 'timesheet') {
-                if (tabTimesheet) tabTimesheet.classList.add('active');
-                if (viewTimesheet) viewTimesheet.classList.remove('hidden');
-                if (ticketActions) ticketActions.style.display = 'none'; // hide top actions
             } else {
                 tabTicket.classList.add('active');
                 viewTicket.classList.remove('hidden');
@@ -267,9 +257,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (tabTicketList) {
             tabTicketList.addEventListener('click', () => switchTab('ticketList'));
-        }
-        if (tabTimesheet) {
-            tabTimesheet.addEventListener('click', () => switchTab('timesheet'));
         }
 
         // Ouvre la page d'options
@@ -362,12 +349,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Fonction pour charger les Tiers
-        async function loadThirdparties(apiUrl, token, entity) {
+        async function loadThirdparties(apiUrl, token, entity, limit = 50000) {
             const tiersSelect = document.getElementById('ticket-tiers');
             let fetchedTiers = [];
             try {
-                // mode=1 pour ne lister que les clients/prospects (souvent suffisant pour devis/tickets)
-                const response = await fetchDoli(`${apiUrl}/thirdparties?limit=50000&sortfield=t.nom&sortorder=ASC&mode=1`, {
+                const finalUrl = `${apiUrl}/thirdparties?limit=${limit}&sortfield=t.rowid&sortorder=ASC`;
+                console.log(`[DEBUG] Fetching Thirdparties : ${finalUrl}`);
+                console.log(`[DEBUG] Using Entity : ${entity || 'None'}`);
+                
+                // Suppression du filtre mode=1 pour récupérer aussi bien les clients que les prospects (et fournisseurs)
+                // Utilisation de sortfield=t.rowid (comme dans l'API Explorer) pour éviter les soucis SQL sur certains Dolibarr
+                const response = await fetchDoli(finalUrl, {
                     headers: {
                         'DOLAPIKEY': token,
                         'Accept': 'application/json',
@@ -379,6 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (response.ok) {
                     const tiers = await response.json();
+                    console.log(`[DEBUG] API returned ${tiers ? tiers.length : 0} thirdparties.`);
                     if (Array.isArray(tiers)) {
                         fetchedTiers = tiers;
                         tiers.forEach(t => {
@@ -987,7 +980,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         // Vérifie si l'API est configurée et gère le multi-profils
-        chrome.storage.sync.get(['doliProfiles', 'doliActiveProfileId', 'doliDefaultView', 'doliRecentCount', 'doliListCount', 'doliApiLimit'], (items) => {
+        chrome.storage.sync.get(['doliProfiles', 'doliActiveProfileId', 'doliDefaultView', 'doliRecentCount', 'doliListCount', 'doliApiLimit', 'doliTiersLimit'], (items) => {
             const profiles = items.doliProfiles || [];
             const activeId = items.doliActiveProfileId;
             let p = profiles.find(prof => prof.id === activeId);
@@ -1105,17 +1098,316 @@ document.addEventListener('DOMContentLoaded', () => {
                 })();
             }
 
+            const topNav = document.querySelector('.top-nav');
+            const mainHeader = document.getElementById('main-header-container');
+
+            /**
+             * Génère les URLs API candidates à partir de l'URL saisie par l'utilisateur.
+             * @param {string} rawUrl - URL brute saisie par l'utilisateur
+             * @returns {string[]} Liste d'URLs normalisées se terminant par /api/index.php
+             */
+            function getDoliApiCandidates(rawUrl) {
+                let cleaned = rawUrl.trim();
+                if (!/^https?:\/\//i.test(cleaned)) {
+                    cleaned = 'https://' + cleaned;
+                }
+                cleaned = cleaned.replace(/\/+$/, '');
+                if (cleaned.endsWith('/api/index.php')) {
+                    return [cleaned];
+                }
+                if (cleaned.includes('/api/index.php/')) {
+                    return [cleaned.split('/api/index.php/')[0] + '/api/index.php'];
+                }
+                if (cleaned.endsWith('/htdocs')) {
+                    return [cleaned + '/api/index.php'];
+                }
+                return [
+                    cleaned + '/api/index.php',
+                    cleaned + '/htdocs/api/index.php'
+                ];
+            }
+
+            /**
+             * Teste la connexion à l'API Dolibarr et récupère le token ainsi que les permissions de base.
+             * @param {string} apiUrl - URL de l'API Dolibarr (avec /api/index.php)
+             * @param {string} login - Identifiant Dolibarr
+             * @param {string} passwordOrToken - Mot de passe ou clé API Dolibarr
+             * @returns {Promise<{success: boolean, apiUrl?: string, apiToken?: string, permissions?: Object, entityName?: string}>}
+             */
+            async function testOnboardingConnection(apiUrl, login, passwordOrToken) {
+                try {
+                    const baseHeaders = { 'Accept': 'application/json' };
+                    let authSuccess = false;
+                    let apiTokenFinal = passwordOrToken;
+
+                    const loginResponse = await fetchDoli(
+                        `${apiUrl}/login?login=${encodeURIComponent(login)}&password=${encodeURIComponent(passwordOrToken)}`,
+                        { method: 'POST', headers: baseHeaders }
+                    );
+
+                    if (loginResponse.ok) {
+                        const data = await loginResponse.json();
+                        if (data && data.success && data.success.token) {
+                            apiTokenFinal = data.success.token;
+                            authSuccess = true;
+                        }
+                    }
+
+                    if (!authSuccess) {
+                        const testKeyResponse = await fetchDoli(`${apiUrl}/status`, {
+                            method: 'GET',
+                            headers: { ...baseHeaders, 'DOLAPIKEY': passwordOrToken }
+                        });
+                        if (testKeyResponse.ok) {
+                            authSuccess = true;
+                        }
+                    }
+
+                    if (!authSuccess) {
+                        return { success: false };
+                    }
+
+                    const authHeaders = { ...baseHeaders, 'DOLAPIKEY': apiTokenFinal };
+                    let canReadUsers = false;
+                    let canReadTickets = false;
+                    let canReadThirdparties = false;
+                    let canReadProjects = false;
+                    let canReadGed = false;
+
+                    try {
+                        const [uRes, tRes, tpRes, pRes, gRes] = await Promise.all([
+                            fetchDoli(`${apiUrl}/users?limit=1`, { method: 'GET', headers: authHeaders }),
+                            fetchDoli(`${apiUrl}/tickets?limit=1`, { method: 'GET', headers: authHeaders }),
+                            fetchDoli(`${apiUrl}/thirdparties?limit=1`, { method: 'GET', headers: authHeaders }),
+                            fetchDoli(`${apiUrl}/projects?limit=1`, { method: 'GET', headers: authHeaders }),
+                            fetchDoli(`${apiUrl}/documents?modulepart=ticket&id=1`, { method: 'GET', headers: authHeaders })
+                        ]);
+                        canReadUsers = uRes.status !== 403 && uRes.status !== 401;
+                        canReadTickets = tRes.status !== 403 && tRes.status !== 401;
+                        canReadThirdparties = tpRes.status !== 403 && tpRes.status !== 401;
+                        canReadProjects = pRes.status !== 403 && pRes.status !== 401;
+                        canReadGed = gRes.status !== 403 && gRes.status !== 401;
+                    } catch (permErr) {
+                        console.warn('Erreur lors de la vérification des droits API:', permErr);
+                    }
+
+                    let entityName = '';
+                    try {
+                        const compRes = await fetchDoli(`${apiUrl}/setup/company`, { method: 'GET', headers: authHeaders });
+                        if (compRes.ok) {
+                            const compData = await compRes.json();
+                            if (compData && compData.name) {
+                                entityName = String(compData.name).trim();
+                            }
+                        }
+                    } catch (compErr) {
+                        console.warn('Erreur lecture société:', compErr);
+                    }
+
+                    return {
+                        success: true,
+                        apiUrl,
+                        apiToken: apiTokenFinal,
+                        permissions: {
+                            users: canReadUsers,
+                            tickets: canReadTickets,
+                            thirdparties: canReadThirdparties,
+                            projects: canReadProjects,
+                            ged: canReadGed,
+                            ged_pr: true
+                        },
+                        entityName
+                    };
+                } catch (err) {
+                    console.error('Erreur testOnboardingConnection:', err);
+                    return { success: false };
+                }
+            }
+
+            /**
+             * Initialise la vue de première connexion (Onboarding) dans le popup.
+             * @param {Array<Object>} existingProfiles - Liste des profils existants
+             * @param {Object|undefined} currentProfile - Profil courant éventuel
+             */
+            function initOnboardingView(existingProfiles, currentProfile) {
+                const onboardingForm = document.getElementById('onboarding-form');
+                const urlInput = document.getElementById('onboarding-doli-url');
+                const loginInput = document.getElementById('onboarding-doli-login');
+                const passwordInput = document.getElementById('onboarding-doli-password');
+                const statusBox = document.getElementById('onboarding-status');
+                const btnConnect = document.getElementById('btn-onboarding-connect');
+                const openDoliLink = document.getElementById('onboarding-open-doli-link');
+
+                if (!onboardingForm || !urlInput || !loginInput || !passwordInput) return;
+
+                if (currentProfile) {
+                    if (currentProfile.doliUrl) urlInput.value = currentProfile.doliUrl;
+                    if (currentProfile.doliLogin) loginInput.value = currentProfile.doliLogin;
+                }
+
+                const getSafeDoliWebUrl = () => {
+                    const raw = urlInput.value.trim();
+                    if (!raw) return null;
+                    try {
+                        const candidate = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
+                        const parsed = new URL(candidate);
+                        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+                        parsed.pathname = parsed.pathname.replace(/\/api\/index\.php\/?$/i, '');
+                        return parsed.href;
+                    } catch (e) {
+                        return null;
+                    }
+                };
+
+                const updateDoliShortcut = () => {
+                    if (!openDoliLink) return;
+                    if (getSafeDoliWebUrl()) {
+                        openDoliLink.classList.remove('hidden');
+                    } else {
+                        openDoliLink.classList.add('hidden');
+                    }
+                };
+
+                if (openDoliLink) {
+                    openDoliLink.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const safeUrl = getSafeDoliWebUrl();
+                        if (safeUrl) {
+                            chrome.tabs.create({ url: safeUrl });
+                        }
+                    });
+                }
+
+                urlInput.addEventListener('input', updateDoliShortcut);
+                updateDoliShortcut();
+
+                const showStatus = (text, type) => {
+                    if (!statusBox) return;
+                    statusBox.textContent = text;
+                    statusBox.className = `onboarding-status status-${type}`;
+                };
+
+                onboardingForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    try {
+                        const rawUrl = urlInput.value.trim();
+                        const login = loginInput.value.trim();
+                        const password = passwordInput.value.trim();
+
+                        if (!rawUrl || !login || !password) {
+                            showStatus(chrome.i18n.getMessage('opt_js_135'), 'error');
+                            return;
+                        }
+
+                        const candidates = getDoliApiCandidates(rawUrl);
+                        let originPattern = '';
+                        try {
+                            const urlObj = new URL(candidates[0]);
+                            originPattern = urlObj.origin + '/*';
+                        } catch (urlErr) {
+                            showStatus(chrome.i18n.getMessage('opt_js_137'), 'error');
+                            return;
+                        }
+
+                        btnConnect.disabled = true;
+                        btnConnect.classList.add('btn-loading');
+                        showStatus(chrome.i18n.getMessage('opt_js_136'), 'info');
+
+                        // Demande de permission host_permissions couplée à l'action utilisateur
+                        await new Promise((resolve) => {
+                            try {
+                                chrome.permissions.request({ origins: [originPattern] }, (granted) => {
+                                    if (chrome.runtime.lastError) {
+                                        console.warn('Permission error:', chrome.runtime.lastError.message);
+                                    }
+                                    if (!granted) {
+                                        showStatus(chrome.i18n.getMessage('error_permission_denied'), 'error');
+                                    }
+                                    resolve(granted);
+                                });
+                            } catch (permEx) {
+                                resolve(false);
+                            }
+                        });
+
+                        let result = { success: false };
+                        for (const candidateUrl of candidates) {
+                            result = await testOnboardingConnection(candidateUrl, login, password);
+                            if (result.success) break;
+                        }
+
+                        if (!result.success) {
+                            showStatus(chrome.i18n.getMessage('opt_js_137'), 'error');
+                            btnConnect.disabled = false;
+                            btnConnect.classList.remove('btn-loading');
+                            return;
+                        }
+
+                        const hostname = new URL(result.apiUrl).hostname;
+                        const profileName = result.entityName || hostname || 'Profil 1';
+                        const statusObj = {
+                            connection: 'ok',
+                            users: result.permissions.users ? 'ok' : 'ko',
+                            tickets: result.permissions.tickets ? 'ok' : 'ko',
+                            thirdparties: result.permissions.thirdparties ? 'ok' : 'ko',
+                            projects: result.permissions.projects ? 'ok' : 'ko',
+                            ged: result.permissions.ged ? 'ok' : 'ko',
+                            ged_pr: result.permissions.ged_pr ? 'ok' : 'ko',
+                            date: new Date().toLocaleString()
+                        };
+
+                        const targetProfile = currentProfile || {
+                            id: 'prof_' + Math.random().toString(36).substring(2, 11)
+                        };
+                        targetProfile.name = profileName;
+                        targetProfile.doliUrl = result.apiUrl;
+                        targetProfile.doliLogin = login;
+                        targetProfile.doliApiToken = result.apiToken;
+                        targetProfile.doliAutoAssign = true;
+                        targetProfile.doliOppOnly = true;
+                        targetProfile.doliTicketType = targetProfile.doliTicketType || 'ISSUE';
+                        targetProfile.doliTicketSeverity = targetProfile.doliTicketSeverity || 'NORMAL';
+                        targetProfile.permissions = result.permissions;
+                        targetProfile.doliStatus = statusObj;
+
+                        const updatedProfiles = existingProfiles.length > 0
+                            ? existingProfiles.map(pr => pr.id === targetProfile.id ? targetProfile : pr)
+                            : [targetProfile];
+
+                        await new Promise((resolve) => {
+                            chrome.storage.sync.set({
+                                doliProfiles: updatedProfiles,
+                                doliActiveProfileId: targetProfile.id
+                            }, () => {
+                                if (chrome.runtime.lastError) {
+                                    console.error('Storage sync error:', chrome.runtime.lastError.message);
+                                }
+                                resolve();
+                            });
+                        });
+
+                        showStatus(chrome.i18n.getMessage('opt_js_145'), 'success');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 450);
+                    } catch (submitErr) {
+                        console.error('Erreur onboarding submit:', submitErr);
+                        showStatus(chrome.i18n.getMessage('opt_js_137'), 'error');
+                        btnConnect.disabled = false;
+                        btnConnect.classList.remove('btn-loading');
+                    }
+                });
+            }
+
             // --- SUITE LOGIQUE HABITUELLE (avec le profil P) ---
             if (p && p.doliUrl && p.doliApiToken) {
-                // Configuration OK, on affiche le formulaire
+                // Configuration OK, on affiche la navigation et le formulaire
+                if (topNav) topNav.classList.remove('hidden');
+                if (mainHeader) mainHeader.classList.remove('hidden');
                 setupWarning.classList.add('hidden');
                 ticketForm.classList.remove('hidden');
                 btnSubmit.disabled = false;
                 btnSubmit.querySelector('.btn-text span[data-i18n]').textContent = chrome.i18n.getMessage('popup_js_111');
-
-                if (typeof initTimesheet === 'function') {
-                    initTimesheet(p.doliUrl, p.doliApiToken, p.doliEntity, p);
-                }
 
                 if (oppForm) {
                     oppForm.classList.remove('hidden');
@@ -1127,10 +1419,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 let activeTab = items.doliDefaultView === 'opportunite' ? 'opportunite' : 'ticket';
 
                 // Chargement des utilisateurs en arrière-plan (on garde la promesse)
+                const apiLimit = items.doliApiLimit !== undefined ? parseInt(items.doliApiLimit, 10) || 5000 : 5000;
+                const tiersLimit = items.doliTiersLimit !== undefined ? parseInt(items.doliTiersLimit, 10) || 50000 : 50000;
+
                 const usersPromise = loadUsers(p.doliUrl, p.doliApiToken, p.doliLogin, p.doliAutoAssign, p.doliEntity);
 
                 // Chargement des Tiers (Clients/Prospects) et stockage de la promesse
-                const thirdpartiesPromise = loadThirdparties(p.doliUrl, p.doliApiToken, p.doliEntity);
+                const thirdpartiesPromise = loadThirdparties(p.doliUrl, p.doliApiToken, p.doliEntity, tiersLimit);
                 
                 // Ecouteur sur le champ Tiers pour charger les Contacts et Projets
                 const tiersSelect = document.getElementById('ticket-tiers');
@@ -1144,7 +1439,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Fetch les derniers tickets avec la limite choisie par l'utilisateur (défaut: 10)
                 const recentLimit = items.doliRecentCount !== undefined ? parseInt(items.doliRecentCount, 10) || 10 : 10;
                 const listCount = items.doliListCount !== undefined ? parseInt(items.doliListCount, 10) || 15 : 15;
-                const apiLimit = items.doliApiLimit !== undefined ? parseInt(items.doliApiLimit, 10) || 5000 : 5000;
+                
                 loadRecentTickets(p.doliUrl, p.doliApiToken, listCount, p.doliEntity, usersPromise, thirdpartiesPromise);
                 loadRecentOpportunities(p.doliUrl, p.doliApiToken, recentLimit, p.doliEntity, oppOnly, usersPromise, p.doliDictMap || "");
                 
@@ -1379,9 +1674,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 });
             } else {
-                // Configuration manquante
+                // Configuration manquante : affichage de la page de première connexion (Onboarding)
+                if (topNav) topNav.classList.add('hidden');
+                if (mainHeader) mainHeader.classList.add('hidden');
                 setupWarning.classList.remove('hidden');
                 ticketForm.classList.add('hidden');
+                if (oppForm) oppForm.classList.add('hidden');
+                initOnboardingView(profiles, p);
             }
         });
 
