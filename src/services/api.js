@@ -99,15 +99,21 @@ export const apiService = {
      * @param {object} payload 
      */
     post: async (doliUrl, apiKey, endpoint, payload) => {
-        return await apiCall(`${doliUrl}/api/index.php${endpoint}`, {
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
+        if (apiKey) {
+            headers['DOLAPIKEY'] = apiKey;
+        }
+        const fetchOpts = {
             method: 'POST',
-            headers: {
-                'DOLAPIKEY': apiKey,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
+            headers
+        };
+        if (payload !== null && payload !== undefined) {
+            fetchOpts.body = JSON.stringify(payload);
+        }
+        return await apiCall(`${doliUrl}/api/index.php${endpoint}`, fetchOpts);
     },
 
     /**

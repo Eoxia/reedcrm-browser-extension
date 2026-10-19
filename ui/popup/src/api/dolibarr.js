@@ -62,7 +62,7 @@ export async function fetchDoli(url, options = {}) {
 
     // Timeout 12s — évite les promesses bloquées quand le SW est endormi (MV3)
     const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('[ReedCRM-5001] Service worker timeout (12s) — réessayez dans un instant.')), 12000)
+        setTimeout(() => reject(new Error('[ReedCRM-1001] Service worker timeout (12s) — réessayez dans un instant.')), 12000)
     );
 
     return Promise.race([swPromise, timeoutPromise]);
