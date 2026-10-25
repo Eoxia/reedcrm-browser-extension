@@ -723,18 +723,18 @@
         "message": "Erreur réseau lors de l'affectation du contact."
     },
     "error_4005": {
-        "message": "Opportunité créée (), mais impossible d'y joindre le fichier. Vérifiez vos droits ou le format du fichier.",
+        "message": "Opportunité créée ($1), mais impossible d'y joindre le fichier. Vérifiez vos droits ou le format du fichier.",
         "placeholders": {
             "1": {
-                "content": ""
+                "content": "$1"
             }
         }
     },
     "error_4006": {
-        "message": "Ticket créé (), mais impossible d'y joindre le fichier. Vérifiez vos droits, ou assurez-vous que l'API supporte cet envoi (Dolibarr v23+ ou PR#37499).",
+        "message": "Ticket créé ($1), mais impossible d'y joindre le fichier. Vérifiez vos droits, ou assurez-vous que l'API supporte cet envoi (Dolibarr v23+ ou PR#37499).",
         "placeholders": {
             "1": {
-                "content": ""
+                "content": "$1"
             }
         }
     },
@@ -801,18 +801,18 @@
         "message": "Paramètres avancés"
     },
     "opt_contact_role": {
-        "message": "Code r?le du contact sur l'opportunit? (D?faut : PROJECTCONTRIBUTOR)"
+        "message": "Code rôle du contact sur l'opportunité (Défaut : PROJECTCONTRIBUTOR)"
     },
     "opt_ph_contact_role": {
         "message": "PROJECTCONTRIBUTOR"
     },
     "opt_desc_contact_role": {
-        "message": "Code du type de contact externe utilis? lors de l'association d'un contact ? une opportunit?."
+        "message": "Code du type de contact externe utilisé lors de l'association d'un contact à une opportunité."
     },
     "opt_js_confirm": {
         "message": "Voulez-vous vraiment supprimer ce profil ?"
     },
     "popup_ph_search_opp": {
-        "message": "Rechercher une opportunit?..."
+        "message": "Rechercher une opportunité..."
     }
 }

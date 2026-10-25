@@ -54,9 +54,18 @@ jobs:
             console.log("All icon dimensions match manifest declarations.");
 
             for (const loc of ["fr", "en", "es", "de", "it"]) {
-              JSON.parse(fs.readFileSync(`_locales/${loc}/messages.json`, "utf8"));
+              const data = JSON.parse(fs.readFileSync(`_locales/${loc}/messages.json`, "utf8"));
+              for (const [key, entry] of Object.entries(data)) {
+                if (entry.placeholders) {
+                  for (const [phName, phVal] of Object.entries(entry.placeholders)) {
+                    if (!phVal || !phVal.content || !phVal.content.trim()) {
+                      throw new Error(`_locales/${loc}/messages.json: empty placeholder "${phName}" in "${key}"`);
+                    }
+                  }
+                }
+              }
             }
-            console.log("All _locales JSON files are valid.");
+            console.log("All _locales JSON files and placeholders are valid.");
           '
           find src ui -name "*.js" -exec node --check {} +
           VERSION=$(node -p "require('./manifest.json').version")
