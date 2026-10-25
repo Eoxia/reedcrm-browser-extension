@@ -72,7 +72,7 @@ export const triggerCapture = async (btnElement, statusElementId, { ticketSubjec
                 let promises = tabs.map(tab => {
                     return new Promise(resolve => {
                         // Vérifier directement si l'URL est interdite par Chrome
-                        if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('https://chrome.google.com/webstore'))) {
+                        if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('https://chrome.google.com/webstore') || tab.url.startsWith('https://chromewebstore.google.com'))) {
                             resolve({ success: false, error: "FORBIDDEN_URL" });
                             return;
                         }

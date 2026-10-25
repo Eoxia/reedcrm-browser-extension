@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Validate manifest, locales & JS syntax
+      - name: Validate manifest, icons, locales & JS syntax
         id: validate
         run: |
           node -e '
@@ -42,6 +42,16 @@ jobs:
                 throw new Error(`Tag version (${tagVersion}) does not match manifest.json version (${manifest.version})`);
               }
             }
+
+            for (const [size, file] of Object.entries(manifest.icons || {})) {
+              const buf = fs.readFileSync(file);
+              const w = buf.readUInt32BE(16);
+              const h = buf.readUInt32BE(20);
+              if (w !== Number(size) || h !== Number(size)) {
+                throw new Error(`Icon ${file} declared as ${size}x${size} but actual PNG dimensions are ${w}x${h}`);
+              }
+            }
+            console.log("All icon dimensions match manifest declarations.");
 
             for (const loc of ["fr", "en", "es", "de", "it"]) {
               JSON.parse(fs.readFileSync(`_locales/${loc}/messages.json`, "utf8"));
