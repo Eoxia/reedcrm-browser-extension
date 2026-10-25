@@ -4,35 +4,41 @@ Ce document détaille les étapes nécessaires pour la création et le déploiem
 
 ## 1. Préparation de la Release
 
-1. **Vérification des tests locaux** : S'assurer que les appels API, l'interface graphique (popup), et le stockage fonctionnent correctement (chrome.storage).
+1. **Vérification des tests locaux** : S'assurer que les appels API, l'interface graphique (popup), et le stockage fonctionnent correctement (`chrome.storage`).
 2. **Mise à jour de la version** :
    - Ouvrir `manifest.json`.
-   - Mettre à jour la clé `"version": "X.Y.Z"` selon la gestion sémantique (Major.Minor.Patch).
-3. **Rédaction du Changelog** :
-   - Lister les changements (Nouvelles fonctionnalités, Corrections de bugs, Améliorations) depuis le dernier tag Git.
-4. **Validation de sécurité** :
+   - Mettre à jour la clé `"version": "X.Y.Z"` (ex: `"23.0.3"`).
+3. **Validation de sécurité** :
    - Vérifier qu'aucune nouvelle API non documentée n'est ajoutée.
-   - S'assurer que le fichier zip généré ne contient pas de fichiers inutiles (`.git/`, `.gitignore`, `docs/`, `agent.md`).
 
-## 2. Empaquetage (Build)
+## 2. Génération Automatique du ZIP & Release GitHub (CI/CD)
 
-1. Créer une archive ZIP propre du dépôt contenant :
-   - Le fichier `manifest.json` à la racine de l'archive.
-   - Le dossier `_locales/`.
-   - Le dossier `assets/` (icônes).
-   - Les dossiers de code métier (`src/`, `ui/`).
-2. S'assurer que le poids de l'archive est minimal (généralement < 1 Mo).
+L'empaquetage est entièrement automatisé via GitHub Actions (`.github/workflows/release.yml`).
+
+Pour publier une nouvelle version :
+1. Commitez et pushez la mise à jour de `"version"` dans `manifest.json` sur `main`.
+2. Créez et poussez le tag correspondant :
+   ```bash
+   git tag v23.0.3
+   git push origin v23.0.3
+   ```
+   *(Vous pouvez également créer la Release et le tag directement depuis l'interface GitHub, ou lancer l'action manuellement via l'onglet **Actions > Build & Release Chrome Extension > Run workflow**).*
+
+3. **Ce que fait automatiquement la GitHub Action** :
+   - Vérifie que `manifest.json` est valide et que sa version correspond au tag Git.
+   - Vérifie la validité JSON de tous les fichiers `_locales/*/messages.json`.
+   - Vérifie la syntaxe JavaScript de tous les fichiers dans `src/` et `ui/`.
+   - Construit une archive propre `reedcrm-chrome-vX.Y.Z.zip` contenant uniquement à sa racine :
+     - `manifest.json`, `LICENSE`, `icon32.png`, `icon128.png`, `icon192.png`
+     - `_locales/`, `src/`, `ui/`
+     *(Sans `.git/`, `docs/`, `scratch/`, `AGENTS.md`, etc.)*
+   - Crée la **Release GitHub** avec les notes de version générées automatiquement et y attache le fichier `reedcrm-chrome-vX.Y.Z.zip`.
 
 ## 3. Publication (Chrome Web Store)
 
-1. Accéder au [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole/).
-2. Sélectionner l'extension **ReedCRM**.
-3. Aller dans "Package" et uploader la nouvelle archive ZIP.
-4. Remplir ou mettre à jour les descriptions dans "Fiche du magasin" si des nouveautés majeures sont présentes.
-5. Soumettre pour examen (La révision par Google peut prendre de 24h à plusieurs jours en cas d'utilisation de permissions spécifiques comme `activeTab` et `scripting`).
-
-## 4. Publication sur GitHub
-
-1. Créer une **Release** depuis l'interface de GitHub ou via `gh release create vX.Y.Z`.
-2. Inclure le fichier `.zip` dans les assets de la release.
-3. Publier la Release avec les notes du Changelog.
+1. Téléchargez le fichier `reedcrm-chrome-vX.Y.Z.zip` depuis la page [Releases GitHub](https://github.com/Eoxia/reedcrm-browser-extension/releases).
+2. Accédez au [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole/).
+3. Sélectionnez l'extension **ReedCRM**.
+4. Allez dans **Package** > **Importer un nouveau package** et déposez `reedcrm-chrome-vX.Y.Z.zip`.
+5. Remplissez ou mettez à jour les descriptions dans **Fiche du magasin** si nécessaire.
+6. Soumettez pour examen.

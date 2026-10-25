@@ -1,78 +1,77 @@
-# 🚀 ReedCRM : Extension Navigateur pour Dolibarr
+# 🚀 ReedCRM – Votre CRM directement dans votre navigateur
 
-**ReedCRM Extension** est l'outil indispensable pour connecter votre navigation Web directement à votre instance **Dolibarr ERP/CRM**. Gagnez du temps en accédant à vos données clients et en automatisant vos tâches CRM sans quitter votre onglet actif.
+L'extension **ReedCRM** pour Google Chrome facilite l'utilisation de votre CRM au quotidien en intégrant ses fonctionnalités directement dans votre navigateur.
+
+Conçue pour simplifier les interactions avec ReedCRM, elle permet de gagner du temps, de fluidifier les échanges et d'améliorer la productivité de vos équipes.
+
+**Les avantages :**
+- Accès simplifié à ReedCRM depuis Chrome.
+- Intégration du CRM dans votre environnement de navigation.
+- Réduction des manipulations et des tâches répétitives.
+- Amélioration de l'efficacité et du suivi commercial.
+
+ReedCRM vous accompagne dans la gestion de votre relation client avec une approche simple, pratique et intégrée à vos outils de travail.
 
 ---
 
 ## ✨ Fonctionnalités Clés
 
-* 🎫 Ticket Support : Créez un ticket d'assistance ou une demande client en un clic.
-* 🔐 **Sécurité :** Connexion sécurisée via l'API REST de Dolibarr.
-
-## ✨ Fonctionnalités à venir
-
-* 🔍 **Recherche Rapide :** Trouvez un tiers, un contact ou une facture en un clic.
-* 📅 **Gestion d'Agenda :** Visualisez vos événements Dolibarr en temps réel.
-* 📥 **Capture de Données :** Créez des prospects ou des contacts à partir de n'importe quelle page Web.
-* 🔔 **Notifications :** Restez informé de vos rappels et interventions.
+* 🤝 **Opportunités Commerciales** : Créez, consultez, filtrez et éditez vos opportunités (projets Dolibarr) en direct, avec affectation de commercial et gestion des contacts.
+* 🎫 **Tickets Support** : Créez et suivez des tickets d'assistance liés à vos tiers, contacts et projets en un clic.
+* 📸 **Capture d'écran annotée** : Capturez l'onglet actif, recadrez, floutez les données sensibles, ajoutez des flèches/textes/puces et joignez l'image directement au ticket ou à l'opportunité.
+* 🏢 **Multi-Profils & Multi-Sociétés** : Basculez instantanément entre plusieurs instances ou entités Dolibarr.
+* 🔐 **Sécurité Manifest V3** : Connexion sécurisée via l'API REST de Dolibarr et stockage synchronisé des profils.
 
 ---
 
-## 🛠 Installation
+## 🛠 Installation (Mode Développeur)
 
-### Pour Chrome / Edge / Brave / Opera
-
-1. Téléchargez la dernière version `.zip` sur la page [Releases](https://www.google.com/search?q=).
-2. Allez sur `chrome://extensions/`.
+1. Téléchargez la dernière archive `.zip` depuis la page [Releases](https://github.com/Eoxia/reedcrm-browser-extension/releases) (et décompressez-la) ou clonez ce dépôt.
+2. Ouvrez un navigateur basé sur Chromium (`chrome://extensions/`, `edge://extensions/`, `brave://extensions/`).
 3. Activez le **Mode développeur** (en haut à droite).
-4. Cliquez sur **Charger l'extension décompressée** et sélectionnez le dossier `chrome/`.
-
-### Pour Firefox
-
-1. Téléchargez le fichier `.xpi` sur la page à venir
-2. Allez sur `about:addons`.
-3. Cliquez sur la roue crantée ⚙️ et sélectionnez **Installer un module depuis un fichier...**.
+4. Cliquez sur **Charger l'extension non empaquetée** (*Load unpacked*) et sélectionnez le **dossier racine** contenant le fichier `manifest.json`.
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Configuration (Première connexion)
 
-Une fois installée, ouvrez l'extension et renseignez les informations suivantes :
+À la première ouverture du popup ReedCRM :
 
-1. **URL de votre Dolibarr :** `https://votre-dolibarr.com`
-2. **Clé API :** (Générée dans votre fiche utilisateur Dolibarr > Onglet API Dashboard).
+1. **Lien vers votre Dolibarr** : Saisissez l'URL de votre instance (ex: `https://votre-dolibarr.com` — l'endpoint `/api/index.php` est détecté automatiquement).
+2. **Identifiant (Login)** : Votre identifiant utilisateur Dolibarr.
+3. **Mot de passe ou Clé API** : Votre mot de passe ou votre clé API REST (`DOLAPIKEY`).
+4. Cliquez sur **Tester et connecter**.
+
+Pour des réglages avancés (multi-profils, entité MultiCompany, dictionnaire d'origines, format des captures), cliquez sur **Paramètres avancés**.
 
 ---
 
 ## 📂 Structure du Projet
 
-Ce dépôt utilise une structure unique pour supporter tous les navigateurs :
-
-* `/common` : Code source JavaScript (Vanille), CSS et HTML partagé.
-* `/icons` : Logos officiels ReedCRM.
-* `/chrome` : Manifest spécifique pour les navigateurs basés sur Chromium (V3).
-* `/firefox` : Manifest spécifique pour Mozilla Firefox (V2/V3).
+```text
+/
+├── _locales/           # Fichiers de traduction i18n (fr, en, es, de, it)
+├── docs/               # Documentation technique (Architecture, Règles, Release, ADR)
+├── src/
+│   ├── background/     # Service Worker Manifest V3 (requêtes API & contournement CORS)
+│   ├── content/        # Scripts injectés (capture de sélection & éditeur d'image in-page)
+│   ├── services/       # Services partagés
+│   └── utils/          # Constantes, gestionnaire d'erreurs et utilitaires i18n
+├── ui/
+│   ├── components/     # Composants UI réutilisables (CustomSelect)
+│   ├── options/        # Page de configuration et diagnostic des droits Dolibarr
+│   └── popup/          # Interface principale (Tickets, Opportunités, Pièces jointes)
+└── manifest.json       # Manifeste de l'extension (Manifest V3)
+```
 
 ---
 
 ## 🤝 Contribution
 
-Les contributions sont les bienvenues ! Pour proposer une amélioration :
-
-1. Forkez le projet.
-2. Créez votre branche (`git checkout -b feature/AmazingFeature`).
-3. Committez vos changements (`git commit -m 'Add some AmazingFeature'`).
-4. Pushez sur la branche (`git push develop feature/AmazingFeature`).
-5. Ouvrez une Pull Request.
+Les contributions sont les bienvenues ! Consultez `CONTRIBUTING.md` et `docs/PROJECT_RULES.md` pour les conventions de branches et de commits.
 
 ---
 
 ## 📄 Licence
 
 Distribué sous la licence **GPL-3.0**. Voir le fichier `LICENSE` pour plus d'informations.
-
----
-
-> **Note :** Cette extension est développée par l'équipe ReedCRM et n'est pas affiliée officiellement à l'association Dolibarr.
-
----
