@@ -1,8 +1,10 @@
-# 🚀 ReedCRM – Votre CRM directement dans votre navigateur
+# 🚀 ReedCRM pour Dolibarr.org – Votre CRM directement dans votre navigateur
 
-L'extension **ReedCRM** pour Google Chrome facilite l'utilisation de votre CRM au quotidien en intégrant ses fonctionnalités directement dans votre navigateur.
+L'extension **ReedCRM pour [Dolibarr.org](https://www.dolibarr.org)** pour Google Chrome facilite l'utilisation de votre CRM au quotidien en intégrant ses fonctionnalités directement dans votre navigateur.
 
 Conçue pour simplifier les interactions avec ReedCRM, elle permet de gagner du temps, de fluidifier les échanges et d'améliorer la productivité de vos équipes.
+
+📦 **Module Dolibarr associé sur le DoliStore :** [ReedCRM sur DoliStore](https://www.dolistore.com/product.php?id=576&l=fr) (`https://www.dolistore.com/product.php?id=576&l=fr`)
 
 **Les avantages :**
 - Accès simplifié à ReedCRM depuis Chrome.

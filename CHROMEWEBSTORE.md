@@ -8,12 +8,12 @@
 ReedCRM
 
 **Short Description** [REQUIRED]
-ReedCRM – Votre CRM directement dans votre navigateur. Gagnez du temps et optimisez votre suivi commercial depuis Chrome.
+ReedCRM pour Dolibarr.org – Votre CRM directement dans votre navigateur. Gagnez du temps et optimisez votre suivi commercial.
 
 **Detailed Description** [REQUIRED]
-ReedCRM – Votre CRM directement dans votre navigateur
+ReedCRM pour Dolibarr.org – Votre CRM directement dans votre navigateur
 
-L'extension ReedCRM pour Google Chrome facilite l'utilisation de votre CRM Dolibarr au quotidien en intégrant ses fonctionnalités directement dans votre navigateur.
+L'extension ReedCRM pour Google Chrome facilite l'utilisation de votre CRM Dolibarr (Dolibarr.org) au quotidien en intégrant ses fonctionnalités directement dans votre navigateur.
 
 Conçue pour simplifier les interactions avec ReedCRM, elle permet de gagner du temps, de fluidifier les échanges et d'améliorer la productivité de vos équipes.
 
@@ -30,13 +30,16 @@ Fonctionnalités principales :
 - Édition rapide en un clic du statut, de la probabilité, du montant ou du commercial assigné.
 - Support multi-profils pour basculer entre plusieurs instances Dolibarr.
 
+Module ReedCRM pour Dolibarr.org disponible sur le DoliStore :
+https://www.dolistore.com/product.php?id=576&l=fr
+
 ReedCRM vous accompagne dans la gestion de votre relation client avec une approche simple, pratique et intégrée à vos outils de travail.
 
 **Category** [REQUIRED]
 Productivity
 
 **Single Purpose** [REQUIRED]
-Permet de créer, consulter et mettre à jour des opportunités commerciales et des tickets d'assistance dans une instance CRM Dolibarr directement depuis le navigateur.
+Permet de créer, consulter et mettre à jour des opportunités commerciales et des tickets d'assistance dans une instance CRM Dolibarr (Dolibarr.org) directement depuis le navigateur.
 
 **Primary Language** [REQUIRED]
 Français (fr)

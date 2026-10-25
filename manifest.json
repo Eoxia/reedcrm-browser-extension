@@ -3,7 +3,7 @@
     "name": "ReedCRM",
     "version": "23.0.3",
     "default_locale": "fr",
-    "description": "ReedCRM – Votre CRM directement dans votre navigateur. Gagnez du temps et optimisez votre suivi commercial depuis Chrome.",
+    "description": "ReedCRM pour Dolibarr.org – Votre CRM directement dans votre navigateur. Gagnez du temps et optimisez votre suivi commercial.",
     "icons": {
         "32": "icon32.png",
         "128": "icon128.png",
