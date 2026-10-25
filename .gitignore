@@ -1,4 +1,6 @@
 scratch/
+dist/
+*.zip
 
 # Scripts temporaires de patch/migration
 patch_*.js

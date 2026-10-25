@@ -1,9 +1,9 @@
 {
     "manifest_version": 3,
     "name": "ReedCRM",
-    "version": "22.0.0",
+    "version": "23.0.3",
     "default_locale": "fr",
-    "description": "Extension Chrome pour ReedCRM",
+    "description": "ReedCRM – Votre CRM directement dans votre navigateur. Gagnez du temps et optimisez votre suivi commercial depuis Chrome.",
     "icons": {
         "32": "icon32.png",
         "128": "icon128.png",

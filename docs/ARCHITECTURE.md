@@ -19,7 +19,6 @@ L'architecture est découpée en trois strates distinctes imposées par Manifest
 ```
 /
 ├── _locales/           # Traductions (FR, EN, etc.) i18n
-├── assets/             # Images et icônes
 ├── docs/               # Documentation interne (Architecture, Règles, ADR)
 ├── src/
 │   ├── background/     # Service worker (exécuteur de requêtes)
@@ -27,8 +26,11 @@ L'architecture est découpée en trois strates distinctes imposées par Manifest
 │   ├── services/       # Services partagés (accès au store)
 │   └── utils/          # Constantes et fonctions utilitaires
 ├── ui/
+│   ├── components/     # Composants UI partagés
 │   ├── options/        # Page de configuration (Tokens, URLs)
 │   └── popup/          # Le popup principal (HTML/CSS/JS)
+├── icon32.png          # Icônes de l'extension (32, 128, 192)
+└── manifest.json       # Configuration Manifest V3
 ```
 
 ## 4. Concepts Clés & Flux de Données

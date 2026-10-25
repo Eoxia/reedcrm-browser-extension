@@ -141,11 +141,12 @@ class CustomSelect {
         });
 
         // Close when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!this.wrapper.contains(e.target)) {
+        this._outsideClickHandler = (e) => {
+            if (this.wrapper && !this.wrapper.contains(e.target)) {
                 this.close();
             }
-        });
+        };
+        document.addEventListener('click', this._outsideClickHandler);
     }
 
     close() {
@@ -155,7 +156,17 @@ class CustomSelect {
 
     // Call this if the underlying <select> is modified externally
     update() {
-        this.init();
+        if (!this.wrapper || !this.trigger || !this.optionsList) {
+            this.init();
+            return;
+        }
+        const selectedOption = this.selectElement.options[this.selectElement.selectedIndex] || this.selectElement.options[0];
+        const triggerSpan = this.trigger.querySelector('span');
+        if (triggerSpan && selectedOption) {
+            triggerSpan.textContent = selectedOption.textContent;
+        }
+        const currentFilter = this.searchInput ? this.searchInput.value : '';
+        this.renderOptions(currentFilter);
     }
 }
 
@@ -348,68 +359,126 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Fonction pour charger les Tiers
-        async function loadThirdparties(apiUrl, token, entity, limit = 50000) {
-            const tiersSelect = document.getElementById('ticket-tiers');
-            let fetchedTiers = [];
-            try {
-                const finalUrl = `${apiUrl}/thirdparties?limit=${limit}&sortfield=t.rowid&sortorder=ASC`;
-                console.log(`[DEBUG] Fetching Thirdparties : ${finalUrl}`);
-                console.log(`[DEBUG] Using Entity : ${entity || 'None'}`);
-                
-                // Suppression du filtre mode=1 pour récupérer aussi bien les clients que les prospects (et fournisseurs)
-                // Utilisation de sortfield=t.rowid (comme dans l'API Explorer) pour éviter les soucis SQL sur certains Dolibarr
-                const response = await fetchDoli(finalUrl, {
-                    headers: {
-                        'DOLAPIKEY': token,
-                        'Accept': 'application/json',
-                        ...(entity ? { 'DOLAPIENTITY': String(entity).trim() } : {})
-                    }
-                });
-                
-                tiersSelect.innerHTML = '<option value="">Client / Prospect</option>';
-                
-                if (response.ok) {
-                    const tiers = await response.json();
-                    console.log(`[DEBUG] API returned ${tiers ? tiers.length : 0} thirdparties.`);
-                    if (Array.isArray(tiers)) {
-                        fetchedTiers = tiers;
-                        tiers.forEach(t => {
-                            const option = document.createElement('option');
-                            option.value = t.id;
-                            let displayName = t.name || t.nom || `Tiers #${t.id}`;
-                            if (t.name_alias) displayName += ` - ${t.name_alias}`;
-                            option.textContent = displayName;
-                            
-                            // On stocke aussi l'alias et d'autres infos dans un dataset pour la recherche si on modifie CustomSelect un jour
-                            option.dataset.search = (t.name_alias || '').toLowerCase();
-                            tiersSelect.appendChild(option);
-                        });
-                    }
+        /**
+         * Peuple le select des Tiers à partir d'un tableau de tiers Dolibarr en triant par nom.
+         * @param {HTMLSelectElement} tiersSelect - Élément select des tiers
+         * @param {Array<Object>} tiersArray - Liste de tiers
+         * @param {string} [selectedId=''] - ID du tiers actuellement sélectionné à préserver
+         */
+        function renderThirdpartiesOptions(tiersSelect, tiersArray, selectedId = '') {
+            const currentVal = selectedId || tiersSelect.value || '';
+            tiersSelect.innerHTML = '';
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = chrome.i18n.getMessage('popup_5') || 'Client / Prospect';
+            tiersSelect.appendChild(defaultOpt);
+
+            const sorted = [...tiersArray].sort((a, b) => {
+                const nameA = (a.name || a.nom || '').toLowerCase();
+                const nameB = (b.name || b.nom || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+
+            sorted.forEach(t => {
+                const option = document.createElement('option');
+                option.value = t.id;
+                let displayName = t.name || t.nom || `Tiers #${t.id}`;
+                if (t.name_alias) displayName += ` - ${t.name_alias}`;
+                option.textContent = displayName;
+                option.dataset.search = `${t.name_alias || ''} ${t.code_client || ''} ${t.email || ''}`.toLowerCase();
+                if (currentVal && String(t.id) === String(currentVal)) {
+                    option.selected = true;
                 }
-            } catch (error) {
-                console.error("Erreur fetch tiers:", error);
-                tiersSelect.innerHTML = '<option value="">Erreur chargement</option>';
+                tiersSelect.appendChild(option);
+            });
+
+            if (currentVal) {
+                tiersSelect.value = currentVal;
             }
-            
             if (!window.ticketTiersSelect) {
                 window.ticketTiersSelect = new CustomSelect(tiersSelect);
             } else {
                 window.ticketTiersSelect.update();
             }
-            
+        }
+
+        /**
+         * Charge les Tiers depuis l'API Dolibarr avec pagination automatique si la base dépasse la limite par page.
+         * @param {string} apiUrl - URL de l'API Dolibarr
+         * @param {string} token - Clé API Dolibarr
+         * @param {string} entity - Entité MultiCompany éventuelle
+         * @param {number} [limit=50000] - Limite maximale de tiers à charger
+         * @returns {Promise<Array<Object>>} Liste complète des tiers récupérés
+         */
+        async function loadThirdparties(apiUrl, token, entity, limit = 50000) {
+            const tiersSelect = document.getElementById('ticket-tiers');
+            const tiersMap = new Map();
+            const headers = {
+                'DOLAPIKEY': token,
+                'Accept': 'application/json',
+                ...(entity ? { 'DOLAPIENTITY': String(entity).trim() } : {})
+            };
+
+            try {
+                const pageSize = 500;
+                const firstUrl = `${apiUrl}/thirdparties?limit=${pageSize}&page=0&sortfield=t.rowid&sortorder=DESC`;
+                const response = await fetchDoli(firstUrl, { headers });
+
+                if (response.ok) {
+                    const tiers = await response.json();
+                    if (Array.isArray(tiers)) {
+                        tiers.forEach(t => tiersMap.set(String(t.id), t));
+                        renderThirdpartiesOptions(tiersSelect, Array.from(tiersMap.values()));
+
+                        // Si la première page est pleine, on pagine en arrière-plan pour récupérer tous les clients/prospects
+                        if (tiers.length === pageSize && tiersMap.size < limit) {
+                            (async () => {
+                                try {
+                                    let page = 1;
+                                    const maxPages = Math.min(Math.ceil(limit / pageSize), 40);
+                                    while (page < maxPages && tiersMap.size < limit) {
+                                        const pageUrl = `${apiUrl}/thirdparties?limit=${pageSize}&page=${page}&sortfield=t.rowid&sortorder=DESC`;
+                                        const pageRes = await fetchDoli(pageUrl, { headers });
+                                        if (!pageRes.ok) break;
+                                        const pageData = await pageRes.json();
+                                        if (!Array.isArray(pageData) || pageData.length === 0) break;
+                                        pageData.forEach(t => tiersMap.set(String(t.id), t));
+                                        if (pageData.length < pageSize) break;
+                                        page++;
+                                    }
+                                    const allTiers = Array.from(tiersMap.values());
+                                    store.setThirdparties(allTiers);
+                                    renderThirdpartiesOptions(tiersSelect, allTiers, tiersSelect.value);
+                                } catch (bgErr) {
+                                    console.warn("Pagination tiers interrompue:", bgErr);
+                                }
+                            })();
+                        }
+                    }
+                } else {
+                    tiersSelect.innerHTML = `<option value="">${chrome.i18n.getMessage('popup_5') || 'Client / Prospect'}</option>`;
+                    if (!window.ticketTiersSelect) window.ticketTiersSelect = new CustomSelect(tiersSelect);
+                    else window.ticketTiersSelect.update();
+                }
+            } catch (error) {
+                console.error("Erreur fetch tiers:", error);
+                tiersSelect.innerHTML = '<option value="">Erreur chargement</option>';
+                if (!window.ticketTiersSelect) window.ticketTiersSelect = new CustomSelect(tiersSelect);
+                else window.ticketTiersSelect.update();
+            }
+
             // Initialisation Contact Select (vide par défaut)
             const contactSelect = document.getElementById('ticket-contact');
             if (!window.ticketContactSelect) {
                 window.ticketContactSelect = new CustomSelect(contactSelect);
             }
-            
+
             // Initialisation Project Select (vide par défaut)
             const projectSelect = document.getElementById('ticket-project');
             if (!window.ticketProjectSelect) {
                 window.ticketProjectSelect = new CustomSelect(projectSelect);
             }
-            return fetchedTiers;
+            return Array.from(tiersMap.values());
         }
 
         // Fonction pour charger les Contacts d'un Tiers
